@@ -3,6 +3,9 @@ defmodule EctoShorts do
   Ecto Shorts is a library created to help shorten ecto interactions
   and remove most of the related code.
 
+  The major limitation right now is this is restricted to functioning
+  on 1 repo, in the future I would expect multi-repo support to expand
+
   There are 2 main modules Actions and CommonChanges
 
   ### Actions
@@ -46,5 +49,12 @@ defmodule EctoShorts do
   Actions.update(User, 1, %{friends: [%{id: 5}, %{id: 6}, %{id: 7}]})
   ```
 
+  ## Config
+  You can configure both the Repo and Error module via
+  ```elixir
+  config :ecto_shorts,
+    repo: MyRepo,
+    error_module: EctoShorts.Actions.Error
+  ```
   """
 end

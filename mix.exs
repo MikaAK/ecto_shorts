@@ -9,6 +9,7 @@ defmodule EctoShorts.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Helper tools for making ecto interactions more pleasant and shorter",
+      docs: docs(),
       package: package()
     ]
   end
@@ -34,6 +35,35 @@ defmodule EctoShorts.MixProject do
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/MikaAK/ecto_shorts"},
       files: ~w(mix.exs README.md CHANGELOG.md lib)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "EctoShorts",
+      source_url: "https://github.com/MikaAK/ecto_shorts",
+      groups_for_modules: [
+        "Main Modules": [
+          EctoShorts.Actions,
+          EctoShorts.CommonChanges
+        ],
+
+        "Support Modules": [
+          EctoShorts.CommonFilters,
+          EctoShorts.SchemaHelpers
+        ],
+
+        "Misc Modules": [
+          EctoShorts.Actions.Error,
+          EctoShorts.Repo
+        ],
+
+        "Query Builder Modules": [
+          EctoShorts.QueryBuilder,
+          EctoShorts.QueryBuilder.Schema,
+          EctoShorts.QueryBuilder.Common
+        ]
+      ]
     ]
   end
 end
