@@ -73,7 +73,7 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec create(Ecto.Schema.t, map | Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec create(schema :: Ecto.Schema.t, params :: filter_params) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @doc """
   Creates a schema with given params
 
@@ -88,7 +88,11 @@ defmodule EctoShorts.Actions do
   """
   def create(schema, params), do: Repo.call(:insert, [schema.create_changeset(params)])
 
-  @spec update(Ecto.Schema.t, integer, map | Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: Ecto.Schema.t,
+    id :: integer,
+    updates :: map | Keyword.t
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @doc """
   Updates a schema with given updates
 
@@ -115,7 +119,11 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec update(Ecto.Schema.t, map, Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: Ecto.Schema.t,
+    schema_data :: map,
+    updates :: Keyword.t
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def update(schema, schema_data, updates) when is_list(updates) do
     res = schema.changeset(schema_data, Map.new(updates))
 
@@ -131,7 +139,11 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec update(module, Ecto.Schema.t, map) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: module,
+    schema_data :: Ecto.Schema.t,
+    updates :: map
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def update(schema, schema_data, updates) do
     with {:ok, schema_data} <- Repo.call(:update, schema.changeset(schema_data, updates)) do
       {:ok, schema_data}
@@ -145,7 +157,7 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec delete(Ecto.Schema.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema_data :: Ecto.Schema.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @doc """
   Deletes a schema
 
@@ -168,7 +180,7 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec delete(Ecto.Schema.t, integer) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema :: Ecto.Schema.t, id :: integer) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @doc """
   Deletes a schema
 
@@ -185,11 +197,23 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec stream(query, filter_params) :: Enum.t
+  @spec stream(queryable :: query, params :: filter_params) :: Enum.t
   @doc "Gets a collection of schemas from the database but allows for a filter"
   def stream(query, params), do: Repo.call(:stream, [CommonFilters.convert_params_to_filter(query, params)])
 
-  @spec aggregate(query, filter_params, aggregate_options, opts :: Keyword.t) :: term
+  @spec aggregate(
+    queryable :: query,
+    params :: filter_params,
+    agg_opts :: aggregate_options,
+    field :: atom,
+    opts :: Keyword.t
+  ) :: term
+  @spec aggregate(
+    queryable :: query,
+    params :: filter_params,
+    agg_opts :: aggregate_options,
+    field :: atom
+  ) :: term
   def aggregate(schema, params, aggregate, field, opts \\ []) do
     Repo.call(:aggregate, [
       CommonFilters.convert_params_to_filter(schema, params),
