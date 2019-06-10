@@ -71,6 +71,12 @@ defmodule EctoShorts.QueryBuilder.Schema do
     where(query, [scm], field(scm, ^filter_field) <= ^val)
   end
 
+  defp create_schema_field_comparison_filter(query, filter_field, :like, val) do
+    search_query = "%#{val}%"
+
+    where(query, [scm], like(field(scm, ^filter_field), ^search_query))
+  end
+
   defp create_schema_field_comparison_filter(query, filter_field, :ilike, val) do
     search_query = "%#{val}%"
 

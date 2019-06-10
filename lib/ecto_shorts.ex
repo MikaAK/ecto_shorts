@@ -32,6 +32,8 @@ defmodule EctoShorts do
            ilike(u.name, "%steven%")
   ```
 
+  See `EctoShorts.CommonFilters` for more info on filters
+
   ### CommonChanges
   `EctoShorts.CommonChanges` is responsible for updating relations on schemas it allows
   you to update associations or create using changesets and handles choosing between
