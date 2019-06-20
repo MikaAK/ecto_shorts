@@ -37,6 +37,14 @@ defmodule EctoShorts.QueryBuilder.Schema do
     where(query, [scm], field(scm, ^filter_field) in ^val)
   end
 
+  defp create_schema_field_filter(query, filter_field, %NaiveDateTime{} = val) do
+    where(query, [scm], field(scm, ^filter_field) == ^val)
+  end
+
+  defp create_schema_field_filter(query, filter_field, %DateTime{} = val) do
+    where(query, [scm], field(scm, ^filter_field) == ^val)
+  end
+
   defp create_schema_field_filter(query, filter_field, filters) when is_map(filters) do
     Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
       create_schema_field_comparison_filter(query_acc, filter_field, filter_type, value)
