@@ -145,7 +145,7 @@ defmodule EctoShorts.Actions do
     updates :: map
   ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def update(schema, schema_data, updates) do
-    with {:ok, schema_data} <- Repo.call(:update, schema.changeset(schema_data, updates)) do
+    with {:ok, schema_data} <- Repo.call(:update, [schema.changeset(schema_data, updates)]) do
       {:ok, schema_data}
     else
       {:error, e} ->
@@ -169,7 +169,7 @@ defmodule EctoShorts.Actions do
       true
   """
   def delete(schema_data) do
-    case Repo.call(:delete, schema_data) do
+    case Repo.call(:delete, [schema_data]) do
       {:error, e} ->
         {:error, Error.call(
           :internal_server_error,
