@@ -11,7 +11,7 @@ defmodule EctoShorts.Actions do
 
   alias EctoShorts.{CommonFilters, Repo, Actions.Error}
 
-  @spec get(queryable :: query, id :: term) :: Ecto.Schema.t | nil
+  @spec get(module, id) :: Ecto.Schema.t() | nil
   @doc """
   Gets a schema from the database
 
@@ -24,7 +24,7 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.get(EctoSchemas.Accounts.User, 2504390) # ID nonexistant
       nil
   """
-  def get(schema, id), do: Repo.call(:get, [schema, id])
+  def get(schema, id), do: Repo.get(schema, id)
 
   @spec all(queryable) :: [Ecto.Schema.t()]
   @doc """
