@@ -118,14 +118,16 @@ defmodule EctoShorts.CommonChanges do
 
   defp find_method_and_put_or_cast(changeset, key, params_data, opts) when is_list(params_data) do
     cond do
-      is_nil(params_data) -> cast_assoc(changeset, key, opts)
+      Enum.empty?(params_data) ->
+        cast_assoc(changeset, key, opts)
 
-      SchemaHelpers.all_schemas?(params_data) -> put_assoc(
-        changeset,
-        key,
-        params_data,
-        opts
-      )
+      SchemaHelpers.all_schemas?(params_data) ->
+        put_assoc(
+          changeset,
+          key,
+          params_data,
+          opts
+        )
 
       member_update?(params_data) ->
         schema = changeset_relationship_schema(changeset, key)
@@ -135,14 +137,13 @@ defmodule EctoShorts.CommonChanges do
 
       SchemaHelpers.any_created?(params_data) ->
         cast_assoc(
-          preload_changeset_assoc(changeset, key, [
-            ids: data_ids(params_data)
-          ]),
+          preload_changeset_assoc(changeset, key, ids: data_ids(params_data)),
           key,
           opts
         )
 
-      true -> cast_assoc(changeset, key, opts)
+      true ->
+        cast_assoc(changeset, key, opts)
     end
   end
 
