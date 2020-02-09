@@ -10,7 +10,7 @@ Documentation can be found at [https://hexdocs.pm/ecto_shorts](https://hexdocs.p
 ```elixir
 def deps do
   [
-    {:ecto_shorts, "~> 0.1.0"}
+    {:ecto_shorts, "~> 0.1.5"}
   ]
 end
 ```
