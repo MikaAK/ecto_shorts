@@ -27,7 +27,7 @@ around Repo. For more info on filter options take a look at Common Filters
 This module is responsible for determining put/cast assoc as well as creating and updating model relations
 
 ###### Extra Magic
-If you pass a many to many relation only a list of id's it will count that as a `member_update` and remove or add members to the relations list
+If you pass a list of id's to a many to many relation it will count that as a `member_update` and remove or add members to the relations list
 
 E.G. User many_to_many Fruit
 
@@ -36,7 +36,7 @@ This would update the user to have only fruits with id 1 and 3
 CommonChanges.put_or_cast_assoc(change(user, fruits: [%{id: 1}, %{id: 3}]), :fruits)
 ```
 
-#### SchemaHelpers
+#### Schema Helpers
 This module contains helpers to check schema data
 
 #### Common Filters
@@ -60,7 +60,7 @@ CommonFilters.convert_params_to_filter(User, %{
   last: 5
 })
 ```
-which the equivelent would be
+which the equivalent would be
 ```elixir
 from u in User,
   preload: [:address],

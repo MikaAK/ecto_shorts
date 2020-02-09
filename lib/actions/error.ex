@@ -1,7 +1,7 @@
 defmodule EctoShorts.Actions.Error do
   @moduledoc """
   This module generates errors from actions it can be
-  overriden by config by setting error module
+  overridden by config by setting error module
 
   Errors from Actions: [:not_found, :bad_request, :internal_server_error]
   """
