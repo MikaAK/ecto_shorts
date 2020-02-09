@@ -12,7 +12,7 @@ defmodule EctoShorts.QueryBuilder do
     builder.create_schema_filter(filter_tuple, query)
   end
 
-  @spec query_schema(Ecto.Query.t) :: Ecto.Schema.t
+  @spec query_schema(Ecto.Query.t) :: module
   @doc "Pulls the schema from a query"
   def query_schema(%{from: %{source: {_, schema}}}), do: query_schema(schema)
   def query_schema(%{from: %{query: %{from: {_, schema}}}}), do: schema

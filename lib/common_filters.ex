@@ -39,26 +39,30 @@ defmodule EctoShorts.CommonFilters do
 
   @doc "Converts filter params into a query"
   @spec convert_params_to_filter(
-    queryable :: Ecto.Query.t(),
-    params :: Keyword.t | map
-  ) :: Ecto.Query.t
+          queryable :: Ecto.Query.t(),
+          params :: Keyword.t() | map
+        ) :: Ecto.Query.t()
+  @spec convert_params_to_filter(Ecto.Query.t(), keyword, atom) :: Ecto.Query.t()
   def convert_params_to_filter(query, params) when params === %{}, do: query
-  def convert_params_to_filter(query, params) when is_map(params), do: convert_params_to_filter(query, Map.to_list(params))
+
+  def convert_params_to_filter(query, params) when is_map(params),
+    do: convert_params_to_filter(query, Map.to_list(params))
 
   def convert_params_to_filter(query, params, order_by_prop \\ :id)
 
   def convert_params_to_filter(query, params, nil) do
     params
-      |> ensure_last_is_final_filter
-      |> Enum.reduce(query, &create_schema_filter/2)
+    |> ensure_last_is_final_filter
+    |> Enum.reduce(query, &create_schema_filter/2)
   end
 
   def convert_params_to_filter(query, params, order_by_prop) do
     params
-      |> ensure_last_is_final_filter
-      |> Enum.reduce(order_by(query, ^order_by_prop), &create_schema_filter/2)
+    |> ensure_last_is_final_filter
+    |> Enum.reduce(order_by(query, ^order_by_prop), &create_schema_filter/2)
   end
 
+  @spec create_schema_filter({atom, any}, Ecto.Query.t()) :: Ecto.Query.t()
   def create_schema_filter({filter, val}, query) when filter in @common_filters do
     QueryBuilder.create_schema_filter(QueryBuilder.Common, {filter, val}, query)
   end
@@ -70,8 +74,8 @@ defmodule EctoShorts.CommonFilters do
   defp ensure_last_is_final_filter(params) do
     if Keyword.has_key?(params, :last) do
       params
-        |> Keyword.delete(:last)
-        |> Kernel.++([last: params[:last]])
+      |> Keyword.delete(:last)
+      |> Kernel.++(last: params[:last])
     else
       params
     end
