@@ -25,7 +25,8 @@ defmodule EctoShorts.MixProject do
   defp deps do
     [
       {:ecto_sql, "~> 3.0"},
-      {:ex_doc, ">= 0.0.0", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: :dev},
+      {:dialyxir, "~> 1.0.0-rc.6", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -47,17 +48,14 @@ defmodule EctoShorts.MixProject do
           EctoShorts.Actions,
           EctoShorts.CommonChanges
         ],
-
         "Support Modules": [
           EctoShorts.CommonFilters,
           EctoShorts.SchemaHelpers
         ],
-
         "Misc Modules": [
           EctoShorts.Actions.Error,
           EctoShorts.Repo
         ],
-
         "Query Builder Modules": [
           EctoShorts.QueryBuilder,
           EctoShorts.QueryBuilder.Schema,
