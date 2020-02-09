@@ -69,7 +69,7 @@ defmodule EctoShorts.CommonChanges do
 
   @doc "Preloads a changesets association"
   @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
-  @spec preload_changeset_assoc(Changeset.t, atom, list(integer)) :: Changeset.t
+  @spec preload_changeset_assoc(Changeset.t, atom, keyword) :: Changeset.t
   def preload_changeset_assoc(changeset, key, opts \\ [])
 
   def preload_changeset_assoc(changeset, key, [ids: ids]) do
