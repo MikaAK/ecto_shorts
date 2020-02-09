@@ -73,7 +73,7 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec create(schema :: Ecto.Schema.t, params :: filter_params) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec create(module, map) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   @doc """
   Creates a schema with given params
 
@@ -86,7 +86,7 @@ defmodule EctoShorts.Actions do
       iex> "can't be blank" in errors_on(changeset).first_name
       true
   """
-  def create(schema, params), do: Repo.call(:insert, [schema.create_changeset(params)])
+  def create(schema, params), do: Repo.insert(schema.create_changeset(params))
 
   @spec find_or_create(Ecto.Query.t(), map) ::
           {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
