@@ -49,7 +49,7 @@ defmodule EctoShorts.Actions do
   """
   def all(query, params), do: Repo.call(:all, [CommonFilters.convert_params_to_filter(query, params)])
 
-  @spec find(queryable :: query, params :: filter_params) :: schema_res
+  @spec find(queryable, params :: filter_params) :: schema_res
   @doc """
   Finds a schema with matching params
 
@@ -61,15 +61,18 @@ defmodule EctoShorts.Actions do
       true
   """
   def find(query, params) do
-    repo_query = query |> CommonFilters.convert_params_to_filter(params) |> Ecto.Query.first
+    repo_query = query |> CommonFilters.convert_params_to_filter(params) |> Ecto.Query.first()
 
-    case Repo.call(:one, [repo_query]) do
+    case Repo.one(repo_query) do
       nil ->
-        {:error, Error.call(:not_found, "no records found", %{
-          query: query,
-          params: params
-        })}
-      schema -> {:ok, schema}
+        {:error,
+         Error.call(:not_found, "no records found", %{
+           query: query,
+           params: params
+         })}
+
+      schema ->
+        {:ok, schema}
     end
   end
 
