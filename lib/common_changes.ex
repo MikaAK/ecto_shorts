@@ -80,7 +80,7 @@ defmodule EctoShorts.CommonChanges do
   end
 
   def preload_changeset_assoc(changeset, key, opts) do
-    Map.update!(changeset, :data, &EctoShorts.Repo.call(:preload, [&1, key, opts]))
+    Map.update!(changeset, :data, &EctoShorts.Repo.preload(&1, key, opts))
   end
 
   defp changeset_relationship_schema(changeset, key) do
