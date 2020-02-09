@@ -26,7 +26,7 @@ defmodule EctoShorts.Actions do
   """
   def get(schema, id), do: Repo.call(:get, [schema, id])
 
-  @spec all(queryable :: query) :: schema_list
+  @spec all(queryable) :: [Ecto.Schema.t()]
   @doc """
   Gets a collection of schemas from the database
 
@@ -35,9 +35,9 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.all(EctoSchemas.Accounts.User)
       []
   """
-  def all(query), do: Repo.call(:all, [query])
+  def all(query), do: Repo.all(query)
 
-  @spec all(queryable :: query, params :: filter_params) :: schema_list
+  @spec all(queryable, params :: filter_params) :: [Ecto.Schema.t()]
   @doc """
   Gets a collection of schemas from the database but allows for a filter
 
@@ -47,7 +47,7 @@ defmodule EctoShorts.Actions do
       iex> length(EctoSchemas.Actions.all(EctoSchemas.Accounts.User, first: 3)) === 3
       true
   """
-  def all(query, params), do: Repo.call(:all, [CommonFilters.convert_params_to_filter(query, params)])
+  def all(query, params), do: Repo.all(CommonFilters.convert_params_to_filter(query, params))
 
   @spec find(queryable, params :: filter_params) :: schema_res
   @doc """
