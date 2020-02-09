@@ -3,13 +3,13 @@ defmodule EctoShorts.Actions do
   Actions for crud in ecto, this can be used by all schemas/queries
   """
 
-  @type query :: Ecto.Query | Ecto.Schema
-  @type filter_params :: Keyword.t | map
+  @type queryable :: module | Ecto.Query.t()
+  @type id :: pos_integer()
+  @type filter_params :: Keyword.t() | map
   @type aggregate_options :: :avg | :count | :max | :min | :sum
-  @type schema_list :: list(Ecto.Schema.t) | []
-  @type schema_res :: {:ok, Ecto.Schema.t} | {:error, String.t}
+  @type schema_res :: {:ok, Ecto.Schema.t()} | {:error, String.t()}
 
-  alias EctoShorts.{CommonFilters, Repo, Actions.Error}
+  alias EctoShorts.{CommonFilters, Repo, Actions.Error, QueryBuilder}
 
   @spec get(module, id) :: Ecto.Schema.t() | nil
   @doc """
@@ -101,12 +101,11 @@ defmodule EctoShorts.Actions do
     end
   end
 
-
   @spec update(
-    schema :: Ecto.Schema.t,
-    id :: integer,
-    updates :: map | Keyword.t
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+          schema :: module,
+          id :: integer,
+          updates :: map | Keyword.t()
+        ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   @doc """
   Updates a schema with given updates
 
@@ -120,58 +119,64 @@ defmodule EctoShorts.Actions do
   def update(schema, schema_id, updates) when is_integer(schema_id) do
     case get(schema, schema_id) do
       nil ->
-        {:error, Error.call(
-          :not_found,
-          "No item found with id: #{schema_id}",
-          %{
-            schema: schema,
-            schema_id: schema_id,
-            updates: updates
-          }
-        )}
-      schema_data -> update(schema, schema_data, updates)
+        {:error,
+         Error.call(
+           :not_found,
+           "No item found with id: #{schema_id}",
+           %{
+             schema: schema,
+             schema_id: schema_id,
+             updates: updates
+           }
+         )}
+
+      schema_data ->
+        update(schema, schema_data, updates)
     end
   end
 
   @spec update(
-    schema :: Ecto.Schema.t,
-    schema_data :: map,
-    updates :: Keyword.t
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+          schema :: module,
+          schema_data :: map,
+          updates :: Keyword.t()
+        ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def update(schema, schema_data, updates) when is_list(updates) do
     res = schema.changeset(schema_data, Map.new(updates))
 
-    with {:ok, schema_data} <- Repo.call(:update, [res]) do
+    with {:ok, schema_data} <- Repo.update(res) do
       {:ok, schema_data}
     else
       {:error, e} ->
-        {:error, Error.call(:bad_request, e, %{
-          schema: schema,
-          schema_data: schema_data,
-          updates: updates
-        })}
+        {:error,
+         Error.call(:bad_request, e, %{
+           schema: schema,
+           schema_data: schema_data,
+           updates: updates
+         })}
     end
   end
 
   @spec update(
-    schema :: module,
-    schema_data :: Ecto.Schema.t,
-    updates :: map
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+          schema :: module,
+          schema_data :: Ecto.Schema.t(),
+          updates :: map
+        ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def update(schema, schema_data, updates) do
-    with {:ok, schema_data} <- Repo.call(:update, [schema.changeset(schema_data, updates)]) do
+    with {:ok, schema_data} <- Repo.update(schema.changeset(schema_data, updates)) do
       {:ok, schema_data}
     else
       {:error, e} ->
-        {:error, Error.call(:bad_request, e, %{
-          schema: schema,
-          schema_data: schema_data,
-          updates: updates
-        })}
+        {:error,
+         Error.call(:bad_request, e, %{
+           schema: schema,
+           schema_data: schema_data,
+           updates: updates
+         })}
     end
   end
 
-  @spec delete(schema_data :: Ecto.Schema.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema_data :: Ecto.Schema.t()) ::
+          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   @doc """
   Deletes a schema
 
@@ -183,18 +188,22 @@ defmodule EctoShorts.Actions do
       true
   """
   def delete(schema_data) do
-    case Repo.call(:delete, [schema_data]) do
+    case Repo.delete(schema_data) do
       {:error, e} ->
-        {:error, Error.call(
-          :internal_server_error,
-          e,
-          %{schema_data: schema_data}
-        )}
-      ok -> ok
+        {:error,
+         Error.call(
+           :internal_server_error,
+           e,
+           %{schema_data: schema_data}
+         )}
+
+      ok ->
+        ok
     end
   end
 
-  @spec delete(schema :: Ecto.Schema.t, id :: integer) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema :: Ecto.Schema.t(), id :: integer) ::
+          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   @doc """
   Deletes a schema
 
@@ -207,33 +216,35 @@ defmodule EctoShorts.Actions do
   """
   def delete(schema, id) do
     with {:ok, schema_data} <- find(schema, %{id: id}) do
-      Repo.call(:delete, [schema_data])
+      Repo.delete(schema_data)
     end
   end
 
-  @spec stream(queryable :: query, params :: filter_params) :: Enum.t
+  @spec stream(Ecto.Query.t(), params :: filter_params) :: Enum.t()
   @doc "Gets a collection of schemas from the database but allows for a filter"
-  def stream(query, params), do: Repo.call(:stream, [CommonFilters.convert_params_to_filter(query, params)])
+  def stream(query, params) do
+    Repo.stream(CommonFilters.convert_params_to_filter(query, params))
+  end
 
   @spec aggregate(
-    queryable :: query,
-    params :: filter_params,
-    agg_opts :: aggregate_options,
-    field :: atom,
-    opts :: Keyword.t
-  ) :: term
+          Ecto.Query.t(),
+          params :: filter_params,
+          agg_opts :: aggregate_options,
+          field :: atom,
+          opts :: Keyword.t()
+        ) :: term
   @spec aggregate(
-    queryable :: query,
-    params :: filter_params,
-    agg_opts :: aggregate_options,
-    field :: atom
-  ) :: term
+          Ecto.Query.t(),
+          params :: filter_params,
+          agg_opts :: aggregate_options,
+          field :: atom
+        ) :: term
   def aggregate(schema, params, aggregate, field, opts \\ []) do
-    Repo.call(:aggregate, [
+    Repo.aggregate(
       CommonFilters.convert_params_to_filter(schema, params),
       aggregate,
       field,
       opts
-    ])
+    )
   end
 end
