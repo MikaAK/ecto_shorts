@@ -93,7 +93,7 @@ defmodule EctoShorts.Actions do
 
   @spec find_or_create(Ecto.Query.t(), map) ::
           {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
-   @doc "Finds a schema by params or creates one if it isn't found"
+  @doc "Finds a schema by params or creates one if it isn't found"
   def find_or_create(query, params) do
     with {:error, _} <- find(query, params) do
       schema = QueryBuilder.query_schema(query)
