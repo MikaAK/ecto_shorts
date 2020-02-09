@@ -88,10 +88,12 @@ defmodule EctoShorts.Actions do
   """
   def create(schema, params), do: Repo.call(:insert, [schema.create_changeset(params)])
 
-  @spec find_or_create(Ecto.Schema.t, map) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @doc "Finds a schema by params or creates one if it isn't found"
-  def find_or_create(schema, params) do
-    with {:error, %{code: :not_found}} <- find(schema, params) do
+  @spec find_or_create(Ecto.Query.t(), map) ::
+          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+   @doc "Finds a schema by params or creates one if it isn't found"
+  def find_or_create(query, params) do
+    with {:error, _} <- find(query, params) do
+      schema = QueryBuilder.query_schema(query)
       create(schema, params)
     end
   end
