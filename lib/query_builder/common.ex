@@ -6,7 +6,7 @@ defmodule EctoShorts.QueryBuilder.Common do
 
   import Logger, only: [debug: 1]
   import Ecto.Query, only: [
-    preload: 2, where: 3, limit: 2,
+    offset: 2, preload: 2, where: 3, limit: 2,
     exclude: 2, from: 2, subquery: 1, order_by: 2
   ]
 
@@ -23,6 +23,8 @@ defmodule EctoShorts.QueryBuilder.Common do
     :ids,
     :first,
     :last,
+    :limit,
+    :offset,
     :search
   ]
 
@@ -46,6 +48,12 @@ defmodule EctoShorts.QueryBuilder.Common do
 
   @impl QueryBuilder
   def create_schema_filter({:ids, ids}, query), do: where(query, [m], m.id in ^ids)
+
+  @impl QueryBuilder
+  def create_schema_filter({:offset, val}, query), do: offset(query, ^val)
+
+  @impl QueryBuilder
+  def create_schema_filter({:limit, val}, query), do: limit(query, ^val)
 
   @impl QueryBuilder
   def create_schema_filter({:first, val}, query), do: limit(query, ^val)
