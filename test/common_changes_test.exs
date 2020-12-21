@@ -1,3 +1,3 @@
-defmodule EctoShorts.CommonChangTest do
+defmodule EctoShorts.CommonChangesTest do
 
 end
