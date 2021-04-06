@@ -19,6 +19,11 @@ end
 ### Usage
 There are 3 main modules to EctoShorts. SchemaHelpers, CommonFilters, CommonChanges and Actions
 
+To use create functions we must define `create_changeset(params)` on our schema, this usually looks like:
+```elixir
+def create_changeset(params \\ %{}), do: changeset(__MODULE__, params)
+```
+
 #### Actions
 This module takes a schema and filter paramters and runs them through CommonFilters, esentially a wrapper
 around Repo. For more info on filter options take a look at Common Filters
