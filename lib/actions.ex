@@ -60,7 +60,7 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  def find(query, params) do
+  def find(query, %{id: id} = params) when is_integer(id) do
     repo_query = query |> CommonFilters.convert_params_to_filter(params) |> Ecto.Query.first
 
     case Repo.call(:one, [repo_query]) do
@@ -71,6 +71,13 @@ defmodule EctoShorts.Actions do
         })}
       schema -> {:ok, schema}
     end
+  end
+
+  @spec find(queryable :: query, params :: filter_params) :: schema_res
+  def find(query, %{id: id} = params) when is_binary(id) do
+    int_id = String.to_integer(id)
+    new_params = Map.put(params, :id, int_id)
+    find(query, new_params)
   end
 
   @spec create(schema :: Ecto.Schema.t, params :: filter_params) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
@@ -95,7 +102,6 @@ defmodule EctoShorts.Actions do
       create(schema, params)
     end
   end
-
 
   @spec update(
     schema :: Ecto.Schema.t,
@@ -126,6 +132,16 @@ defmodule EctoShorts.Actions do
         )}
       schema_data -> update(schema, schema_data, updates)
     end
+  end
+
+  @spec update(
+    schema :: Ecto.Schema.t,
+    id :: String.t,
+    updates :: map | Keyword.t
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  def update(schema, schema_id, updates) when is_binary(schema_id) do
+    int_schema_id = String.to_integer(schema_id)
+    update(schema, int_schema_id, updates)
   end
 
   @spec update(
@@ -200,10 +216,16 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  def delete(schema, id) do
+  def delete(schema, id) when is_integer(id) do
     with {:ok, schema_data} <- find(schema, %{id: id}) do
       Repo.call(:delete, [schema_data])
     end
+  end
+
+  @spec delete(schema :: Ecto.Schema.t, id :: String.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  def delete(schema, id) when is_binary(id) do
+    int_id = String.to_integer(id)
+    delete(schema, int_id)
   end
 
   @spec stream(queryable :: query, params :: filter_params) :: Enum.t
