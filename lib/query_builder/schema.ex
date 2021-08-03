@@ -51,6 +51,10 @@ defmodule EctoShorts.QueryBuilder.Schema do
     end)
   end
 
+  defp create_schema_field_filter(query, filter_field, nil) do
+    where(query, [scm], is_nil(field(scm, ^filter_field)))
+  end
+
   defp create_schema_field_filter(query, filter_field, val) do
     where(query, [scm], field(scm, ^filter_field) == ^val)
   end

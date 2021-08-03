@@ -33,7 +33,7 @@ defmodule EctoShorts.CommonFilters do
   ```
   """
 
-  import Ecto.Query, only: [order_by: 2]
+  import Ecto.Query, only: [order_by: 2, limit: 3]
 
   alias EctoShorts.QueryBuilder
 
@@ -48,6 +48,9 @@ defmodule EctoShorts.CommonFilters do
   def convert_params_to_filter(query, params) when is_map(params), do: convert_params_to_filter(query, Map.to_list(params))
 
   def convert_params_to_filter(query, params, order_by_prop \\ :id)
+  def convert_params_to_filter(query, params, order_by_prop) when is_map(params) do
+    convert_params_to_filter(query, Map.to_list(params), order_by_prop)
+  end
 
   def convert_params_to_filter(query, params, nil) do
     params
@@ -68,6 +71,19 @@ defmodule EctoShorts.CommonFilters do
   def create_schema_filter({filter, val}, query) do
     QueryBuilder.create_schema_filter(QueryBuilder.Schema, {filter, val}, query)
   end
+
+  @doc """
+  Limits results to 1
+
+  ## Examples
+
+    iex> AuthAccounts.User
+    iex> |> CommonFilters.one()
+    iex> |> inspect
+    "#Ecto.Query<from u0 in AuthAccounts.User, limit: 1>"
+  """
+  @spec one(Ecto.Queryable.t()) :: Ecto.Query.t()
+  def one(query), do: limit(query, [_], 1)
 
   defp ensure_last_is_final_filter(params) do
     if Keyword.has_key?(params, :last) do
