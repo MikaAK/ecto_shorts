@@ -205,12 +205,12 @@ defmodule EctoShorts.Actions do
     * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
 
   ## Examples
-      iex> {:ok, schema} = EctoSchemas.Actions.upsert(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name"})
+      iex> {:ok, schema} = EctoSchemas.Actions.find_and_update(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name"})
 
-      iex> {:ok, schema} = EctoSchemas.Actions.upsert(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name}, repo: MyApp.MyRepoModule.Repo, replica: MyApp.MyRepoModule.Repo.replica())
+      iex> {:ok, schema} = EctoSchemas.Actions.find_and_update(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name}, repo: MyApp.MyRepoModule.Repo, replica: MyApp.MyRepoModule.Repo.replica())
   """
-  @spec upsert(Ecto.Schema.t(), map, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
-  def upsert(schema, params, update_params, opts \\ []) do
+  @spec find_and_update(Ecto.Schema.t(), map, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  def find_and_update(schema, params, update_params, opts \\ []) do
     case find(schema, params, opts) do
       {:ok, transaction} -> update(schema, transaction, update_params, opts)
       {:error, %{code: :not_found}} -> create(schema, Map.merge(params, update_params), opts)
@@ -508,8 +508,12 @@ defmodule EctoShorts.Actions do
   end
 
   defp repo(opts) do
-    @default_opts
+    repo = @default_opts
     |> Keyword.merge(opts)
     |> Keyword.get(:repo, nil)
+
+    with nil <- repo do
+      raise ArgumentError, message: "ecto shorts must be configured with a repo. For further guidence consult the docs. https://hexdocs.pm/ecto_shorts/EctoShorts.html#module-config "
+    end
   end
 end
