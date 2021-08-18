@@ -3,8 +3,7 @@ defmodule EctoShorts do
   Ecto Shorts is a library created to help shorten ecto interactions
   and remove most of the related code.
 
-  The major limitation right now is this is restricted to functioning
-  on 1 repo, in the future I would expect multi-repo support to expand
+
 
   There are 2 main modules Actions and CommonChanges
 
@@ -31,6 +30,13 @@ defmodule EctoShorts do
            u.age >= 18 and u.age <= 50 and
            ilike(u.name, "%steven%")
   ```
+  All actions can accept an optional argument of a keyword list that can be used to configure which Repo the Action should use.
+
+  ## Options
+    * `:repo` - A module that uses the Ecto.Repo Module.
+    * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
+
+
 
   See `EctoShorts.CommonFilters` for more info on filters
 
