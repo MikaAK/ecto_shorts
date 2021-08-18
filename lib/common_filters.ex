@@ -72,19 +72,6 @@ defmodule EctoShorts.CommonFilters do
     QueryBuilder.create_schema_filter(QueryBuilder.Schema, {filter, val}, query)
   end
 
-  @doc """
-  Limits results to 1
-
-  ## Examples
-
-    iex> AuthAccounts.User
-    iex> |> CommonFilters.one()
-    iex> |> inspect
-    "#Ecto.Query<from u0 in AuthAccounts.User, limit: 1>"
-  """
-  @spec one(Ecto.Queryable.t()) :: Ecto.Query.t()
-  def one(query), do: limit(query, [_], 1)
-
   defp ensure_last_is_final_filter(params) do
     if Keyword.has_key?(params, :last) do
       params
