@@ -26,7 +26,13 @@ def create_changeset(params \\ %{}), do: changeset(__MODULE__, params)
 
 #### Actions
 This module takes a schema and filter paramters and runs them through CommonFilters, esentially a wrapper
-around Repo. For more info on filter options take a look at Common Filters
+around Repo. All actions can accept an optional argument of a keyword list that can be used to configure which Repo the Action should use.
+
+## Options
+    * `:repo` - A module that uses the Ecto.Repo Module.
+    * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
+
+For more info on filter options take a look at Common Filters
 
 #### Common Changes
 This module is responsible for determining put/cast assoc as well as creating and updating model relations

@@ -11,8 +11,9 @@ defmodule EctoShorts.CommonChanges do
     cast_assoc: 3
   ]
 
-  alias EctoShorts.{Actions, SchemaHelpers}
+  alias EctoShorts.{Actions, SchemaHelpers, Config}
   alias Ecto.Changeset
+  @default_opts [repo: Config.get_default_repo()]
 
   @doc "Run's changeset function if when function returns true"
   @spec put_when(
@@ -80,7 +81,8 @@ defmodule EctoShorts.CommonChanges do
   end
 
   def preload_changeset_assoc(changeset, key, opts) do
-    Map.update!(changeset, :data, &EctoShorts.Repo.call(:preload, [&1, key, opts]))
+    opts = Keyword.merge(@default_opts, opts)
+    Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
   end
 
   defp changeset_relationship_schema(changeset, key) do

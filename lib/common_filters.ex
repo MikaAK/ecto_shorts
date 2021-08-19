@@ -33,7 +33,7 @@ defmodule EctoShorts.CommonFilters do
   ```
   """
 
-  import Ecto.Query, only: [order_by: 2]
+  import Ecto.Query, only: [order_by: 2, limit: 3]
 
   alias EctoShorts.QueryBuilder
 
@@ -48,6 +48,9 @@ defmodule EctoShorts.CommonFilters do
   def convert_params_to_filter(query, params) when is_map(params), do: convert_params_to_filter(query, Map.to_list(params))
 
   def convert_params_to_filter(query, params, order_by_prop \\ :id)
+  def convert_params_to_filter(query, params, order_by_prop) when is_map(params) do
+    convert_params_to_filter(query, Map.to_list(params), order_by_prop)
+  end
 
   def convert_params_to_filter(query, params, nil) do
     params

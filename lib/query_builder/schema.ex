@@ -51,6 +51,10 @@ defmodule EctoShorts.QueryBuilder.Schema do
     end)
   end
 
+  defp create_schema_field_filter(_query, _filter_field, nil) do
+    raise ArgumentError, message: "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
+  end
+
   defp create_schema_field_filter(query, filter_field, val) do
     where(query, [scm], field(scm, ^filter_field) == ^val)
   end
