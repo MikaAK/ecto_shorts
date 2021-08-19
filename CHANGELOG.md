@@ -5,6 +5,7 @@
 - Add `find_and_update`
 - Add `find_or_create_many`
 - Add `stream`
+- Passing nil as a param results in an error (BREAKING)
 
 #### V0.1.5
 - Add `find_or_create` for Actions
