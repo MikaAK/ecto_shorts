@@ -1,5 +1,11 @@
 ## Changelog
 
+#### V1.0.0
+- Multi-repo & Replica support 
+- Add `find_and_update`
+- Add `find_or_create_many`
+- Add `stream`
+
 #### V0.1.5
 - Add `find_or_create` for Actions
 
