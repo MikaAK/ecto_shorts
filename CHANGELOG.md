@@ -6,6 +6,7 @@
 - Add `find_or_create_many`
 - Add `stream`
 - Passing nil as a param results in an error (BREAKING)
+- find now returns an `Ecto.MultipleResultsError` if more than one result is being returned from the query (BREAKING)
 
 #### V0.1.5
 - Add `find_or_create` for Actions
