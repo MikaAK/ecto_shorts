@@ -9,8 +9,7 @@ defmodule EctoShorts.Actions do
   @type schema_list :: list(Ecto.Schema.t) | []
   @type schema_res :: {:ok, Ecto.Schema.t} | {:error, String.t}
 
-  alias EctoShorts.{CommonFilters, Actions.Error, Config}
-  @default_opts [repo: Config.get_default_repo()]
+  alias EctoShorts.{CommonFilters, Actions.Error}
 
   @doc """
   Gets a schema from the database
@@ -40,7 +39,7 @@ defmodule EctoShorts.Actions do
   """
   @spec all(queryable :: query) :: schema_list
   def all(query) do
-    all(query, @default_opts)
+    all(query, default_opts())
   end
 
   @doc """
@@ -62,19 +61,17 @@ defmodule EctoShorts.Actions do
   """
   @spec all(queryable :: query, params :: filter_params) :: schema_list
   def all(query, params) when is_map(params) do
-    all(query, params, @default_opts)
+    all(query, params, default_opts())
   end
 
   @spec all(queryable :: query, opts :: Keyword.t) :: schema_list
   def all(query, opts) do
-    opts
-    |> Keyword.take([:repo, :replica])
-    |> Enum.empty?()
-    |> case do
-      true -> all(query, opts, @default_opts)
-      false ->
-        opts = Keyword.merge(@default_opts, opts)
-        all(query, %{}, opts)
+    query_params = Keyword.drop(opts, [:repo, :replica])
+
+    if Enum.any?(query_params) do
+      all(query, query_params, default_opts())
+    else
+      all(query, %{}, Keyword.take(opts, [:repo, :replica]))
     end
   end
 
@@ -332,10 +329,10 @@ defmodule EctoShorts.Actions do
       true
   """
   def delete(%_{} = schema_data) do
-    delete(schema_data, @default_opts)
+    delete(schema_data, default_opts())
   end
   def delete(schema_data) when is_list(schema_data) do
-    delete(schema_data, @default_opts)
+    delete(schema_data, default_opts())
   end
 
   @doc """
@@ -371,7 +368,7 @@ defmodule EctoShorts.Actions do
 
   @spec delete(schema :: Ecto.Schema.t, id :: integer) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def delete(schema, id) when is_atom(schema) and (is_binary(id) or is_integer(id)) do
-    delete(schema, id, @default_opts)
+    delete(schema, id, default_opts())
   end
   @doc """
   Deletes a schema. Can also accept a keyword options list.
@@ -517,9 +514,15 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  defp repo(opts) do
-    @default_opts
-    |> Keyword.merge(opts)
-    |> Keyword.get(:repo, nil)
+  defp repo([]) do
+    Config.repo()
   end
+
+  defp repo(opts) do
+    default_opts()
+      |> Keyword.merge(opts)
+      |> Keyword.get(:repo)
+  end
+
+  defp default_opts, do: [repo: Config.repo()]
 end
