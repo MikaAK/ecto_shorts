@@ -67,6 +67,10 @@ defmodule EctoShorts.QueryBuilder.Common do
       |> order_by(:id)
   end
 
+  def create_schema_filter({:order_by, val}, query) do
+    order_by(query, ^val)
+  end
+
   @impl QueryBuilder
   def create_schema_filter({:search, val}, query) do
     schema = QueryBuilder.query_schema(query)
