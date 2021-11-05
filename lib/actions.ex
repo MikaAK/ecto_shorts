@@ -94,8 +94,10 @@ defmodule EctoShorts.Actions do
   def all(query, params, opts)  do
     order_by = Keyword.get(opts, :order_by, nil)
 
+    params = if order_by, do: Map.put(params || %{}, :order_by, order_by), else: params
+
     replica!(opts).all(
-      CommonFilters.convert_params_to_filter(query, params, order_by),
+      CommonFilters.convert_params_to_filter(query, params),
       opts
     )
   end
@@ -130,8 +132,10 @@ defmodule EctoShorts.Actions do
   def find(query, params, opts) do
     order_by = Keyword.get(opts, :order_by, nil)
 
+    params = if order_by, do: Map.put(params || %{}, :order_by, order_by), else: params
+
     query
-    |> CommonFilters.convert_params_to_filter(params, order_by)
+    |> CommonFilters.convert_params_to_filter(params)
     |> replica!(opts).one(opts)
     |> case do
       nil ->
