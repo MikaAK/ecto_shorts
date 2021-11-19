@@ -34,7 +34,7 @@ defmodule EctoShorts.MixProject do
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/MikaAK/ecto_shorts"},
-      files: ~w(mix.exs README.md CHANGELOG.md lib)
+      files: ~w(mix.exs README.md CHANGELOG.md lib config)
     ]
   end
 
