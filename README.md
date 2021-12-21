@@ -81,6 +81,21 @@ from u in User,
          ilike(u.name, "%steven%")
 ```
 
+We are also able to query on the first layer of relations like so:
+```elixir
+EctoShorts.Actions.all(User, %{
+  roles: ["ADMIN", "SUPERUSER"]
+})
+```
+
+which would be equivalent to:
+
+```elixir
+from u in User,
+  inner_join: r in assoc(u, :roles), as: :ecto_shorts_roles,
+  where: r.code in ["ADMIN", "SUPERUSER"]
+```
+
 ###### List of common filters
 - `preload` - Preloads fields onto the query results
 - `start_date` - Query for items inserted after this date
