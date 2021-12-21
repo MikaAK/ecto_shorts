@@ -59,6 +59,9 @@ defmodule EctoShorts.QueryBuilder.Common do
   def create_schema_filter({:first, val}, query), do: limit(query, ^val)
 
   @impl QueryBuilder
+  def create_schema_filter({:order_by, val}, query), do: order_by(query, ^val)
+
+  @impl QueryBuilder
   def create_schema_filter({:last, val}, query) do
     query
       |> exclude(:order_by)
@@ -71,7 +74,7 @@ defmodule EctoShorts.QueryBuilder.Common do
   def create_schema_filter({:search, val}, query) do
     schema = QueryBuilder.query_schema(query)
 
-    if Kernel.function_exported?(schema, :by_search, 2) do
+    if function_exported?(schema, :by_search, 2) do
       schema.by_search(query, val)
     else
       debug "create_schema_filter: #{inspect schema} doesn't define &search_by/2 (query, params)"
