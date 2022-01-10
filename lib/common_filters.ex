@@ -15,6 +15,7 @@ defmodule EctoShorts.CommonFilters do
   - `last` - Gets the last n items
   - `limit` - Gets the first n items
   - `offset` - Offsets limit by n items
+  - `order_by` - orders the results in desc or asc order
   - `search` - ***Warning:*** This requires schemas using this to have a `&by_search(query, val)` function
 
   You are also able to filter on any natural field of a model, as well as use

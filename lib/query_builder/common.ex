@@ -25,7 +25,8 @@ defmodule EctoShorts.QueryBuilder.Common do
     :last,
     :limit,
     :offset,
-    :search
+    :search,
+    :order_by
   ]
 
   @spec filters :: list(atom)
