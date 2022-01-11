@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V1.1.1
+- Fix support for order_by filtering
+
 #### V1.1.0
 - Added support for querying by relation
 - Remove order_by from `convert_params_to_filter` arguments and implement as a parameter
