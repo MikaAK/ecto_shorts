@@ -25,7 +25,7 @@ def create_changeset(params \\ %{}), do: changeset(__MODULE__, params)
 ```
 
 #### Actions
-This module takes a schema and filter paramters and runs them through CommonFilters, esentially a wrapper
+This module takes a schema and filter parameters and runs them through CommonFilters, esentially a wrapper
 around Repo. All actions can accept an optional argument of a keyword list that can be used to configure which Repo the Action should use.
 
 ## Options
