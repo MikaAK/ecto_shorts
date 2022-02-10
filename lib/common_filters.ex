@@ -30,6 +30,8 @@ defmodule EctoShorts.CommonFilters do
   CommonFilters.convert_params_to_filter(User, %{name: %{age: %{gte: 18, lte: 30}}})
   CommonFilters.convert_params_to_filter(User, %{name: %{is_banned: %{!=: nil}}})
   CommonFilters.convert_params_to_filter(User, %{name: %{is_banned: %{==: nil}}})
+  CommonFilters.convert_params_to_filter(User, %{name: %{balance: %{!=: 0}}})
+  CommonFilters.convert_params_to_filter(User, %{name: %{balance: %{==: 0}}})
   CommonFilters.convert_params_to_filter(User, %{name: "Billy"})
   ```
   """
