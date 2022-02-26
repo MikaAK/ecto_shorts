@@ -20,6 +20,7 @@ defmodule EctoShorts.QueryBuilder.Common do
     :end_date,
     :before,
     :after,
+    :id,
     :ids,
     :first,
     :last,
@@ -48,7 +49,13 @@ defmodule EctoShorts.QueryBuilder.Common do
   def create_schema_filter({:after, id}, query), do: where(query, [m], m.id > ^id)
 
   @impl QueryBuilder
-  def create_schema_filter({:ids, ids}, query), do: where(query, [m], m.id in ^ids)
+  def create_schema_filter({:ids, ids}, query) when is_list(ids), do: where(query, [m], m.id in ^ids)
+
+  @impl QueryBuilder
+  def create_schema_filter({:ids, id}, query), do: where(query, [m], m.id == ^id)
+
+  @impl QueryBuilder
+  def create_schema_filter({:id, id}, query), do: create_schema_filter({:ids, id}, query)
 
   @impl QueryBuilder
   def create_schema_filter({:offset, val}, query), do: offset(query, ^val)
@@ -75,7 +82,7 @@ defmodule EctoShorts.QueryBuilder.Common do
   def create_schema_filter({:search, val}, query) do
     schema = QueryBuilder.query_schema(query)
 
-    if function_exported?(schema, :by_search, 2) do
+    if Kernel.function_exported?(schema, :by_search, 2) do
       schema.by_search(query, val)
     else
       debug "create_schema_filter: #{inspect schema} doesn't define &search_by/2 (query, params)"

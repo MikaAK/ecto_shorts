@@ -5,10 +5,10 @@ defmodule EctoShorts.MixProject do
     [
       app: :ecto_shorts,
       version: "1.1.1",
-      elixir: "~> 1.7",
+      elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      description: "Helper tools for making ecto interactions more pleasant and shorter",
+      description: "Making Ecto easier to use, such as making queries more flexible and pleasant to write, and the resulting code more readable and dynamic",
       docs: docs(),
       package: package()
     ]
@@ -40,7 +40,8 @@ defmodule EctoShorts.MixProject do
 
   defp docs do
     [
-      main: "EctoShorts",
+      main: "readme",
+      extras: ["README.md"],
       source_url: "https://github.com/MikaAK/ecto_shorts",
       groups_for_modules: [
         "Main Modules": [

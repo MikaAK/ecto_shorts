@@ -8,8 +8,14 @@ defmodule EctoShorts.QueryBuilder do
   @callback create_schema_filter(filter_tuple, accumulator_query) :: Ecto.Query.t
 
   @spec create_schema_filter(module, filter_tuple, accumulator_query) :: Ecto.Query.t
-  def create_schema_filter(builder, filter_tuple, query) do
-    builder.create_schema_filter(filter_tuple, query)
+  def create_schema_filter(builder_module, filter_tuple, query) when is_atom(builder_module) do
+    builder_module.create_schema_filter(filter_tuple, query)
+  end
+  def create_schema_filter(filter_fn, filter_tuple, query) when is_function(filter_fn) do
+    filter_fn.(filter_tuple, query)
+  end
+  def create_schema_filter(filter_fn, filter, val, query) when is_function(filter_fn) do
+    filter_fn.(filter, val, query)
   end
 
   @spec query_schema(Ecto.Query.t) :: Ecto.Schema.t

@@ -1,5 +1,13 @@
 ## Changelog
 
+#### WIP
+- Added support for passing ecto `dynamic` filters
+- Added support for passing functions to use for custom filtering
+- Added `EctoShorts.filter` as a shortcut to `CommonFilters.convert_params_to_filter` 
+- Added a default order_by field and direction for queries
+- Added `:id` to common filters
+- Added the readme to generated docs, which becomes the main source of documentation, with additional docs inline specific modules and functions
+
 #### V1.1.1
 - Fix support for order_by filtering
 

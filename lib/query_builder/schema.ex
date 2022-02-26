@@ -45,7 +45,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
         ComparisonFilter.build_relational(query, binding_alias, val)
 
       true ->
-        Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is not a field for #{schema.__schema__(:source)} where filter")
+        Logger.error("[EctoShorts] `#{inspect filter_field}` is not a recognised filter or field for `#{schema.__schema__(:source)}` where you attempted to filter by: #{inspect val}")
 
         query
     end
