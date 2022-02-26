@@ -41,17 +41,25 @@ defmodule EctoShorts.CommonChanges do
   end
 
   @doc """
-  Preloads changeset assoc and put_or_cast's it, should use this most of time
-  See docs for `EctoShorts.CommonChanges.put_or_cast_assoc/3` for ideas on how it works
-  and what you can pass
+  This function is the primary use function
+  Preloads changeset assoc if change is made and then and put_or_cast's it
+
+
+  ## Example
+
+    iex> CommonChanges.preload_change_assoc(changeset, :my_relation)
+    iex> CommonChanges.preload_change_assoc(changeset, :my_relation, repo: MyApp.OtherRepo)
+    iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
   """
   @spec preload_change_assoc(Changeset.t, atom, Keyword.t) :: Changeset.t
   @spec preload_change_assoc(Changeset.t, atom) :: Changeset.t
   def preload_change_assoc(changeset, key, opts) do
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
+      {preload_opts, put_or_cast_opts} = Keyword.split(opts, [:repo])
+
       changeset
-        |> preload_changeset_assoc(key)
-        |> put_or_cast_assoc(key, opts)
+        |> preload_changeset_assoc(key, preload_opts)
+        |> put_or_cast_assoc(key, put_or_cast_opts)
     else
       cast_assoc(changeset, key, opts)
     end
@@ -72,16 +80,18 @@ defmodule EctoShorts.CommonChanges do
   @spec preload_changeset_assoc(Changeset.t, atom, list(integer)) :: Changeset.t
   def preload_changeset_assoc(changeset, key, opts \\ [])
 
-  def preload_changeset_assoc(changeset, key, [ids: ids]) do
-    schema = changeset_relationship_schema(changeset, key)
-    preloaded_data = Actions.all(schema, ids: ids)
-
-    Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
-  end
-
   def preload_changeset_assoc(changeset, key, opts) do
     opts = Keyword.merge(default_opts(), opts)
-    Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
+
+    if opts[:ids] do
+      schema = changeset_relationship_schema(changeset, key)
+
+      preloaded_data = Actions.all(schema, %{ids: opts[:ids]}, repo: opts[:repo])
+
+      Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
+    else
+      Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
+    end
   end
 
   defp changeset_relationship_schema(changeset, key) do
@@ -135,13 +145,12 @@ defmodule EctoShorts.CommonChanges do
         put_assoc(changeset, key, data, opts)
 
       SchemaHelpers.any_created?(params_data) ->
-        cast_assoc(
-          preload_changeset_assoc(changeset, key, [
-            ids: data_ids(params_data)
-          ]),
-          key,
-          opts
-        )
+        changeset
+          |> preload_changeset_assoc(
+            key,
+            Keyword.put(opts, :ids, data_ids(params_data))
+          )
+          |> cast_assoc(key, opts)
 
       true -> cast_assoc(changeset, key, opts)
     end
