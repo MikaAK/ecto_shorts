@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V1.1.2
+- Add support for not equals filtering
+
 #### V1.1.1
 - Fix support for order_by filtering
 
@@ -8,7 +11,7 @@
 - Remove order_by from `convert_params_to_filter` arguments and implement as a parameter
 
 #### V1.0.0
-- Multi-repo & Replica support 
+- Multi-repo & Replica support
 - Add `find_and_update`
 - Add `find_or_create_many`
 - Add `stream`
