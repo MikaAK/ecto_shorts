@@ -1,6 +1,9 @@
 ## Changelog
 
 #### V1.1.2
+- Remove relational filtering on `find_*` functions
+
+#### V1.1.2
 - Add support for not equals filtering
 
 #### V1.1.1
