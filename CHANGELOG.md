@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V1.1.3
+- Fix relational filtering on `find_*` 
+
 #### V1.1.2
 - Remove relational filtering on `find_*` functions
 

@@ -459,9 +459,9 @@ defmodule EctoShorts.Actions do
     opts :: Keyword.t
   ) :: {:ok, list(Ecto.Schema.t())} | {:error, list(Ecto.Changeset.t())}
   def find_or_create_many(schema, param_list, opts) do
-    param_list = Enum.map(param_list, &Map.drop(&1, schema.__schema__(:associations)))
+    find_param_list = Enum.map(param_list, &Map.drop(&1, schema.__schema__(:associations)))
 
-    {create_params, found_results} = find_many(schema, param_list, opts)
+    {create_params, found_results} = find_many(schema, find_param_list, opts)
 
     schema
     |> multi_insert(param_list, create_params)
