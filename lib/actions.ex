@@ -189,9 +189,9 @@ defmodule EctoShorts.Actions do
   @spec find_or_create(Ecto.Schema.t, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @spec find_or_create(Ecto.Schema.t, map) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def find_or_create(schema, params, opts \\ []) do
-    params = Map.take(params, schema.__schema__(:fields))
+    find_params = Map.drop(params, schema.__schema__(:associations))
 
-    with {:error, %{code: :not_found}} <- find(schema, params, opts) do
+    with {:error, %{code: :not_found}} <- find(schema, find_params, opts) do
       create(schema, params, opts)
     end
   end
@@ -213,9 +213,9 @@ defmodule EctoShorts.Actions do
   """
   @spec find_and_update(Ecto.Schema.t(), map, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def find_and_update(schema, params, update_params, opts \\ []) do
-    params = Map.take(params, schema.__schema__(:fields))
+    find_params = Map.drop(params, schema.__schema__(:associations))
 
-    case find(schema, params, opts) do
+    case find(schema, find_params, opts) do
       {:ok, transaction} -> update(schema, transaction, update_params, opts)
       {:error, %{code: :not_found}} -> create(schema, Map.merge(params, update_params), opts)
       e -> e
@@ -459,7 +459,7 @@ defmodule EctoShorts.Actions do
     opts :: Keyword.t
   ) :: {:ok, list(Ecto.Schema.t())} | {:error, list(Ecto.Changeset.t())}
   def find_or_create_many(schema, param_list, opts) do
-    param_list = Enum.map(param_list, &Map.take(&1, schema.__schema__(:fields)))
+    param_list = Enum.map(param_list, &Map.drop(&1, schema.__schema__(:associations)))
 
     {create_params, found_results} = find_many(schema, param_list, opts)
 
