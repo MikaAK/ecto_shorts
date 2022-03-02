@@ -175,6 +175,8 @@ defmodule EctoShorts.Actions do
   Finds a schema by params or creates one if it isn't found.
   Can also accept a keyword options list.
 
+  ***Note: Relational filtering doesn't work on this function***
+
   ## Options
     * `:repo` - A module that uses the Ecto.Repo Module.
     * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
@@ -187,6 +189,8 @@ defmodule EctoShorts.Actions do
   @spec find_or_create(Ecto.Schema.t, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @spec find_or_create(Ecto.Schema.t, map) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def find_or_create(schema, params, opts \\ []) do
+    params = Map.take(params, schema.__schema__(:fields))
+
     with {:error, %{code: :not_found}} <- find(schema, params, opts) do
       create(schema, params, opts)
     end
@@ -195,6 +199,8 @@ defmodule EctoShorts.Actions do
   @doc """
   Finds a schema by params and updates it or creates with results of
   params/update_params merged. Can also accept a keyword options list.
+
+  ***Note: Relational filtering doesn't work on this function***
 
   ## Options
     * `:repo` - A module that uses the Ecto.Repo Module.
@@ -207,6 +213,8 @@ defmodule EctoShorts.Actions do
   """
   @spec find_and_update(Ecto.Schema.t(), map, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def find_and_update(schema, params, update_params, opts \\ []) do
+    params = Map.take(params, schema.__schema__(:fields))
+
     case find(schema, params, opts) do
       {:ok, transaction} -> update(schema, transaction, update_params, opts)
       {:error, %{code: :not_found}} -> create(schema, Map.merge(params, update_params), opts)
@@ -435,6 +443,8 @@ defmodule EctoShorts.Actions do
   Accepts a list of schemas and attempts to find them in the DB. Any missing Schemas will be created.
   Can also accept a keyword options list.
 
+  ***Note: Relational filtering doesn't work on this function***
+
   ## Options
     * `:repo` - A module that uses the Ecto.Repo Module.
     * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
@@ -449,6 +459,8 @@ defmodule EctoShorts.Actions do
     opts :: Keyword.t
   ) :: {:ok, list(Ecto.Schema.t())} | {:error, list(Ecto.Changeset.t())}
   def find_or_create_many(schema, param_list, opts) do
+    param_list = Enum.map(param_list, &Map.take(&1, schema.__schema__(:fields)))
+
     {create_params, found_results} = find_many(schema, param_list, opts)
 
     schema
