@@ -25,7 +25,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
   def create_schema_filter({filter_field, val}, schema, query) do
     cond do
       filter_field in schema.__schema__(:query_fields) ->
-        ComparisonFilter.build(query, filter_field, val)
+        ComparisonFilter.build(query, schema.__schema__(:field_source, filter_field), val)
 
       filter_field in schema.__schema__(:associations) ->
         binding_alias = :"ecto_shorts_#{filter_field}"
