@@ -1,5 +1,7 @@
 # EctoShorts
 
+ [![Hex version badge](https://img.shields.io/hexpm/v/ecto_shorts.svg)](https://hex.pm/packages/ecto_shorts)
+
 Ecto Shorts is a library focused around making Ecto easier to use in an
 application and helping to write shorter code
 
