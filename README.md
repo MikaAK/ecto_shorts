@@ -23,7 +23,7 @@ There are 4 main modules to `EctoShorts`. `SchemaHelpers`, `CommonFilters`, `Com
 
 To use create functions we must define `create_changeset(params)` on our schema, this usually looks like:
 ```elixir
-def create_changeset(params \\ %{}), do: changeset(__MODULE__, params)
+def create_changeset(params \\ %{}), do: changeset(%__MODULE__{}, params)
 ```
 
 #### Actions
