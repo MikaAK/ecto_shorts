@@ -34,6 +34,10 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     where(query, [scm], field(scm, ^filter_field) == ^val)
   end
 
+  def build_array(query, filter_field, val) do
+    where(query, [scm], ^val in field(scm, ^filter_field))
+  end
+
   defp build_subfield_filter(query, filter_field, :==, nil) do
     where(query, [scm], is_nil(field(scm, ^filter_field)))
   end
