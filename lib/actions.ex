@@ -117,8 +117,8 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  @spec find(queryable :: query, params :: filter_params, opts :: Keyword.t) :: schema_res
-  @spec find(queryable :: query, params :: filter_params) :: schema_res
+  @spec find(queryable :: query, params :: filter_params, opts :: Keyword.t) :: schema_res | {:error, any}
+  @spec find(queryable :: query, params :: filter_params) :: schema_res | {:error, any}
   def find(query, params, opts \\ [])
   def find(query, params, _options) when params === %{} and is_atom(query) do
     {:error, Error.call(:not_found, "no records found", %{
@@ -213,6 +213,30 @@ defmodule EctoShorts.Actions do
   """
   @spec find_and_update(Ecto.Schema.t(), map, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def find_and_update(schema, params, update_params, opts \\ []) do
+    find_params = Map.drop(params, schema.__schema__(:associations))
+
+    with {:ok, transaction} <- find(schema, find_params, opts) do
+      update(schema, transaction, update_params, opts)
+    end
+  end
+
+  @doc """
+  Finds a schema by params and updates it or creates with results of
+  params/update_params merged. Can also accept a keyword options list.
+
+  ***Note: Relational filtering doesn't work on this function***
+
+  ## Options
+    * `:repo` - A module that uses the Ecto.Repo Module.
+    * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
+
+  ## Examples
+      iex> {:ok, schema} = EctoSchemas.Actions.find_and_upsert(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name"})
+
+      iex> {:ok, schema} = EctoSchemas.Actions.find_and_upsert(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name}, repo: MyApp.MyRepoModule.Repo, replica: MyApp.MyRepoModule.Repo.replica())
+  """
+  @spec find_and_upsert(Ecto.Schema.t(), map, map, opts :: Keyword.t) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  def find_and_upsert(schema, params, update_params, opts \\ []) do
     find_params = Map.drop(params, schema.__schema__(:associations))
 
     case find(schema, find_params, opts) do
