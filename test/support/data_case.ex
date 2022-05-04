@@ -21,7 +21,7 @@ defmodule EctoShorts.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import EctoShorts.DataCase
+      # import EctoShorts.DataCase
     end
   end
 
