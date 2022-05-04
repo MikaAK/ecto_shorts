@@ -98,6 +98,22 @@ from u in User,
   where: r.code in ["ADMIN", "SUPERUSER"]
 ```
 
+Finally we can also query array fields by doing the following
+
+```elixir
+EctoShorts.Actions.all(User, %{
+  items: [1, 2],
+  cart: 3
+})
+```
+
+which for an array field would be the equivalent to: 
+
+```elixir
+from u in User, 
+  where: ^3 in u.cart and u.items == [1, 2]
+```
+
 ###### List of common filters
 - `preload` - Preloads fields onto the query results
 - `start_date` - Query for items inserted after this date
