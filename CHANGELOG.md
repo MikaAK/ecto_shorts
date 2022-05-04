@@ -1,7 +1,14 @@
 ## Changelog
 
+#### V1.1.5
+- Add support for querying arrays and using filters around those
+- Add ability to set `repo` option in `CommonChanges.preload_change_assoc` to set which repo to preload from
+
+#### V1.1.4
+- fix change to dropping associations from find instead of taking fields so other filters pass through
+
 #### V1.1.3
-- Fix relational filtering on `find_*` 
+- Fix relational filtering on `find_*`
 
 #### V1.1.2
 - Remove relational filtering on `find_*` functions
