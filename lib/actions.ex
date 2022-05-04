@@ -7,7 +7,7 @@ defmodule EctoShorts.Actions do
   @type filter_params :: Keyword.t | map
   @type aggregate_options :: :avg | :count | :max | :min | :sum
   @type schema_list :: list(Ecto.Schema.t) | []
-  @type schema_res :: {:ok, Ecto.Schema.t} | {:error, String.t}
+  @type schema_res :: {:ok, Ecto.Schema.t} | {:error, any}
 
   alias EctoShorts.{CommonFilters, Actions.Error, Config}
 
