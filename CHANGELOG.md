@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V1.1.6
+- fix: make sure we can do partial updates or create with associations 
+
 #### V1.1.5
 - Add support for querying arrays and using filters around those
 - Add ability to set `repo` option in `CommonChanges.preload_change_assoc` to set which repo to preload from
