@@ -55,11 +55,9 @@ defmodule EctoShorts.CommonChanges do
   @spec preload_change_assoc(Changeset.t, atom) :: Changeset.t
   def preload_change_assoc(changeset, key, opts) do
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
-      {preload_opts, put_or_cast_opts} = Keyword.split(opts, [:repo])
-
       changeset
-        |> preload_changeset_assoc(key, preload_opts)
-        |> put_or_cast_assoc(key, put_or_cast_opts)
+        |> preload_changeset_assoc(key, opts)
+        |> put_or_cast_assoc(key, opts)
     else
       cast_assoc(changeset, key, opts)
     end
@@ -148,7 +146,7 @@ defmodule EctoShorts.CommonChanges do
         changeset
           |> preload_changeset_assoc(
             key,
-            Keyword.put(opts, :ids, data_ids(params_data))
+            Keyword.put(opts, :ids, params_data |> data_ids |> Enum.reject(&is_nil/1))
           )
           |> cast_assoc(key, opts)
 
@@ -171,7 +169,7 @@ defmodule EctoShorts.CommonChanges do
     end)
   end
 
-  defp data_ids(data), do: Enum.map(data, &(&1.id))
+  defp data_ids(data), do: Enum.map(data, &Map.get(&1, :id))
 
   defp relationship_exists?({:assoc, _}), do: true
   defp relationship_exists?(_), do: false
