@@ -1,6 +1,7 @@
 ## Changelog
 
-#### V1.1.6
+#### V2.0.0 
+- refactor: change find_and_update to find_and_upsert and make find_and_update not do a create
 - fix: make sure we can do partial updates or create with associations 
 
 #### V1.1.5
