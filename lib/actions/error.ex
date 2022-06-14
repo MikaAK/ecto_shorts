@@ -6,8 +6,7 @@ defmodule EctoShorts.Actions.Error do
   Errors from Actions: [:not_found, :bad_request, :internal_server_error]
   """
 
-  @type t :: %{code: atom, message: String.t} |
-             %{code: atom, message: String.t, details: map}
+  @type t :: ErrorMessage.t
 
   @callback create_error(atom, String.t, map) :: t
 
@@ -17,7 +16,7 @@ defmodule EctoShorts.Actions.Error do
 
   def error_module, do: Application.get_env(:ecto_shorts, :error_module)
 
-  def create_error(code, message, details), do: %{
+  def create_error(code, message, details), do: %ErrorMessage{
     code: code,
     message: message,
     details: details

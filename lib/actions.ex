@@ -318,16 +318,7 @@ defmodule EctoShorts.Actions do
     updates :: Keyword.t
   ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def update(schema, schema_data, updates, opts) when is_list(updates) do
-    with  {:ok, schema_data} <- repo!(opts).update(schema.changeset(schema_data, Map.new(updates)), opts) do
-      {:ok, schema_data}
-    else
-      {:error, e} ->
-        {:error, Error.call(:bad_request, e, %{
-          schema: schema,
-          schema_data: schema_data,
-          updates: updates
-        })}
-    end
+    update(schema, schema_data, Map.new(updates), opts)
   end
 
   @spec update(
@@ -345,8 +336,9 @@ defmodule EctoShorts.Actions do
     with {:ok, schema_data} <- repo!(opts).update(schema.changeset(schema_data, updates), opts) do
       {:ok, schema_data}
     else
-      {:error, e} ->
-        {:error, Error.call(:bad_request, e, %{
+      {:error, changeset} ->
+        {:error, Error.call(:bad_request, "Error updating #{inspect(schema)}", %{
+          changeset: changeset,
           schema: schema,
           schema_data: schema_data,
           updates: updates
@@ -386,13 +378,13 @@ defmodule EctoShorts.Actions do
   """
   @spec delete(schema_data :: Ecto.Schema.t, opts :: Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @spec delete(schema_data :: Ecto.Schema.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  def delete(%_{} = schema_data, opts) do
+  def delete(%schema{} = schema_data, opts) do
     case repo!(opts).delete(schema_data, opts) do
-      {:error, e} ->
+      {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
-          e,
-          %{schema_data: schema_data}
+          "Error deleting #{inspect(schema)}",
+          %{changeset: changeset, schema_data: schema_data}
         )}
       ok -> ok
     end

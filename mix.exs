@@ -25,6 +25,7 @@ defmodule EctoShorts.MixProject do
   defp deps do
     [
       {:ecto_sql, "~> 3.3"},
+      {:error_message, "~> 0.1"},
       {:ex_doc, ">= 0.0.0", only: :dev}
     ]
   end
