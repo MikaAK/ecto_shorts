@@ -1,4 +1,6 @@
 ## Changelog
+#### V2.1.1 
+- fix update returning wrong error format
 
 #### V2.1.0 
 - Make responses for Errors return as ErrorMessage
