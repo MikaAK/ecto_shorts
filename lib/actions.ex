@@ -335,14 +335,6 @@ defmodule EctoShorts.Actions do
   def update(schema, schema_data, updates, opts) do
     with {:ok, schema_data} <- repo!(opts).update(schema.changeset(schema_data, updates), opts) do
       {:ok, schema_data}
-    else
-      {:error, changeset} ->
-        {:error, Error.call(:bad_request, "Error updating #{inspect(schema)}", %{
-          changeset: changeset,
-          schema: schema,
-          schema_data: schema_data,
-          updates: updates
-        })}
     end
   end
 

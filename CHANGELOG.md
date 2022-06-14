@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V2.1.0 
+- Make responses for Errors return as ErrorMessage
+
 #### V2.0.0 
 - refactor: change find_and_update to find_and_upsert and make find_and_update not do a create
 - fix: make sure we can do partial updates or create with associations 
