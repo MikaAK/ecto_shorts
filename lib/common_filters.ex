@@ -41,7 +41,7 @@ defmodule EctoShorts.CommonFilters do
 
   @doc "Converts filter params into a query"
   @spec convert_params_to_filter(
-    queryable :: Ecto.Query.t(),
+    queryable :: Ecto.Queryable.t(),
     params :: Keyword.t | map
   ) :: Ecto.Query.t
   def convert_params_to_filter(query, params) when params === %{}, do: query
