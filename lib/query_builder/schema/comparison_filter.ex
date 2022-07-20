@@ -7,8 +7,6 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
 
   import Ecto.Query, only: [where: 3]
 
-  @fragments %{lower: "lower(?)", upper: "upper(?)"}
-
   # Non relational fields
   def build(query, filter_field, val) when is_list(val) do
     where(query, [scm], field(scm, ^filter_field) in ^val)
@@ -32,11 +30,12 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end)
   end
 
-  # generate modifier build clauses
-  for {modifier, fragment} <- @fragments do
-    def build(query, filter_field, {unquote(modifier), val}) do
-      where(query, [scm], fragment(unquote(fragment), field(scm, ^filter_field)) == ^val)
-    end
+  def build(query, filter_field, {:lower, val}) do
+    where(query, [scm], fragment("lower(?)", field(scm, ^filter_field)) == ^val)
+  end
+
+  def build(query, filter_field, {:upper, val}) do
+    where(query, [scm], fragment("upper(?)", field(scm, ^filter_field)) == ^val)
   end
 
   def build(query, filter_field, val) do
@@ -55,23 +54,20 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     where(query, [scm], ^val in field(scm, ^filter_field))
   end
 
-  # generate modifier build_subfield_filter clauses
-  for {modifier, fragment} <- @fragments do
-    defp build_subfield_filter(query, filter_field, :==, {unquote(modifier), val}) do
-      where(query, [scm], fragment(unquote(fragment), field(scm, ^filter_field)) == ^val)
-    end
-
-    defp build_subfield_filter(query, filter_field, :!=, {unquote(modifier), val}) do
-      where(query, [scm], fragment(unquote(fragment), field(scm, ^filter_field)) != ^val)
-    end
-  end
-
   defp build_subfield_filter(query, filter_field, :==, nil) do
     where(query, [scm], is_nil(field(scm, ^filter_field)))
   end
 
   defp build_subfield_filter(query, filter_field, :!=, nil) do
     where(query, [scm], not is_nil(field(scm, ^filter_field)))
+  end
+
+  defp build_subfield_filter(query, filter_field, :!=, {:lower, val}) do
+    where(query, [scm], fragment("lower(?)", field(scm, ^filter_field)) != ^val)
+  end
+
+  defp build_subfield_filter(query, filter_field, :!=, {:upper, val}) do
+    where(query, [scm], fragment("upper(?)", field(scm, ^filter_field)) != ^val)
   end
 
   defp build_subfield_filter(query, filter_field, :!=, val) do
