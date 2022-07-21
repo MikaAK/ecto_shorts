@@ -1,4 +1,9 @@
 ## Changelog
+
+#### V2.1.2 
+- fix typings a bit
+- add lower/upper filters
+
 #### V2.1.1 
 - fix update returning wrong error format
 
