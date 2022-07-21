@@ -18,6 +18,12 @@ defmodule EctoShorts.CommonFilters do
   - `order_by` - orders the results in desc or asc order
   - `search` - ***Warning:*** This requires schemas using this to have a `&by_search(query, val)` function
 
+  ```elixir
+  CommonFilters.convert_params_to_filter(User, %{first: 10})
+  CommonFilters.convert_params_to_filter(User, %{ids: [1, 2, 3, 4]})
+  CommonFilters.convert_params_to_filter(User, %{order_by: {:desc, :email_updated_at})
+  ```
+
   You are also able to filter on any natural field of a model, as well as use
 
   - gte/gt
@@ -26,12 +32,23 @@ defmodule EctoShorts.CommonFilters do
   - is_nil/not(is_nil)
 
   ```elixir
+  CommonFilters.convert_params_to_filter(User, %{name: "Billy"})
   CommonFilters.convert_params_to_filter(User, %{name: %{ilike: "steve"}})
   CommonFilters.convert_params_to_filter(User, %{name: %{age: %{gte: 18, lte: 30}}})
   CommonFilters.convert_params_to_filter(User, %{name: %{is_banned: %{!=: nil}}})
   CommonFilters.convert_params_to_filter(User, %{name: %{is_banned: %{==: nil}}})
   CommonFilters.convert_params_to_filter(User, %{name: %{balance: %{!=: 0}}})
-  CommonFilters.convert_params_to_filter(User, %{name: "Billy"})
+  ```
+
+  CommonFilters also supports limited fragment modifiers of natural fields:
+
+  - :lower for "lower(?)"
+  - :upper for "lower(?)"
+
+  ```elixir
+  CommonFilters.convert_params_to_filter(User, %{name: {:lower, "billy"}})
+  CommonFilters.convert_params_to_filter(User, %{name: {:upper, "BILLY"}})
+  CommonFilters.convert_params_to_filter(User, %{name: %{!=: {:lower, "billy"}}})
   ```
   """
 
