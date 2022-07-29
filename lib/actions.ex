@@ -168,7 +168,7 @@ defmodule EctoShorts.Actions do
   @spec create(schema :: Ecto.Schema.t, params :: filter_params, opts :: Keyword.t) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @spec create(schema :: Ecto.Schema.t, params :: filter_params) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def create(schema, params, opts \\ []) do
-    repo!(opts).insert(schema.create_changeset(params), opts)
+    repo!(opts).insert(create_changeset(params, schema), opts)
   end
 
   @doc """
@@ -498,9 +498,17 @@ defmodule EctoShorts.Actions do
       Ecto.Multi.insert(multi, i, fn _ ->
         param_list
         |> Enum.at(i)
-        |> schema.create_changeset
+        |> create_changeset(schema)
       end)
     end)
+  end
+
+  defp create_changeset(params, schema) do
+    if function_exported?(schema, :create_changeset, 1) do
+      schema.create_changeset(params)
+    else
+      schema.changeset(struct(schema, %{}), params)
+    end
   end
 
   defp merge_found(created_map, found_results) do

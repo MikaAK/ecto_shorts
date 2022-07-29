@@ -21,10 +21,11 @@ end
 ### Usage
 There are 4 main modules to `EctoShorts`. `SchemaHelpers`, `CommonFilters`, `CommonChanges` and `Actions`
 
-To use create functions we must define `create_changeset(params)` on our schema, this usually looks like:
+With our `Actions.create` and related functions we can also define `create_changeset(params)` on our schema, this usually looks like:
 ```elixir
 def create_changeset(params \\ %{}), do: changeset(%__MODULE__{}, params)
 ```
+or some other variation of changeset that runs specifically on creates
 
 #### Actions
 This module takes a schema and filter parameters and runs them through CommonFilters, esentially a wrapper
@@ -107,10 +108,10 @@ EctoShorts.Actions.all(User, %{
 })
 ```
 
-which for an array field would be the equivalent to: 
+which for an array field would be the equivalent to:
 
 ```elixir
-from u in User, 
+from u in User,
   where: ^3 in u.cart and u.items == [1, 2]
 ```
 

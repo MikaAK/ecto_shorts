@@ -1,18 +1,21 @@
 ## Changelog
 
-#### V2.1.2 
+#### V2.2.0
+- no longer require `create_changeset`, it is now optional
+
+#### V2.1.2
 - fix typings a bit
 - add lower/upper filters
 
-#### V2.1.1 
+#### V2.1.1
 - fix update returning wrong error format
 
-#### V2.1.0 
+#### V2.1.0
 - Make responses for Errors return as ErrorMessage
 
-#### V2.0.0 
+#### V2.0.0
 - refactor: change find_and_update to find_and_upsert and make find_and_update not do a create
-- fix: make sure we can do partial updates or create with associations 
+- fix: make sure we can do partial updates or create with associations
 
 #### V1.1.5
 - Add support for querying arrays and using filters around those
