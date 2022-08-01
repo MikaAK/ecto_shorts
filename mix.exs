@@ -10,7 +10,17 @@ defmodule EctoShorts.MixProject do
       deps: deps(),
       description: "Helper tools for making ecto interactions more pleasant and shorter",
       docs: docs(),
-      package: package()
+      package: package(),
+      preferred_cli_env: [
+        dialyzer: :test
+        ],
+      dialyzer: [
+        plt_add_apps: [:ex_unit, :mix],
+        plt_ignore_apps: [:ecto_shorts],
+        list_unused_filters: true,
+        ignore_warnings: ".dialyzer-ignore.exs",
+        flags: [:unmatched_returns, :no_improper_lists]
+      ]
     ]
   end
 
@@ -26,7 +36,8 @@ defmodule EctoShorts.MixProject do
     [
       {:ecto_sql, "~> 3.3"},
       {:error_message, "~> 0.1"},
-      {:ex_doc, ">= 0.0.0", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: :dev},
+      {:dialyxir, "~> 1.1", only: :test, runtime: false}
     ]
   end
 
