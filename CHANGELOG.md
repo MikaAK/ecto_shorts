@@ -2,6 +2,7 @@
 
 #### V2.2.0
 - no longer require `create_changeset`, it is now optional
+- Fix dialyzer issues
 
 #### V2.1.2
 - fix typings a bit
