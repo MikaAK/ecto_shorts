@@ -267,8 +267,8 @@ defmodule EctoShorts.Actions do
       true
   """
 
-  @spec update(Ecto.Schema.t() | module(), map() | non_neg_integer(), map() | Keyword.t()) ::  {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(Ecto.Schema.t() | module(), map() | non_neg_integer(), map() | Keyword.t(), opts()) ::  {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(Ecto.Schema.t() | module(), Ecto.Schema.t() | non_neg_integer(), map() | Keyword.t()) ::  {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(Ecto.Schema.t() | module(), Ecto.Schema.t() | non_neg_integer(), map() | Keyword.t(), opts()) ::  {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def update(schema, schema_data, updates, opts \\ [])
 
 
