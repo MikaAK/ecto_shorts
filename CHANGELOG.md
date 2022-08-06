@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V2.2.1
+- Use a backup error module if set to nil
+
 #### V2.2.0
 - no longer require `create_changeset`, it is now optional
 - Fix dialyzer issues
