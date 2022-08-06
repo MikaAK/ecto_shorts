@@ -9,6 +9,11 @@ defmodule EctoShorts.Actions do
   @type aggregate_options :: :avg | :count | :max | :min | :sum
   @type schema_list :: list(Ecto.Schema.t)
   @type schema_res :: {:ok, Ecto.Schema.t} | {:error, any}
+  @type id :: pos_integer
+  @type schema :: Ecto.Schema.t() | module()
+  @type schema_data :: Ecto.Schema.t()
+  @type updates :: map() | Keyword.t()
+
 
   alias EctoShorts.{CommonFilters, Actions.Error, Config}
 
@@ -266,30 +271,15 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  @spec update(
-    schema :: Ecto.Schema.t,
-    schema_data :: map,
-    updates :: Keyword.t,
-    opts
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(
-    schema :: Ecto.Schema.t,
-    schema_data :: map,
-    updates :: Keyword.t
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+
+  @spec update(schema, id, updates) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(schema, id, updates, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(schema, schema_data, updates) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(schema, schema_data, updates, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+
   def update(schema, schema_data, updates, opts \\ [])
 
-  @spec update(
-    schema :: Ecto.Schema.t,
-    id :: integer,
-    updates :: map | Keyword.t,
-    opts
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(
-    schema :: Ecto.Schema.t,
-    id :: integer,
-    updates :: map | Keyword.t
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+
   def update(schema, schema_id, updates, opts) when is_integer(schema_id) or is_binary(schema_id) do
     case get(schema, schema_id, opts) do
       nil ->
@@ -306,32 +296,13 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  @spec update(
-    schema :: Ecto.Schema.t,
-    schema_data :: map,
-    updates :: Keyword.t,
-    opts
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(
-    schema :: Ecto.Schema.t,
-    schema_data :: map,
-    updates :: Keyword.t
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+
   def update(schema, schema_data, updates, opts) when is_list(updates) do
     update(schema, schema_data, Map.new(updates), opts)
   end
 
-  @spec update(
-    schema :: module,
-    schema_data :: Ecto.Schema.t,
-    updates :: map,
-    opts
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(
-    schema :: module,
-    schema_data :: Ecto.Schema.t,
-    updates :: map
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+
+
   def update(schema, schema_data, updates, opts) do
     with {:ok, schema_data} <- repo!(opts).update(schema.changeset(schema_data, updates), opts) do
       {:ok, schema_data}
