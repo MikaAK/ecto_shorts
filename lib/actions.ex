@@ -9,10 +9,7 @@ defmodule EctoShorts.Actions do
   @type aggregate_options :: :avg | :count | :max | :min | :sum
   @type schema_list :: list(Ecto.Schema.t)
   @type schema_res :: {:ok, Ecto.Schema.t} | {:error, any}
-  @type id :: pos_integer
-  @type schema :: Ecto.Schema.t() | module()
-  @type schema_data :: Ecto.Schema.t()
-  @type updates :: map() | Keyword.t()
+
 
 
   alias EctoShorts.{CommonFilters, Actions.Error, Config}
@@ -272,10 +269,28 @@ defmodule EctoShorts.Actions do
       true
   """
 
-  @spec update(schema, id, updates) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(schema, id, updates, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(schema, schema_data, updates) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec update(schema, schema_data, updates, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: Ecto.Schema.t() | module(),
+    id :: pos_integer,
+    updates :: map() | Keyword.t()
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: Ecto.Schema.t() | module(),
+    id :: pos_integer,
+    updates :: map() | Keyword.t(),
+    opts
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: Ecto.Schema.t() | module(),
+    schema_data :: Ecto.Schema.t(),
+    updates :: map() | Keyword.t()
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec update(
+    schema :: Ecto.Schema.t() | module(),
+    schema_data :: Ecto.Schema.t(),
+    updates :: map() | Keyword.t(),
+    opts
+  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
 
   def update(schema, schema_data, updates, opts \\ [])
 
