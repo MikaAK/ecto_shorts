@@ -14,7 +14,7 @@ defmodule EctoShorts.Actions.Error do
     apply(error_module(), :create_error, [code, message, details])
   end
 
-  def error_module, do: Application.get_env(:ecto_shorts, :error_module)
+  def error_module, do: Application.get_env(:ecto_shorts, :error_module) || EctoShorts.Actions.Error
 
   def create_error(code, message, details), do: %ErrorMessage{
     code: code,
