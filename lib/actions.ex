@@ -271,12 +271,12 @@ defmodule EctoShorts.Actions do
 
   @spec update(
     schema :: Ecto.Schema.t() | module(),
-    id :: pos_integer,
+    id :: pos_integer | String.t(),
     updates :: map() | Keyword.t()
   ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   @spec update(
     schema :: Ecto.Schema.t() | module(),
-    id :: pos_integer,
+    id :: pos_integer | String.t(),
     updates :: map() | Keyword.t(),
     opts
   ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
