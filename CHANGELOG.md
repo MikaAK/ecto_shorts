@@ -1,5 +1,8 @@
 ## Changelog
 
+#### V2.2.2
+- More typespec fixes
+
 #### V2.2.1
 - Use a backup error module if set to nil
 
