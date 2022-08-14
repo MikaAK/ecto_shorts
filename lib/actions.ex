@@ -167,8 +167,8 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name
       true
   """
-  @spec create(schema :: Ecto.Schema.t, params :: filter_params, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec create(schema :: Ecto.Schema.t, params :: filter_params) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec create(schema :: module(), params :: filter_params, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec create(schema :: module(), params :: filter_params) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def create(schema, params, opts \\ []) do
     repo!(opts).insert(create_changeset(params, schema), opts)
   end
