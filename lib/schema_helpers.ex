@@ -38,9 +38,9 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Example
 
-    iex> SchemaHelpers.all_schemas([%{some_map: 1}, create_schema()])
+    iex> SchemaHelpers.all_schemas?([%{some_map: 1}, create_schema()])
     false
-    iex> SchemaHelpers.all_schemas([create_schema(), create_schema()])
+    iex> SchemaHelpers.all_schemas?([create_schema(), create_schema()])
     true
   """
   def all_schemas?(items), do: Enum.all?(items, &schema?/1)

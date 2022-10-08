@@ -11,6 +11,7 @@ defmodule EctoShorts.MixProject do
       description: "Helper tools for making ecto interactions more pleasant and shorter",
       docs: docs(),
       package: package(),
+      elixirc_paths: elixirc_paths(Mix.env()),
       preferred_cli_env: [
         dialyzer: :test
         ],
@@ -20,9 +21,12 @@ defmodule EctoShorts.MixProject do
         list_unused_filters: true,
         ignore_warnings: ".dialyzer-ignore.exs",
         flags: [:unmatched_returns, :no_improper_lists]
-      ]
+      ],
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
