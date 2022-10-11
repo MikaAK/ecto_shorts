@@ -10,6 +10,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
 
   alias EctoShorts.QueryBuilder
   alias EctoShorts.QueryBuilder.Schema.ComparisonFilter
+  alias EctoShorts.Config
 
   @behaviour QueryBuilder
 
@@ -50,9 +51,17 @@ defmodule EctoShorts.QueryBuilder.Schema do
         ComparisonFilter.build_relational(query, binding_alias, val)
 
       true ->
-        Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is not a field for #{schema.__schema__(:source)} where filter")
+        handle_undefined_field(schema, query, filter_field)
+    end
+  end
 
-        query
+  defp handle_undefined_field(schema, query, filter_field) do
+    message = "[EctoShorts] #{Atom.to_string(filter_field)} is not a field for #{schema.__schema__(:source)} where filter"
+    if Config.strict? do
+      raise ArgumentError, message: message
+    else
+      Logger.debug(message)
+      query
     end
   end
 

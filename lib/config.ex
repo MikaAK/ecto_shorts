@@ -4,4 +4,8 @@ defmodule EctoShorts.Config do
   def repo do
     Application.get_env(@app, :repo)
   end
+
+  def strict? do
+    Application.get_env(@app, :strict, false)
+  end
 end
