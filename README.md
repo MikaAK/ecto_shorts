@@ -34,6 +34,7 @@ around Repo. All actions can accept an optional argument of a keyword list that 
 ## Options
     * `:repo` - A module that uses the Ecto.Repo Module.
     * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
+    * `:strict` - When set to `true` this options instructs `EctoShorts` to raise an error when we are trying to build a query using a field that's not defined in the schema.
 
 For more info on filter options take a look at Common Filters
 
