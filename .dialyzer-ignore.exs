@@ -1,6 +1,4 @@
 [
-  ~r|lib/actions.ex:.*:invalid_contract Invalid type specification for function create.|,
-  ~r|lib/actions.ex:.*:invalid_contract Invalid type specification for function create.|,
   ~r|lib/actions.ex:.*:invalid_contract Invalid type specification for function find_or_create.|,
   ~r|lib/actions.ex:.*:invalid_contract Invalid type specification for function find_or_create.|,
   ~r|lib/actions.ex:.*:invalid_contract Invalid type specification for function find_and_update.|,
