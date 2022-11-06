@@ -188,8 +188,8 @@ defmodule EctoShorts.Actions do
 
       iex> {:ok, schema} = EctoSchemas.Actions.find_or_create(EctoSchemas.Accounts.User, %{name: "great name"}, repo: MyApp.MyRepoModule.Repo, replica: MyApp.MyRepoModule.Repo.replica())
   """
-  @spec find_or_create(Ecto.Schema.t, map, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
-  @spec find_or_create(Ecto.Schema.t, map) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec find_or_create(query(), map, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec find_or_create(query(), map) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
   def find_or_create(schema, params, opts \\ []) do
     find_params = Map.drop(params, schema.__schema__(:associations))
 
