@@ -125,7 +125,7 @@ defmodule EctoShorts.CommonChanges do
     find_method_and_put_or_cast(changeset, key, params_data, opts)
   end
 
-  defp find_method_and_put_or_cast(changeset, key, params_data, opts) when params_data === nil do
+  defp find_method_and_put_or_cast(changeset, key, nil, opts) do
     cast_assoc(changeset, key, opts)
   end
 
