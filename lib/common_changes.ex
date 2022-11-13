@@ -51,7 +51,7 @@ defmodule EctoShorts.CommonChanges do
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation, repo: MyApp.OtherRepo)
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
   """
-  @spec preload_change_assoc(Changeset.t, atom, Keyword.t) :: Changeset.t
+  @spec preload_change_assoc(Changeset.t, atom, keyword()) :: Changeset.t
   @spec preload_change_assoc(Changeset.t, atom) :: Changeset.t
   def preload_change_assoc(changeset, key, opts) do
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
@@ -75,7 +75,7 @@ defmodule EctoShorts.CommonChanges do
 
   @doc "Preloads a changesets association"
   @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
-  @spec preload_changeset_assoc(Changeset.t, atom, list(integer)) :: Changeset.t
+  @spec preload_changeset_assoc(Changeset.t, atom, keyword()) :: Changeset.t
   def preload_changeset_assoc(changeset, key, opts \\ [])
 
   def preload_changeset_assoc(changeset, key, opts) do
@@ -105,8 +105,6 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  @spec put_or_cast_assoc(Changeset.t, atom) :: Changeset.t
-  @spec put_or_cast_assoc(Changeset.t, atom, Keyword.t) :: Changeset.t
   @doc """
   Determines put or cast on association with some special magic
 
@@ -119,15 +117,20 @@ defmodule EctoShorts.CommonChanges do
   CommonChanges.put_or_cast_assoc(change(user, fruits: [%{id: 1}, %{id: 3}]), :fruits)
   ```
   """
+  @spec put_or_cast_assoc(Changeset.t, atom) :: Changeset.t
+  @spec put_or_cast_assoc(Changeset.t, atom, Keyword.t) :: Changeset.t
   def put_or_cast_assoc(changeset, key, opts \\ []) do
     params_data = Map.get(changeset.params, Atom.to_string(key))
 
     find_method_and_put_or_cast(changeset, key, params_data, opts)
   end
 
+  defp find_method_and_put_or_cast(changeset, key, params_data, opts) when params_data === nil do
+    cast_assoc(changeset, key, opts)
+  end
+
   defp find_method_and_put_or_cast(changeset, key, params_data, opts) when is_list(params_data) do
     cond do
-      is_nil(params_data) -> cast_assoc(changeset, key, opts)
 
       SchemaHelpers.all_schemas?(params_data) -> put_assoc(
         changeset,
