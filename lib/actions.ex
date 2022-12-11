@@ -11,7 +11,6 @@ defmodule EctoShorts.Actions do
   @type schema_res :: {:ok, Ecto.Schema.t} | {:error, any}
 
 
-
   alias EctoShorts.{CommonFilters, Actions.Error, Config}
 
   @doc """
@@ -40,7 +39,7 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.all(EctoSchemas.Accounts.User)
       []
   """
-  @spec all(queryable :: query) :: schema_list
+  @spec all(queryable :: query) :: list()
   def all(query) do
     all(query, default_opts())
   end
@@ -62,7 +61,7 @@ defmodule EctoShorts.Actions do
       iex> length(EctoSchemas.Actions.all(EctoSchemas.Accounts.User, repo: MyApp.MyRepoModule.Repo)) === 3
       true
   """
-  @spec all(queryable :: query, filter_params | opts) :: schema_list
+  @spec all(queryable :: query, filter_params | opts) :: list()
   def all(query, params) when is_map(params) do
     all(query, params, default_opts())
   end
@@ -89,7 +88,7 @@ defmodule EctoShorts.Actions do
     iex> length(EctoSchemas.Actions.all(EctoSchemas.Accounts.User, first: 3, repo: MyApp.MyRepoModule.Repo)) === 3
     true
   """
-  @spec all(queryable :: query, params :: filter_params, opts) :: schema_list
+  @spec all(queryable :: query, params :: filter_params, opts) :: list()
   def all(query, params, opts)  do
     order_by = Keyword.get(opts, :order_by, nil)
 
@@ -213,7 +212,7 @@ defmodule EctoShorts.Actions do
 
       iex> {:ok, schema} = EctoSchemas.Actions.find_and_update(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name}, repo: MyApp.MyRepoModule.Repo, replica: MyApp.MyRepoModule.Repo.replica())
   """
-  @spec find_and_update(query(), map, map, opts) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  @spec find_and_update(query(), map, map, opts) :: {:ok, Ecto.Schema.t()} | {:error, any()}
   def find_and_update(schema, params, update_params, opts \\ []) do
     find_params = Map.drop(params, schema.__schema__(:associations))
 
@@ -237,7 +236,7 @@ defmodule EctoShorts.Actions do
 
       iex> {:ok, schema} = EctoSchemas.Actions.find_and_upsert(EctoSchemas.Accounts.User, %{email: "some_email"}, %{name: "great name}, repo: MyApp.MyRepoModule.Repo, replica: MyApp.MyRepoModule.Repo.replica())
   """
-  @spec find_and_upsert(query(), map, map, opts) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  @spec find_and_upsert(query(), map, map, opts) :: {:ok, Ecto.Schema.t()} | {:error, any()}
   def find_and_upsert(schema, params, update_params, opts \\ []) do
     find_params = Map.drop(params, schema.__schema__(:associations))
 
@@ -335,7 +334,7 @@ defmodule EctoShorts.Actions do
       true
   """
 
-  @spec delete(schema_data :: Ecto.Schema.t | schema_list() | module()) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema_data :: Ecto.Schema.t | schema_list() | module()) :: {:ok, Ecto.Schema.t} | {:error, any()}
   def delete(%_{} = schema_data) do
     delete(schema_data, default_opts())
   end
@@ -356,7 +355,7 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  @spec delete(schema_data :: Ecto.Schema.t | schema_list() | module(), opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema_data :: Ecto.Schema.t | schema_list() | module(), opts) :: {:ok, Ecto.Schema.t} | {:error, any()}
   def delete(%schema{} = schema_data, opts) do
     case repo!(opts).delete(schema_data, opts) do
       {:error, changeset} ->
@@ -373,7 +372,7 @@ defmodule EctoShorts.Actions do
     schema_data |> Enum.map(&delete(&1, opts)) |> reduce_status_tuples
   end
 
-  @spec delete(schema :: module(), id :: integer) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema :: module(), id :: integer) :: {:ok, Ecto.Schema.t} | {:error, any()}
   def delete(schema, id) when is_atom(schema) and (is_binary(id) or is_integer(id)) do
     delete(schema, id, default_opts())
   end
@@ -395,7 +394,7 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  @spec delete(schema :: module(), id :: integer, opts) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  @spec delete(schema :: module(), id :: integer, opts) :: {:ok, Ecto.Schema.t} | {:error, any()}
   def delete(schema, id, opts) when is_atom(schema) and (is_integer(id) or is_binary(id)) do
     with {:ok, schema_data} <- find(schema, %{id: id}, opts) do
       repo!(opts).delete(schema_data, opts)
@@ -449,7 +448,7 @@ defmodule EctoShorts.Actions do
     iex> length(records) === 2
   """
   @spec find_or_create_many(
-    Ecto.Schema.t(),
+    query(),
     list(map),
     opts
   ) :: {:ok, list(Ecto.Schema.t())} | {:error, list(Ecto.Changeset.t())}
