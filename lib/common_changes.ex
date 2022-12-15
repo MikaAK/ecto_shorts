@@ -50,10 +50,19 @@ defmodule EctoShorts.CommonChanges do
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation)
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation, repo: MyApp.OtherRepo)
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
+    iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required_when_missing: :my_relation_id)
   """
   @spec preload_change_assoc(Changeset.t, atom, keyword()) :: Changeset.t
   @spec preload_change_assoc(Changeset.t, atom) :: Changeset.t
   def preload_change_assoc(changeset, key, opts) do
+    required? = if opts[:required_when_missing] do
+      changeset_field_nil?(changeset, opts[:required_when_missing])
+    else
+      opts[:required]
+    end
+
+    opts = Keyword.put(opts, :required, required?)
+
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
       changeset
         |> preload_changeset_assoc(key, opts)
