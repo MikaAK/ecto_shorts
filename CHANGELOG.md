@@ -1,10 +1,14 @@
 ## Changelog
 
+#### V2.3.0
+- add ability to optionally require a id or a cast/put assoc
+- type spec fixes
+
 #### V2.2.3
-- More typespec fixes 
+- More typespec fixes
 
 #### V2.2.2
-- More typespec fixes 
+- More typespec fixes
 
 #### V2.2.1
 - Use a backup error module if set to nil
