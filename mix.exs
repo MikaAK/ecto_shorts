@@ -7,7 +7,6 @@ defmodule EctoShorts.MixProject do
       version: "2.3.0",
       elixir: "~> 1.7",
       elixirc_paths: elixirc_paths(Mix.env()),
-      config_path: "config/config.exs",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Helper tools for making ecto interactions more pleasant and shorter",
