@@ -537,9 +537,15 @@ defmodule EctoShorts.Actions do
   end
 
   defp repo(opts) do
-    default_opts()
-      |> Keyword.merge(opts)
-      |> Keyword.get(:repo)
+    case default_opts() |> Keyword.merge(opts) |> Keyword.get(:repo) do
+      {repo, name} ->
+        repo.put_dynamic_repo(name)
+        repo
+
+      repo ->
+        repo
+
+    end
   end
 
   defp default_opts, do: [repo: Config.repo()]

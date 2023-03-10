@@ -6,6 +6,8 @@ defmodule EctoShorts.MixProject do
       app: :ecto_shorts,
       version: "2.3.0",
       elixir: "~> 1.7",
+      elixirc_paths: elixirc_paths(Mix.env()),
+      config_path: "config/config.exs",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Helper tools for making ecto interactions more pleasant and shorter",
@@ -37,7 +39,8 @@ defmodule EctoShorts.MixProject do
       {:ecto_sql, "~> 3.3"},
       {:error_message, "~> 0.1"},
       {:ex_doc, ">= 0.0.0", only: :dev},
-      {:dialyxir, "~> 1.1", only: :test, runtime: false}
+      {:dialyxir, "~> 1.1", only: :test, runtime: false},
+      {:postgrex, ">= 0.0.0", only: [:dev, :test]}
     ]
   end
 
@@ -78,4 +81,7 @@ defmodule EctoShorts.MixProject do
       ]
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 end
