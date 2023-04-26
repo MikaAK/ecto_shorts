@@ -33,6 +33,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
         end
 
       filter_field in schema.__schema__(:associations) ->
+        %{queryable: relational_schema} = schema.__schema__(:association, filter_field)
         binding_alias = :"ecto_shorts_#{filter_field}"
 
         query = Ecto.Query.join(
@@ -47,7 +48,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
           joins: add_join_alias(query, filter_field, binding_alias)
         }
 
-        ComparisonFilter.build_relational(query, binding_alias, val)
+        ComparisonFilter.build_relational(query, binding_alias, val, relational_schema)
 
       true ->
         Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is not a field for #{schema.__schema__(:source)} where filter")

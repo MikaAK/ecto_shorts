@@ -4,7 +4,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   # Unfortunately because of how the bindings work we can't pass in two separate
   # values which then forces us to define two separate versions
 
-
+  require Logger
   import Ecto.Query, only: [where: 3]
 
   # Non relational fields
@@ -108,35 +108,59 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     raise ArgumentError, message: "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
   end
 
-  def build_relational(query, binding_alias, field_filters) when is_map(field_filters) do
+  def build_relational(query, binding_alias, field_filters, relational_schema) when is_map(field_filters) do
     Enum.reduce(field_filters, query, fn ({field_key, field_value}, query_acc) ->
-      build_relational_filter(query_acc, binding_alias, field_key, field_value)
+      build_relational_filter(query_acc, binding_alias, field_key, field_value, relational_schema)
     end)
   end
 
-  def build_relational(_query, _binding_alias, value) do
+  def build_relational(_query, _binding_alias, value, _relational_schema) do
     raise ArgumentError, message: "must provide a map for associations to filter on\ngiven #{inspect value}"
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, val) when is_list(val) do
+  defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) when is_list(val) do
     where(query, [{^binding_alias, scm}], field(scm, ^filter_field) in ^val)
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, %NaiveDateTime{} = val) do
+  defp build_relational_filter(query, binding_alias, filter_field, %NaiveDateTime{} = val, _relational_schema) do
     where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, %DateTime{} = val) do
+  defp build_relational_filter(query, binding_alias, filter_field, %DateTime{} = val, _relational_schema) do
     where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
   end
 
-  defp build_relational_filter(query, binding_alias, field_key, filters) when is_map(filters) do
-    Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
-      build_relational_subfield_filter(query_acc, binding_alias, field_key, filter_type, value)
-    end)
+  defp build_relational_filter(query, binding_alias, field_key, filters, relational_schema) when is_map(filters) do
+    cond do
+      field_key in relational_schema.__schema__(:query_fields) ->
+        Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
+          build_relational_subfield_filter(query_acc, binding_alias, field_key, filter_type, value)
+        end)
+      field_key in relational_schema.__schema__(:associations) ->
+        %{queryable: sub_relational_schema} = relational_schema.__schema__(:association, field_key)
+        sub_binding_alias = :"ecto_shorts_#{field_key}"
+
+        query = Ecto.Query.join(
+          query,
+          :inner,
+          [{^binding_alias, scm}],
+          assoc in assoc(scm, ^field_key)
+        )
+
+        query = %{query |
+          aliases: add_relational_alias(query, sub_binding_alias),
+          joins: add_join_alias(query, field_key, sub_binding_alias)
+        }
+
+        build_relational(query, sub_binding_alias, filters, sub_relational_schema)
+      true ->
+        Logger.debug("[EctoShorts] #{Atom.to_string(field_key)} is not a field for #{relational_schema.__schema__(:source)} where filter")
+
+        query
+    end
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, val) do
+  defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) do
     where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
   end
 
@@ -174,5 +198,24 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     search_query = "%#{val}%"
 
     where(query, [{^binding_alias, scm}], ilike(field(scm, ^filter_field), ^search_query))
+  end
+
+  defp add_relational_alias(query, new_alias) do
+    if query.aliases[new_alias] do
+      raise ArgumentError, message: "already defined #{new_alias} as an alias within query #{inspect query}"
+    else
+      # Here we need to put the size of current aliases plus one to indicate the next value
+      Map.put(query.aliases, new_alias, map_size(query.aliases) + 1)
+    end
+  end
+
+  defp add_join_alias(query, filter_field, binding_alias) do
+    Enum.map(query.joins, fn join ->
+      if elem(join.assoc, 1) === filter_field do
+        %{join | as: binding_alias}
+      else
+        join
+      end
+    end)
   end
 end
