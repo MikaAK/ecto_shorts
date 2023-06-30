@@ -133,26 +133,10 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   defp build_relational_filter(query, binding_alias, field_key, filters, relational_schema) when is_map(filters) do
     cond do
       field_key in relational_schema.__schema__(:query_fields) ->
-        Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
-          build_relational_subfield_filter(query_acc, binding_alias, field_key, filter_type, value)
-        end)
+        build_relational_query_fields_filter(query, binding_alias, field_key, filters)
       field_key in relational_schema.__schema__(:associations) ->
         %{queryable: sub_relational_schema} = relational_schema.__schema__(:association, field_key)
-        sub_binding_alias = :"ecto_shorts_#{field_key}"
-
-        query = Ecto.Query.join(
-          query,
-          :inner,
-          [{^binding_alias, scm}],
-          assoc in assoc(scm, ^field_key)
-        )
-
-        query = %{query |
-          aliases: add_relational_alias(query, sub_binding_alias),
-          joins: add_join_alias(query, field_key, sub_binding_alias)
-        }
-
-        build_relational(query, sub_binding_alias, filters, sub_relational_schema)
+        build_relational_association_filter(query, binding_alias, field_key, filters, relational_schema, sub_relational_schema)
       true ->
         Logger.debug("[EctoShorts] #{Atom.to_string(field_key)} is not a field for #{relational_schema.__schema__(:source)} where filter")
 
@@ -162,6 +146,34 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
 
   defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) do
     where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
+  end
+
+  defp build_relational_query_fields_filter(query, binding_alias, field_key, filters) do
+    Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
+      build_relational_subfield_filter(query_acc, binding_alias, field_key, filter_type, value)
+    end)
+  end
+
+  defp build_relational_association_filter(_query, _binding_alias, field_key, _filters, relational_schema, nil) do
+    raise ArgumentError, message: "#{Atom.to_string(field_key)} is neither a field nor has a valid association for #{relational_schema.__schema__(:source)}"
+  end
+
+  defp build_relational_association_filter(query, binding_alias, field_key, filters, _relational_schema, sub_relational_schema) do
+    sub_binding_alias = :"ecto_shorts_#{field_key}"
+
+    query = Ecto.Query.join(
+      query,
+      :inner,
+      [{^binding_alias, scm}],
+      assoc in assoc(scm, ^field_key)
+    )
+
+    query = %{query |
+      aliases: add_relational_alias(query, sub_binding_alias),
+      joins: add_join_alias(query.joins, field_key, sub_binding_alias)
+    }
+
+    build_relational(query, sub_binding_alias, filters, sub_relational_schema)
   end
 
   defp build_relational_subfield_filter(query, binding_alias, filter_field, :==, nil) do
@@ -209,8 +221,8 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp add_join_alias(query, filter_field, binding_alias) do
-    Enum.map(query.joins, fn join ->
+  defp add_join_alias(joins, filter_field, binding_alias) do
+    Enum.map(joins, fn join ->
       if elem(join.assoc, 1) === filter_field do
         %{join | as: binding_alias}
       else
