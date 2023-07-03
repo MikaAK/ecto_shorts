@@ -31,7 +31,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
         %{queryable: relational_schema} = schema.__schema__(:association, filter_field)
         create_schema_assocation_filter(query, filter_field, val, schema, relational_schema)
       true ->
-        Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is not a field for #{schema.__schema__(:source)} where filter")
+        Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is neither a field nor has a valid association for #{schema.__schema__(:source)} where filter")
 
         query
     end
@@ -47,7 +47,7 @@ defmodule EctoShorts.QueryBuilder.Schema do
   end
 
   defp create_schema_assocation_filter(_query, filter_field, _val, schema, nil) do
-    raise ArgumentError, message: "#{Atom.to_string(filter_field)} is neither a field nor has a valid association for #{schema.__schema__(:source)}"
+    raise ArgumentError, message: "#{Atom.to_string(filter_field)} does not have an associated schema for #{schema.__schema__(:source)}"
   end
 
   defp create_schema_assocation_filter(query, filter_field, val, _schema, relational_schema) do
