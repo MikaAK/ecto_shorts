@@ -158,7 +158,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     raise ArgumentError, message: "#{Atom.to_string(field_key)} does not have an associated schema for #{relational_schema.__schema__(:source)}"
   end
 
-  defp build_relational_association_filter(query, binding_alias, field_key, filters, relational_schema, sub_relational_schema) do
+  defp build_relational_association_filter(query, binding_alias, field_key, filters, _relational_schema, sub_relational_schema) do
     sub_binding_alias = :"#{binding_alias}_#{field_key}"
 
     query = Ecto.Query.join(
