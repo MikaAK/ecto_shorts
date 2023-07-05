@@ -159,7 +159,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   end
 
   defp build_relational_association_filter(query, binding_alias, field_key, filters, relational_schema, sub_relational_schema) do
-    sub_binding_alias = :"ecto_shorts_#{relational_schema.__schema__(:source)}_#{field_key}"
+    sub_binding_alias = :"#{binding_alias}_#{field_key}"
 
     query = Ecto.Query.join(
       query,
