@@ -4,7 +4,6 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   # Unfortunately because of how the bindings work we can't pass in two separate
   # values which then forces us to define two separate versions
 
-
   import Ecto.Query, only: [where: 3]
 
   # Non relational fields
@@ -21,11 +20,13 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   end
 
   def build(_query, _filter_field, nil) do
-    raise ArgumentError, message: "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
+    raise ArgumentError,
+      message:
+        "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
   end
 
   def build(query, filter_field, filters) when is_map(filters) do
-    Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
+    Enum.reduce(filters, query, fn {filter_type, value}, query_acc ->
       build_subfield_filter(query_acc, filter_field, filter_type, value)
     end)
   end
@@ -105,17 +106,20 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   # Relational Versions
 
   def build_relational(_query, _binding_alias, nil) do
-    raise ArgumentError, message: "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
+    raise ArgumentError,
+      message:
+        "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
   end
 
   def build_relational(query, binding_alias, field_filters) when is_map(field_filters) do
-    Enum.reduce(field_filters, query, fn ({field_key, field_value}, query_acc) ->
+    Enum.reduce(field_filters, query, fn {field_key, field_value}, query_acc ->
       build_relational_filter(query_acc, binding_alias, field_key, field_value)
     end)
   end
 
   def build_relational(_query, _binding_alias, value) do
-    raise ArgumentError, message: "must provide a map for associations to filter on\ngiven #{inspect value}"
+    raise ArgumentError,
+      message: "must provide a map for associations to filter on\ngiven #{inspect(value)}"
   end
 
   defp build_relational_filter(query, binding_alias, filter_field, val) when is_list(val) do
@@ -131,7 +135,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   end
 
   defp build_relational_filter(query, binding_alias, field_key, filters) when is_map(filters) do
-    Enum.reduce(filters, query, fn ({filter_type, value}, query_acc) ->
+    Enum.reduce(filters, query, fn {filter_type, value}, query_acc ->
       build_relational_subfield_filter(query_acc, binding_alias, field_key, filter_type, value)
     end)
   end

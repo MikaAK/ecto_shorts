@@ -13,7 +13,7 @@ defmodule EctoShorts.MixProject do
       package: package(),
       preferred_cli_env: [
         dialyzer: :test
-        ],
+      ],
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix],
         plt_ignore_apps: [:ecto_shorts],
@@ -59,17 +59,14 @@ defmodule EctoShorts.MixProject do
           EctoShorts.Actions,
           EctoShorts.CommonChanges
         ],
-
         "Support Modules": [
           EctoShorts.CommonFilters,
           EctoShorts.SchemaHelpers
         ],
-
         "Misc Modules": [
           EctoShorts.Actions.Error,
           EctoShorts.Repo
         ],
-
         "Query Builder Modules": [
           EctoShorts.QueryBuilder,
           EctoShorts.QueryBuilder.Schema,
