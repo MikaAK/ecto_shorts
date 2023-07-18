@@ -28,13 +28,17 @@ defmodule EctoShorts.QueryBuilder.Schema do
         create_schema_query_field_filter(query, schema, filter_field, val)
 
       filter_field in schema.__schema__(:associations) ->
-        %{queryable: relational_schema} = schema.__schema__(:association, filter_field)
+        relational_schema = get_associated_schema_from_field(schema, filter_field)
         create_schema_assocation_filter(query, filter_field, val, schema, relational_schema)
       true ->
         Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is neither a field nor has a valid association for #{schema.__schema__(:source)} where filter")
 
         query
     end
+  end
+
+  defp get_associated_schema_from_field(schema, field_key) do
+    schema.__schema__(:association, field_key).queryable
   end
 
   defp create_schema_query_field_filter(query, schema, filter_field, val) do

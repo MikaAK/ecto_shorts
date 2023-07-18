@@ -135,13 +135,17 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
       field_key in relational_schema.__schema__(:query_fields) ->
         build_relational_query_fields_filter(query, binding_alias, field_key, filters)
       field_key in relational_schema.__schema__(:associations) ->
-        %{queryable: sub_relational_schema} = relational_schema.__schema__(:association, field_key)
+        sub_relational_schema = get_associated_schema_from_field(relational_schema, field_key)
         build_relational_association_filter(query, binding_alias, field_key, filters, relational_schema, sub_relational_schema)
       true ->
         Logger.debug("[EctoShorts] #{Atom.to_string(field_key)} is neither a field nor has a valid association for #{relational_schema.__schema__(:source)} where filter")
 
         query
     end
+  end
+
+  defp get_associated_schema_from_field(schema, field_key) do
+    schema.__schema__(:association, field_key).queryable
   end
 
   defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) do
