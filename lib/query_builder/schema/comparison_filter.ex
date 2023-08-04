@@ -144,12 +144,12 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp get_associated_schema_from_field(schema, field_key) do
-    schema.__schema__(:association, field_key).queryable
-  end
-
   defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) do
     where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
+  end
+
+  defp get_associated_schema_from_field(schema, field_key) do
+    schema.__schema__(:association, field_key).queryable
   end
 
   defp build_relational_query_fields_filter(query, binding_alias, field_key, filters) do
@@ -165,19 +165,15 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   defp build_relational_association_filter(query, binding_alias, field_key, filters, _relational_schema, sub_relational_schema) do
     sub_binding_alias = :"#{binding_alias}_#{field_key}"
 
-    query = Ecto.Query.join(
-      query,
-      :inner,
-      [{^binding_alias, scm}],
-      assoc in assoc(scm, ^field_key)
-    )
-
-    query = %{query |
-      aliases: add_relational_alias(query, sub_binding_alias),
-      joins: add_join_alias(query.joins, field_key, sub_binding_alias)
-    }
-
-    build_relational(query, sub_binding_alias, filters, sub_relational_schema)
+    query
+    |> Ecto.Query.with_named_binding(sub_binding_alias, fn query, sub_binding_alias ->
+      Ecto.Query.join(
+        query,
+        :inner,
+        [{^binding_alias, scm}],
+        assoc in assoc(scm, ^field_key), as: ^sub_binding_alias)
+    end)
+    |> build_relational(sub_binding_alias, filters, sub_relational_schema)
   end
 
   defp build_relational_subfield_filter(query, binding_alias, filter_field, :==, nil) do
@@ -214,24 +210,5 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     search_query = "%#{val}%"
 
     where(query, [{^binding_alias, scm}], ilike(field(scm, ^filter_field), ^search_query))
-  end
-
-  defp add_relational_alias(query, new_alias) do
-    if query.aliases[new_alias] do
-      raise ArgumentError, message: "already defined #{new_alias} as an alias within query #{inspect query}"
-    else
-      # Here we need to put the size of current aliases plus one to indicate the next value
-      Map.put(query.aliases, new_alias, map_size(query.aliases) + 1)
-    end
-  end
-
-  defp add_join_alias(joins, filter_field, binding_alias) do
-    Enum.map(joins, fn join ->
-      if elem(join.assoc, 1) === filter_field do
-        %{join | as: binding_alias}
-      else
-        join
-      end
-    end)
   end
 end

@@ -57,37 +57,14 @@ defmodule EctoShorts.QueryBuilder.Schema do
   defp create_schema_assocation_filter(query, filter_field, val, _schema, relational_schema) do
     binding_alias = :"ecto_shorts_#{filter_field}"
 
-    query = Ecto.Query.join(
-      query,
-      :inner,
-      [scm],
-      assoc in assoc(scm, ^filter_field)
-    )
-
-    query = %{query |
-      aliases: add_relational_alias(query, binding_alias),
-      joins: add_join_alias(query.joins, filter_field, binding_alias)
-    }
-
-    ComparisonFilter.build_relational(query, binding_alias, val, relational_schema)
-  end
-
-  defp add_relational_alias(query, new_alias) do
-    if query.aliases[new_alias] do
-      raise ArgumentError, message: "already defined #{new_alias} as an alias within query #{inspect query}"
-    else
-      # Here we need to put the size of current aliases plus one to indicate the next value
-      Map.put(query.aliases, new_alias, map_size(query.aliases) + 1)
-    end
-  end
-
-  defp add_join_alias(joins, filter_field, binding_alias) do
-    Enum.map(joins, fn join ->
-      if elem(join.assoc, 1) === filter_field do
-        %{join | as: binding_alias}
-      else
-        join
-      end
+    query
+    |> Ecto.Query.with_named_binding(binding_alias, fn query, binding_alias ->
+      Ecto.Query.join(
+        query,
+        :inner,
+        [scm],
+        assoc in assoc(scm, ^filter_field), as: ^binding_alias)
     end)
+    |> ComparisonFilter.build_relational(binding_alias, val, relational_schema)
   end
 end
