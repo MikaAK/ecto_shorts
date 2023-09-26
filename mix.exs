@@ -34,7 +34,7 @@ defmodule EctoShorts.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ecto_sql, "~> 3.3"},
+      {:ecto_sql, "~> 3.10"},
       {:error_message, "~> 0.1"},
       {:ex_doc, ">= 0.0.0", only: :dev},
       {:dialyxir, "~> 1.1", only: :test, runtime: false}
