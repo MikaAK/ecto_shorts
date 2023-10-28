@@ -28,7 +28,7 @@ def create_changeset(params \\ %{}), do: changeset(%__MODULE__{}, params)
 or some other variation of changeset that runs specifically on creates
 
 #### Actions
-This module takes a schema and filter parameters and runs them through CommonFilters, esentially a wrapper
+This module takes a schema and filter parameters and runs them through CommonFilters, essentially a wrapper
 around Repo. All actions can accept an optional argument of a keyword list that can be used to configure which Repo the Action should use.
 
 ## Options
@@ -61,7 +61,7 @@ CommonFilters.convert_params_to_filter(User, %{id: 5})
 ```
 is the same as
 ```elixir
-from u in User, where: id == 5
+from u in User, where: u.id == ^5
 ```
 
 This allows for filters to be constructed from data such as
