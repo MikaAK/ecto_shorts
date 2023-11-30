@@ -490,6 +490,8 @@ defmodule EctoShorts.Actions do
   end
 
   defp create_changeset(params, schema) do
+    Code.ensure_loaded(schema)
+
     if function_exported?(schema, :create_changeset, 1) do
       schema.create_changeset(params)
     else
