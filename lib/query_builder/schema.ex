@@ -38,7 +38,19 @@ defmodule EctoShorts.QueryBuilder.Schema do
   end
 
   defp get_associated_schema_from_field(schema, field_key) do
-    schema.__schema__(:association, field_key).queryable
+    association = schema.__schema__(:association, field_key)
+    case association do
+      %Ecto.Association.HasThrough{
+        through: [field1, field2]
+      } ->
+        schema
+        |> get_associated_schema_from_field(field1)
+        |> get_associated_schema_from_field(field2)
+      %{related: related} ->
+        related
+      _ ->
+        raise ArgumentError, message: "#{Atom.to_string(field_key)} does not have an associated schema for #{schema.__schema__(:source)}"
+    end
   end
 
   defp create_schema_query_field_filter(query, schema, filter_field, val) do
