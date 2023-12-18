@@ -149,7 +149,19 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   end
 
   defp get_associated_schema_from_field(schema, field_key) do
-    schema.__schema__(:association, field_key).queryable
+    association = schema.__schema__(:association, field_key)
+    case association do
+      %Ecto.Association.HasThrough{
+        through: [field1, field2]
+      } ->
+        schema
+        |> get_associated_schema_from_field(field1)
+        |> get_associated_schema_from_field(field2)
+      %{related: related} ->
+        related
+      _ ->
+        raise ArgumentError, message: "#{Atom.to_string(field_key)} does not have an associated schema for #{schema.__schema__(:source)}"
+    end
   end
 
   defp build_relational_query_fields_filter(query, binding_alias, field_key, filters) do
