@@ -4,7 +4,7 @@ defmodule EctoShorts.MixProject do
   def project do
     [
       app: :ecto_shorts,
-      version: "2.3.0",
+      version: "2.4.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -26,7 +26,6 @@ defmodule EctoShorts.MixProject do
 
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix],
-        plt_ignore_apps: [:ecto_shorts],
         list_unused_filters: true,
         ignore_warnings: ".dialyzer-ignore.exs",
         flags: [:unmatched_returns, :no_improper_lists]

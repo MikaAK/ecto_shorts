@@ -1,5 +1,11 @@
 ## Changelog
 
+#### V2.4.0
+- add recursive relational filtering
+- add `%{field: %{!=: [1, 2, 3]}}` to allow `NOT IN ANY` queries
+- fix intermittent failure from `function_exported?(schema, :create_changeset, 1)`
+
+
 #### V2.3.0
 - add ability to optionally require a id or a cast/put assoc
 - type spec fixes
