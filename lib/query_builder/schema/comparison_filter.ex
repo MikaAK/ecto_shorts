@@ -62,6 +62,10 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     where(query, [scm], not is_nil(field(scm, ^filter_field)))
   end
 
+  defp build_subfield_filter(query, filter_field, :!=, val) when is_list(val) do
+    where(query, [scm], field(scm, ^filter_field) not in ^val)
+  end
+
   defp build_subfield_filter(query, filter_field, :!=, {:lower, val}) do
     where(query, [scm], fragment("lower(?)", field(scm, ^filter_field)) != ^val)
   end
