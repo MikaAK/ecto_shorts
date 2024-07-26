@@ -5,7 +5,7 @@ defmodule EctoShorts do
 
 
 
-  There are 2 main modules Actions and CommonChanges
+  There are 2 main modules `EctoShorts.Actions` and `EctoShorts.CommonChanges`
 
   ### Actions
   `EctoShorts.Actions` allows for filters to be constructed from data such as

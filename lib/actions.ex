@@ -1,6 +1,51 @@
 defmodule EctoShorts.Actions do
   @moduledoc """
   Actions for CRUD in ecto, these can be used by all schemas/queries
+
+  Generally we can define our contexts to be very reusable by creating
+  them to look something like this:
+
+
+      defmodule MyApp.Accounts do
+        alias EctoShorts.Actions
+        alias MyApp.Accounts.User
+
+        def all_users(params), do: Actions.all(User, params)
+        def find_user(params), do: Actions.find(User, params)
+      end
+
+  We're then able to use this context with all filters that are
+  supported by `EctoShorts.CommonFilters` without having to create new queries
+
+
+      def do_something do
+        MyApp.Accounts.all_user(%{
+          first_name: %{ilike: "john"},
+          age: %{gte: 18},
+          priority_level: 5,
+          address: %{country: "Canada"}
+        })
+      end
+
+
+  You can read more on reusable ecto code [here](https://learn-elixir.dev/blogs/creating-reusable-ecto-code)
+
+  ### Supporting multiple Repos
+
+  To support multiple repos, what we can do is pass arguments to the last parameter
+  of most `EctoShorts.Actions` calls
+
+  #### Example
+
+      defmodule MyApp.Accounts do
+        alias EctoShorts.Actions
+        alias MyApp.Accounts.User
+
+        @repo [repo: MyApp.Repo.Replica1]
+
+        def all_users(params), do: Actions.all(User, params, @repo)
+        def find_user(params), do: Actions.find(User, params, @repo)
+      end
   """
 
   @type query :: Ecto.Query.t() | Ecto.Schema.t()| module()

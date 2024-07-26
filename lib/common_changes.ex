@@ -1,6 +1,57 @@
 defmodule EctoShorts.CommonChanges do
   @moduledoc """
-  This module is responsible for determining put/cast assoc as well as creating and updating model relations
+  `CommonChanges` is a collection of functions to help with managing
+  and creating our `&changeset/2` function in our schemas.
+
+  ### Preloading associations on change
+  Often times we want to be able to change an association with
+  `(put/cast)_assoc`, but we have an awkwardness of having to use
+  a preload in a spot to do this. We can aleviate that by doing the following:
+
+      defmodule MyApp.Accounts.User do
+        def changeset(changeset, params) do
+          changeset
+            |> cast([:name, :email])
+            |> validate_required([:name, :email])
+            |> EctoShorts.CommonChanges.preload_change_assoc(:address)
+        end
+      end
+
+  Doing this allows us to then pass address in via a map, or even using
+  the struct from the database directly to add as a relation
+
+  ### Validating relation is passed in somehow
+  We can validate for a relation being passed in via id or by using our
+  preload_change_assoc by doing the following:
+
+      defmodule MyApp.Accounts.User do
+        def changeset(changeset, params) do
+          changeset
+            |> cast([:name, :email, :address_id])
+            |> validate_required([:name, :email])
+            |> EctoShorts.CommonChanges.preload_change_assoc(:address,
+              required_when_missing: :address_id
+            )
+        end
+      end
+
+  ### Conditional functions
+  We can also run functions when something happens by defining conditional functions like so:
+
+      defmodule MyApp.Accounts.User do
+        alias EctoShorts.CommonChanges
+
+        def changeset(changeset, params) do
+          changeset
+            |> cast([:name, :email, :address_id])
+            |> validate_required([:name, :email])
+            |> CommonChanges.put_when(
+              &CommonChanges.changeset_field_nil?(&1, :email),
+              &put_change(&1, :email, "some_default@gmail.com")
+            )
+        end
+      end
+
   """
   require Logger
 
