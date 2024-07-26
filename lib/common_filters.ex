@@ -77,7 +77,8 @@ defmodule EctoShorts.CommonFilters do
   end
 
   def create_schema_filter({filter, val}, query) do
-    QueryBuilder.create_schema_filter(QueryBuilder.Schema, {filter, val}, query)
+    builder = if filter in QueryBuilder.Custom.filters(), do: QueryBuilder.Custom, else: QueryBuilder.Schema
+    builder.create_schema_filter({filter, val}, query)
   end
 
   defp ensure_last_is_final_filter(params) do
