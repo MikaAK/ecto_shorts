@@ -2,7 +2,7 @@ defmodule EctoShorts.CommonChanges do
   @moduledoc """
   This module is responsible for determining put/cast assoc as well as creating and updating model relations
   """
-  import Logger, only: [warn: 1]
+  require Logger
 
   import Ecto.Changeset, only: [
     get_field: 2,
@@ -108,7 +108,7 @@ defmodule EctoShorts.CommonChanges do
         |> elem(1)
         |> Map.get(:queryable)
     else
-      warn "Changeset relationship for CommonChanges.put_or_cast_assoc #{key} was not found"
+      Logger.warning("Changeset relationship for CommonChanges.put_or_cast_assoc #{key} was not found")
 
       changeset
     end

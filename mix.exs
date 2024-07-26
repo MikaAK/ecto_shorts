@@ -5,15 +5,25 @@ defmodule EctoShorts.MixProject do
     [
       app: :ecto_shorts,
       version: "2.3.0",
-      elixir: "~> 1.7",
+      elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Helper tools for making ecto interactions more pleasant and shorter",
       docs: docs(),
       package: package(),
+      elixirc_paths: elixirc_paths(Mix.env()),
+      test_coverage: [tool: ExCoveralls],
+
       preferred_cli_env: [
-        dialyzer: :test
-        ],
+        coveralls: :test,
+        doctor: :test,
+        coverage: :test,
+        dialyzer: :test,
+        "coveralls.lcov": :test,
+        "coveralls.json": :test,
+        "coveralls.html": :test
+      ],
+
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix],
         plt_ignore_apps: [:ecto_shorts],
@@ -36,10 +46,16 @@ defmodule EctoShorts.MixProject do
     [
       {:ecto_sql, "~> 3.10"},
       {:error_message, "~> 0.1"},
+
+      {:credo, ">= 0.0.0", only: [:dev, :test]},
+      {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
       {:ex_doc, ">= 0.0.0", only: :dev},
       {:dialyxir, "~> 1.1", only: :test, runtime: false}
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   defp package do
     [

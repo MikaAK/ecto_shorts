@@ -318,9 +318,7 @@ defmodule EctoShorts.Actions do
 
 
   def update(schema, schema_data, updates, opts) do
-    with {:ok, schema_data} <- repo!(opts).update(schema.changeset(schema_data, updates), opts) do
-      {:ok, schema_data}
-    end
+    repo!(opts).update(schema.changeset(schema_data, updates), opts)
   end
 
   @doc """
