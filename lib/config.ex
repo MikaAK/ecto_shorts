@@ -1,4 +1,6 @@
 defmodule EctoShorts.Config do
+  @moduledoc false
+
   @app :ecto_shorts
 
   def repo do
