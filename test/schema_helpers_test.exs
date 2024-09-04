@@ -6,6 +6,6 @@ defmodule EctoShorts.SchemaHelpersTest do
   # doctest SchemaHelpers
 
   def create_schema do
-    # EctoShorts.Support.TestSchema.insert!(:account_user)
+    # EctoShorts.Support.Comment.insert!(:account_user)
   end
 end
