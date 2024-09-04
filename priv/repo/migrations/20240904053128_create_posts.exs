@@ -1,4 +1,4 @@
-defmodule EctoShorts.Repo.Migrations.CreateTestPosts do
+defmodule EctoShorts.Repo.Migrations.CreatePosts do
   use Ecto.Migration
 
   def change do
