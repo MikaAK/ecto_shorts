@@ -2,6 +2,7 @@ defmodule EctoShorts.Support.Schemas.Post do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
+  import Ecto.Query
 
   schema "posts" do
     field :title, :string
@@ -23,5 +24,13 @@ defmodule EctoShorts.Support.Schemas.Post do
 
   def create_changeset(attrs \\ %{}) do
     changeset(%__MODULE__{}, attrs)
+  end
+
+  # This callback function is invoked by `EctoShorts.CommonFilters.convert_params_to_filter`
+  # when `:search` is specified in parameters.
+  def by_search(query, attrs) do
+    filters = Map.to_list(attrs)
+
+    where(query, ^filters)
   end
 end
