@@ -6,6 +6,7 @@ defmodule EctoShorts.Support.Schemas.Comment do
   schema "comments" do
     field :body, :string
     field :count, :integer
+    field :tags, {:array, :string}
 
     belongs_to :post, EctoShorts.Support.Schemas.Post
 

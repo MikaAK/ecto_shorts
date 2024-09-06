@@ -47,7 +47,8 @@ defmodule EctoShorts.SchemaHelpers do
 
   @spec created?(Ecto.Schema.t | any) :: boolean
   @doc """
-  Determine if item has been created or not
+  Returns `true` if the map has the atom key `:id` or
+  the string key `"id"` and the value is not nil.
 
   ## Example
 
@@ -58,8 +59,8 @@ defmodule EctoShorts.SchemaHelpers do
     iex> SchemaHelpers.created?(%{item: 3})
     false
   """
-  def created?(%{id: _}), do: true
-  def created?(%{"id" => _}), do: true
+  def created?(%{id: id}), do: !is_nil(id)
+  def created?(%{"id" => id}), do: !is_nil(id)
   def created?(_), do: false
 
   @spec all_created?(list(Ecto.Schema.t | any)) :: boolean
@@ -77,7 +78,8 @@ defmodule EctoShorts.SchemaHelpers do
 
   @spec any_created?(list(Ecto.Schema.t | any)) :: boolean
   @doc """
-  Determine if any items in list has been created or not
+  Returns `true` if any of the items passed as an argument to
+  `EctoShorts.SchemaHelpers.created?/1` is `true`.
 
   ## Example
 

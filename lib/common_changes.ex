@@ -79,22 +79,47 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  @doc "Checks if field on changeset is empty list in data or changes"
+  @doc """
+  Returns true if the field on the changeset is an empty list in
+  the data or changes.
+
+  ### Examples
+
+      iex> EctoShorts.CommonChanges.changeset_field_empty?(changeset, :comments)
+  """
   @spec changeset_field_empty?(Changeset.t, atom) :: boolean
   def changeset_field_empty?(changeset, key) do
     get_field(changeset, key) === []
   end
 
-  @doc "Checks if field on changeset is nil in data or changes"
+  @doc """
+  Returns true if the field on the changeset is nil in the data
+  or changes.
+
+  ### Examples
+
+      iex> EctoShorts.CommonChanges.changeset_field_nil?(changeset, :comments)
+  """
   @spec changeset_field_nil?(Changeset.t, atom) :: boolean
   def changeset_field_nil?(changeset, key) do
-    is_nil(get_field(changeset, key))
+    changeset |> get_field(key) |> is_nil()
   end
 
   @doc """
   This function is the primary use function
   Preloads changeset assoc if change is made and then and put_or_cast's it
 
+  ### Options
+
+    * `required_when_missing` - Sets `:required` to true if the
+      field is `nil` in both changes and data. See the
+      `:required` option documentation for details.
+
+    * `:required` - Indicates if the association is mandatory.
+      For one-to-one associations, a non-nil value satisfies
+      this validation. For many associations, a non-empty list
+      is sufficient. See [Ecto.Changeset.cast_assoc/3](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast_assoc/3)
+      for more information.
 
   ## Example
 
@@ -103,31 +128,32 @@ defmodule EctoShorts.CommonChanges do
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
     iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required_when_missing: :my_relation_id)
   """
-  @spec preload_change_assoc(Changeset.t, atom, keyword()) :: Changeset.t
-  @spec preload_change_assoc(Changeset.t, atom) :: Changeset.t
+  @spec preload_change_assoc(Changeset.t(), atom(), keyword()) :: Changeset.t
   def preload_change_assoc(changeset, key, opts) do
-    required? = if opts[:required_when_missing] do
-      changeset_field_nil?(changeset, opts[:required_when_missing])
-    else
-      opts[:required]
-    end
+    required? =
+      if opts[:required_when_missing] do
+        changeset_field_nil?(changeset, opts[:required_when_missing])
+      else
+        opts[:required] === true
+      end
 
     opts = Keyword.put(opts, :required, required?)
 
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
       changeset
-        |> preload_changeset_assoc(key, opts)
-        |> put_or_cast_assoc(key, opts)
+      |> preload_changeset_assoc(key, opts)
+      |> put_or_cast_assoc(key, opts)
     else
       cast_assoc(changeset, key, opts)
     end
   end
 
+  @spec preload_change_assoc(Changeset.t(), atom()) :: Changeset.t
   def preload_change_assoc(changeset, key) do
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
       changeset
-        |> preload_changeset_assoc(key)
-        |> put_or_cast_assoc(key)
+      |> preload_changeset_assoc(key)
+      |> put_or_cast_assoc(key)
     else
       cast_assoc(changeset, key)
     end
@@ -154,14 +180,13 @@ defmodule EctoShorts.CommonChanges do
 
   defp changeset_relationship_schema(changeset, key) do
     if Map.has_key?(changeset.types, key) and relationship_exists?(changeset.types[key]) do
-      changeset.types
-        |> Map.get(key)
-        |> elem(1)
-        |> Map.get(:queryable)
-    else
-      Logger.warning("Changeset relationship for CommonChanges.put_or_cast_assoc #{key} was not found")
+      {:assoc, assoc} = Map.get(changeset.types, key)
 
-      changeset
+      assoc.queryable
+    else
+      %parent_schema{} = changeset.data
+
+      raise ArgumentError, "The key #{inspect(key)} is not an association for the queryable #{inspect(parent_schema)}."
     end
   end
 
@@ -191,13 +216,13 @@ defmodule EctoShorts.CommonChanges do
 
   defp find_method_and_put_or_cast(changeset, key, params_data, opts) when is_list(params_data) do
     cond do
-
-      SchemaHelpers.all_schemas?(params_data) -> put_assoc(
-        changeset,
-        key,
-        params_data,
-        opts
-      )
+      SchemaHelpers.all_schemas?(params_data) ->
+        put_assoc(
+          changeset,
+          key,
+          params_data,
+          opts
+        )
 
       member_update?(params_data) ->
         schema = changeset_relationship_schema(changeset, key)
@@ -207,13 +232,15 @@ defmodule EctoShorts.CommonChanges do
 
       SchemaHelpers.any_created?(params_data) ->
         changeset
-          |> preload_changeset_assoc(
-            key,
-            Keyword.put(opts, :ids, params_data |> data_ids |> Enum.reject(&is_nil/1))
-          )
-          |> cast_assoc(key, opts)
+        |> preload_changeset_assoc(
+          key,
+          Keyword.put(opts, :ids, params_data |> data_ids() |> Enum.reject(&is_nil/1))
+        )
+        |> cast_assoc(key, opts)
 
-      true -> cast_assoc(changeset, key, opts)
+      true ->
+        cast_assoc(changeset, key, opts)
+
     end
   end
 
