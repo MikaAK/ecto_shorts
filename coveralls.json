@@ -11,6 +11,7 @@
     "defdelegate"
   ],
   "skip_files": [
-    "lib/ecto_shorts.ex"
+    "lib/ecto_shorts.ex",
+    "test/support/*"
   ]
 }
