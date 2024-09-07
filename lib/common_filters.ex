@@ -72,12 +72,24 @@ defmodule EctoShorts.CommonFilters do
       |> Enum.reduce(query, &create_schema_filter/2)
   end
 
-  def create_schema_filter({filter, val}, query) when filter in @common_filters do
-    QueryBuilder.create_schema_filter(QueryBuilder.Common, {filter, val}, query)
+  def create_schema_filter({filter, val}, query) do
+    schema = QueryBuilder.query_schema(query)
+
+    cond do
+      schema_supports_custom_filters?(schema) and filter in schema.custom_filters() ->
+        schema.create_schema_filter({filter, val}, query)
+
+      filter in @common_filters ->
+        QueryBuilder.create_schema_filter(QueryBuilder.Common, {filter, val}, query)
+
+      true ->
+        QueryBuilder.create_schema_filter(QueryBuilder.Schema, {filter, val}, query)
+    end
   end
 
-  def create_schema_filter({filter, val}, query) do
-    QueryBuilder.create_schema_filter(QueryBuilder.Schema, {filter, val}, query)
+  defp schema_supports_custom_filters?(schema) do
+    function_exported?(schema, :custom_filters, 0) and
+      function_exported?(schema, :create_schema_filter, 2)
   end
 
   defp ensure_last_is_final_filter(params) do
