@@ -220,7 +220,6 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
 
   defp build_relational_query_fields_filter(query, binding_alias, field_key, filters) do
     Enum.reduce(filters, query, fn ({filter_type, value}, query) ->
-      IO.inspect("FOO")
       convert_to_field_comparison_filter(query, binding_alias, field_key, filter_type, value)
     end)
   end
