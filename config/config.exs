@@ -7,10 +7,10 @@ config :ecto_shorts,
   error_module: EctoShorts.Actions.Error
 
 if Mix.env() == :test do
-  config :ecto_shorts, ecto_repos: [EctoShorts.Repo]
-  config :ecto_shorts, repo: EctoShorts.Repo
+  config :ecto_shorts, ecto_repos: [EctoShorts.Support.Repo]
+  config :ecto_shorts, repo: EctoShorts.Support.Repo
   config :ecto_shorts, :sql_sandbox, true
-  config :ecto_shorts, EctoShorts.Repo,
+  config :ecto_shorts, EctoShorts.Support.Repo,
     username: "postgres",
     database: "ecto_shorts",
     hostname: "localhost",

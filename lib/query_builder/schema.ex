@@ -62,10 +62,6 @@ defmodule EctoShorts.QueryBuilder.Schema do
     end
   end
 
-  defp create_schema_assocation_filter(_query, filter_field, _val, schema, nil) do
-    raise ArgumentError, message: "#{Atom.to_string(filter_field)} does not have an associated schema for #{schema.__schema__(:source)}"
-  end
-
   defp create_schema_assocation_filter(query, filter_field, val, _schema, relational_schema) do
     binding_alias = :"ecto_shorts_#{filter_field}"
 

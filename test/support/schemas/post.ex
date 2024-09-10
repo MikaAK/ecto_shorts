@@ -2,6 +2,7 @@ defmodule EctoShorts.Support.Schemas.Post do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
+
   require Ecto.Query
 
   schema "posts" do
@@ -10,10 +11,16 @@ defmodule EctoShorts.Support.Schemas.Post do
 
     has_many :comments, EctoShorts.Support.Schemas.Comment
 
+    has_many :authors, through: [:comments, :user]
+
+    belongs_to :user, EctoShorts.Support.Schemas.User
+
+    many_to_many :users, EctoShorts.Support.Schemas.User, join_through: "users_posts"
+
     timestamps()
   end
 
-  @available_attributes [:title, :unique_identifier]
+  @available_attributes [:title, :unique_identifier, :user_id]
 
   def changeset(model_or_changeset, attrs \\ %{}) do
     model_or_changeset

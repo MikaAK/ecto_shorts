@@ -16,7 +16,7 @@ defmodule EctoShorts.DataCase do
 
   using do
     quote do
-      alias EctoShorts.Repo
+      alias EctoShorts.Support.Repo
 
       import Ecto
       import Ecto.Changeset
@@ -26,10 +26,10 @@ defmodule EctoShorts.DataCase do
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(EctoShorts.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(EctoShorts.Support.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(EctoShorts.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(EctoShorts.Support.Repo, {:shared, self()})
     end
 
     :ok

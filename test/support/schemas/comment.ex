@@ -10,10 +10,12 @@ defmodule EctoShorts.Support.Schemas.Comment do
 
     belongs_to :post, EctoShorts.Support.Schemas.Post
 
+    belongs_to :user, EctoShorts.Support.Schemas.User
+
     timestamps()
   end
 
-  @available_attributes [:body, :count, :post_id]
+  @available_attributes [:body, :count, :post_id, :user_id]
 
   def changeset(model_or_changeset, attrs \\ %{}) do
     model_or_changeset
