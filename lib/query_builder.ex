@@ -16,5 +16,6 @@ defmodule EctoShorts.QueryBuilder do
   @doc "Pulls the schema from a query"
   def query_schema(%{from: %{source: {_, schema}}}), do: query_schema(schema)
   def query_schema(%{from: %{query: %{from: {_, schema}}}}), do: schema
+  def query_schema({_, schema}), do: schema
   def query_schema(query), do: query
 end
