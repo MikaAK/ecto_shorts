@@ -3,7 +3,6 @@ defmodule EctoShorts.QueryBuilder.CommonTest do
   doctest EctoShorts.QueryBuilder.Common
 
   alias EctoShorts.QueryBuilder.Common
-
   alias EctoShorts.Support.Schemas.Comment
 
   describe "filters: " do

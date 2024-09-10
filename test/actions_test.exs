@@ -145,6 +145,19 @@ defmodule EctoShorts.ActionsTest do
 
       assert error_id === schema_data.id
     end
+
+    test "returns not found error message when params is an empty map" do
+      assert {:error, error} = Actions.find(Comment, %{})
+
+      assert %ErrorMessage{
+        code: :not_found,
+        details: %{
+          params: %{},
+          query: EctoShorts.Support.Schemas.Comment
+        },
+        message: "no records found"
+      } = error
+    end
   end
 
   describe "find_or_create: " do
