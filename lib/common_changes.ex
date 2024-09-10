@@ -62,8 +62,8 @@ defmodule EctoShorts.CommonChanges do
     cast_assoc: 3
   ]
 
-  alias EctoShorts.{Actions, SchemaHelpers, Config}
   alias Ecto.Changeset
+  alias EctoShorts.{Actions, Config, SchemaHelpers}
 
   @doc "Run's changeset function if when function returns true"
   @spec put_when(

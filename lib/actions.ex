@@ -55,8 +55,7 @@ defmodule EctoShorts.Actions do
   @type schema_list :: list(Ecto.Schema.t)
   @type schema_res :: {:ok, Ecto.Schema.t} | {:error, any}
 
-
-  alias EctoShorts.{CommonFilters, Actions.Error, Config}
+  alias EctoShorts.{Actions.Error, CommonFilters, Config}
 
   @doc """
   Gets a schema from the database

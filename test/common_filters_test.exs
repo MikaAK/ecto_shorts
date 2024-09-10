@@ -242,7 +242,6 @@ defmodule EctoShorts.CommonFiltersTest do
       ] = order_bys
     end
 
-
     test "returns a query with limit when limit is specified" do
       expected_limit = 5
 
