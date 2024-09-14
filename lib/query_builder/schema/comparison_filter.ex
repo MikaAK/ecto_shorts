@@ -147,9 +147,10 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :ilike, val) do
     search_query = "%#{val}%"
 
-    case binding_alias do
-      nil -> where(query, [scm], ilike(field(scm, ^filter_field), ^search_query))
-      binding_alias -> where(query, [{^binding_alias, scm}], ilike(field(scm, ^filter_field), ^search_query))
+    if binding_alias do
+      where(query, [{^binding_alias, scm}], ilike(field(scm, ^filter_field), ^search_query))
+    else
+      where(query, [scm], ilike(field(scm, ^filter_field), ^search_query))
     end
   end
 
