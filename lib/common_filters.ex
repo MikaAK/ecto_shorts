@@ -66,9 +66,7 @@ defmodule EctoShorts.CommonFilters do
   end
 
   def convert_params_to_filter(query, params) when is_map(params) do
-    params = Map.to_list(params)
-
-    convert_params_to_filter(query, params)
+    convert_params_to_filter(query, Map.to_list(params))
   end
 
   def convert_params_to_filter(query, params) do
