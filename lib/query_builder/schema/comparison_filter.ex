@@ -26,7 +26,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
 
   def build(query, filter_field, filters) when is_map(filters) do
     Enum.reduce(filters, query, fn ({filter_type, value}, query) ->
-      convert_to_field_comparison_filter(query, nil, filter_field, filter_type, value)
+      build_schema_field_filters(query, nil, filter_field, filter_type, value)
     end)
   end
 
@@ -54,7 +54,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     where(query, [scm], ^val in field(scm, ^filter_field))
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :==, nil) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :==, nil) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], is_nil(field(scm, ^filter_field)))
     else
@@ -62,7 +62,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :!=, nil) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, nil) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], not is_nil(field(scm, ^filter_field)))
     else
@@ -70,7 +70,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :!=, val) when is_list(val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, val) when is_list(val) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], field(scm, ^filter_field) not in ^val)
     else
@@ -78,7 +78,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :!=, {:lower, val}) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, {:lower, val}) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], fragment("lower(?)", field(scm, ^filter_field)) != ^val)
     else
@@ -86,7 +86,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :!=, {:upper, val}) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, {:upper, val}) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], fragment("upper(?)", field(scm, ^filter_field)) != ^val)
     else
@@ -94,7 +94,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :!=, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, val) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], field(scm, ^filter_field) != ^val)
     else
@@ -102,7 +102,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :gt, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :gt, val) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], field(scm, ^filter_field) > ^val)
     else
@@ -110,7 +110,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :lt, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :lt, val) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], field(scm, ^filter_field) < ^val)
     else
@@ -118,7 +118,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :gte, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :gte, val) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], field(scm, ^filter_field) >= ^val)
     else
@@ -126,7 +126,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :lte, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :lte, val) do
     if binding_alias do
       where(query, [{^binding_alias, scm}], field(scm, ^filter_field) <= ^val)
     else
@@ -134,7 +134,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :like, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :like, val) do
     search_query = "%#{val}%"
 
     if binding_alias do
@@ -144,7 +144,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp convert_to_field_comparison_filter(query, binding_alias, filter_field, :ilike, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_field, :ilike, val) do
     search_query = "%#{val}%"
 
     if binding_alias do
@@ -228,7 +228,7 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
 
   defp build_relational_query_fields_filter(query, binding_alias, field_key, filters) do
     Enum.reduce(filters, query, fn ({filter_type, value}, query) ->
-      convert_to_field_comparison_filter(query, binding_alias, field_key, filter_type, value)
+      build_schema_field_filters(query, binding_alias, field_key, filter_type, value)
     end)
   end
 

@@ -84,8 +84,7 @@ defmodule EctoShorts.MixProject do
         ],
 
         "Misc Modules": [
-          EctoShorts.Actions.Error,
-          EctoShorts.Support.Repo
+          EctoShorts.Actions.Error
         ],
 
         "Query Builder Modules": [
