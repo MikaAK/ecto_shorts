@@ -396,7 +396,7 @@ defmodule EctoShorts.Actions do
     # The schema data is wrapped in a changeset before delete
     # so that ecto can apply the constraint error to the
     # changeset instead of raising `Ecto.ConstraintError`.
-    changeset = changeset(schema, schema_data, %{})
+    changeset = schema.changeset(schema_data, %{})
 
     case repo!(opts).delete(changeset, opts) do
       {:error, changeset} ->
@@ -534,17 +534,13 @@ defmodule EctoShorts.Actions do
     end)
   end
 
-  defp changeset(schema, schema_data, params) do
-    schema.changeset(schema_data, params)
-  end
-
   defp create_changeset(params, schema) do
     if Code.ensure_loaded?(schema) and function_exported?(schema, :create_changeset, 1) do
       schema.create_changeset(params)
     else
       schema_data = struct(schema)
 
-      changeset(schema, schema_data, params)
+      schema.changeset(schema_data, params)
     end
   end
 
