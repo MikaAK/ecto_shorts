@@ -55,8 +55,7 @@ defmodule EctoShorts.Actions do
   @type schema_list :: list(Ecto.Schema.t)
   @type schema_res :: {:ok, Ecto.Schema.t} | {:error, any}
 
-
-  alias EctoShorts.{CommonFilters, Actions.Error, Config}
+  alias EctoShorts.{Actions.Error, CommonFilters, Config}
 
   @doc """
   Gets a schema from the database
@@ -292,7 +291,6 @@ defmodule EctoShorts.Actions do
     end
   end
 
-
   @doc """
   Updates a schema with given updates. Can also accept a keyword options list.
 
@@ -312,7 +310,6 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-
   @spec update(
     schema :: Ecto.Schema.t() | module(),
     id :: pos_integer | String.t(),
@@ -338,7 +335,6 @@ defmodule EctoShorts.Actions do
 
   def update(schema, schema_data, updates, opts \\ [])
 
-
   def update(schema, schema_id, updates, opts) when is_integer(schema_id) or is_binary(schema_id) do
     case get(schema, schema_id, opts) do
       nil ->
@@ -355,12 +351,9 @@ defmodule EctoShorts.Actions do
     end
   end
 
-
   def update(schema, schema_data, updates, opts) when is_list(updates) do
     update(schema, schema_data, Map.new(updates), opts)
   end
-
-
 
   def update(schema, schema_data, updates, opts) do
     repo!(opts).update(schema.changeset(schema_data, updates), opts)
@@ -400,7 +393,12 @@ defmodule EctoShorts.Actions do
   """
   @spec delete(schema_data :: Ecto.Schema.t | schema_list() | module(), opts) :: {:ok, Ecto.Schema.t} | {:error, any()}
   def delete(%schema{} = schema_data, opts) do
-    case repo!(opts).delete(schema_data, opts) do
+    # The schema data is wrapped in a changeset before delete
+    # so that ecto can apply the constraint error to the
+    # changeset instead of raising `Ecto.ConstraintError`.
+    changeset = schema.changeset(schema_data, %{})
+
+    case repo!(opts).delete(changeset, opts) do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
@@ -419,6 +417,7 @@ defmodule EctoShorts.Actions do
   def delete(schema, id) when is_atom(schema) and (is_binary(id) or is_integer(id)) do
     delete(schema, id, default_opts())
   end
+
   @doc """
   Deletes a schema. Can also accept a keyword options list.
 
@@ -509,6 +508,9 @@ defmodule EctoShorts.Actions do
     end
   end
 
+  def find_or_create_many(schema, param_list) do
+    find_or_create_many(schema, param_list, default_opts())
+  end
 
   defp find_many(schema, param_list, opts) do
     param_list
@@ -536,7 +538,9 @@ defmodule EctoShorts.Actions do
     if Code.ensure_loaded?(schema) and function_exported?(schema, :create_changeset, 1) do
       schema.create_changeset(params)
     else
-      schema.changeset(struct(schema, %{}), params)
+      schema_data = struct(schema)
+
+      schema.changeset(schema_data, params)
     end
   end
 

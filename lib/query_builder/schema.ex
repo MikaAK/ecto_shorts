@@ -4,12 +4,11 @@ defmodule EctoShorts.QueryBuilder.Schema do
   when passed a query it can pull the schema from it and attempt
   to filter on any natural field
   """
+  alias EctoShorts.QueryBuilder
+  alias EctoShorts.QueryBuilder.Schema.ComparisonFilter
 
   require Logger
   require Ecto.Query
-
-  alias EctoShorts.QueryBuilder
-  alias EctoShorts.QueryBuilder.Schema.ComparisonFilter
 
   @behaviour QueryBuilder
 
@@ -28,8 +27,10 @@ defmodule EctoShorts.QueryBuilder.Schema do
         create_schema_query_field_filter(query, schema, filter_field, val)
 
       filter_field in schema.__schema__(:associations) ->
-        relational_schema = get_associated_schema_from_field(schema, filter_field)
+        relational_schema = ecto_association_queryable!(schema, filter_field)
+
         create_schema_assocation_filter(query, filter_field, val, schema, relational_schema)
+
       true ->
         Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is neither a field nor has a valid association for #{schema.__schema__(:source)} where filter")
 
@@ -37,19 +38,16 @@ defmodule EctoShorts.QueryBuilder.Schema do
     end
   end
 
-  defp get_associated_schema_from_field(schema, field_key) do
-    association = schema.__schema__(:association, field_key)
-    case association do
-      %Ecto.Association.HasThrough{
-        through: [field1, field2]
-      } ->
+  defp ecto_association_queryable!(schema, field_key) do
+    case schema.__schema__(:association, field_key) do
+      %Ecto.Association.HasThrough{through: [field1, field2]} ->
         schema
-        |> get_associated_schema_from_field(field1)
-        |> get_associated_schema_from_field(field2)
+        |> ecto_association_queryable!(field1)
+        |> ecto_association_queryable!(field2)
+
       %{related: related} ->
         related
-      _ ->
-        raise ArgumentError, message: "#{Atom.to_string(field_key)} does not have an associated schema for #{schema.__schema__(:source)}"
+
     end
   end
 
@@ -57,13 +55,11 @@ defmodule EctoShorts.QueryBuilder.Schema do
     case schema.__schema__(:type, filter_field) do
       {:array, _} ->
         ComparisonFilter.build_array(query, schema.__schema__(:field_source, filter_field), val)
+
       _ ->
         ComparisonFilter.build(query, schema.__schema__(:field_source, filter_field), val)
-    end
-  end
 
-  defp create_schema_assocation_filter(_query, filter_field, _val, schema, nil) do
-    raise ArgumentError, message: "#{Atom.to_string(filter_field)} does not have an associated schema for #{schema.__schema__(:source)}"
+    end
   end
 
   defp create_schema_assocation_filter(query, filter_field, val, _schema, relational_schema) do

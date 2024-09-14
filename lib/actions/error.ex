@@ -11,7 +11,9 @@ defmodule EctoShorts.Actions.Error do
   @callback create_error(atom, String.t, map) :: t
 
   def call(code, message, details) do
-    apply(error_module(), :create_error, [code, message, details])
+    module = error_module()
+
+    module.create_error(code, message, details)
   end
 
   def error_module, do: Application.get_env(:ecto_shorts, :error_module) || EctoShorts.Actions.Error

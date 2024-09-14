@@ -3,8 +3,6 @@ defmodule EctoShorts do
   Ecto Shorts is a library created to help shorten ecto interactions
   and remove most of the related code.
 
-
-
   There are 2 main modules `EctoShorts.Actions` and `EctoShorts.CommonChanges`
 
   ### Actions
@@ -35,8 +33,6 @@ defmodule EctoShorts do
   ## Options
     * `:repo` - A module that uses the Ecto.Repo Module.
     * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
-
-
 
   See `EctoShorts.CommonFilters` for more info on filters
 

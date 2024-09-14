@@ -61,15 +61,18 @@ defmodule EctoShorts.CommonFilters do
     queryable :: Ecto.Queryable.t(),
     params :: Keyword.t | map
   ) :: Ecto.Query.t
-  def convert_params_to_filter(query, params) when params === %{}, do: query
+  def convert_params_to_filter(query, params) when params === %{} do
+    query
+  end
+
   def convert_params_to_filter(query, params) when is_map(params) do
     convert_params_to_filter(query, Map.to_list(params))
   end
 
   def convert_params_to_filter(query, params) do
     params
-      |> ensure_last_is_final_filter
-      |> Enum.reduce(query, &create_schema_filter/2)
+    |> ensure_last_is_final_filter
+    |> Enum.reduce(query, &create_schema_filter/2)
   end
 
   def create_schema_filter({filter, val}, query) when filter in @common_filters do
@@ -83,8 +86,8 @@ defmodule EctoShorts.CommonFilters do
   defp ensure_last_is_final_filter(params) do
     if Keyword.has_key?(params, :last) do
       params
-        |> Keyword.delete(:last)
-        |> Kernel.++([last: params[:last]])
+      |> Keyword.delete(:last)
+      |> Kernel.++([last: params[:last]])
     else
       params
     end
