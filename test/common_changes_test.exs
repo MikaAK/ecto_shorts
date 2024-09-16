@@ -152,42 +152,63 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "preloads data, applies changes, and casts associations with an ID key" do
-      assert {:ok, existing_comment} = Actions.create(Comment, %{body: "created_body"})
+    test "preloads existing data, sets update action on change with id and sets insert action on change without id" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_post_title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        Actions.create(Comment, %{
+          body: "created_comment_body",
+          post_id: post_id
+        })
+
+      comment_id = comment.id
 
       params =
         %{
+          title: "updated_post_title",
           comments: [
-            %{id: existing_comment.id, body: "updated_body"},
-            %{body: "body"}
+            %{id: comment.id, body: "updated_comment_body"},
+            %{body: "new_comment_body"}
           ]
         }
 
       changeset =
-        %Post{}
+        post
         |> Post.changeset(params)
         |> CommonChanges.preload_change_assoc(:comments)
 
       assert %Ecto.Changeset{
         action: nil,
         changes: %{
+          title: "updated_post_title",
           comments: [
             %Ecto.Changeset{
               action: :update,
-              data: ^existing_comment,
-              changes: %{body: "updated_body"},
+              data: %Comment{
+                id: ^comment_id,
+                body: "created_comment_body"
+              },
+              changes: %{body: "updated_comment_body"},
               errors: [],
               valid?: true
             },
             %Ecto.Changeset{
               action: :insert,
-              changes: %{body: "body"},
+              changes: %{
+                body: "new_comment_body"
+              },
+              data: %Comment{},
               errors: [],
               valid?: true
             }
           ]
         },
-        data: %Post{},
+        data: %Post{
+          id: ^post_id,
+          title: "created_post_title"
+        },
         errors: [],
         valid?: true
       } = changeset
@@ -321,17 +342,99 @@ defmodule EctoShorts.CommonChangesTest do
         valid?: true
       } = changeset
     end
+
+    test "can preload change for many_to_many relationship" do
+      changeset =
+        %Post{}
+        |> Post.changeset(%{users: [%{id: 1}]})
+        |> CommonChanges.preload_change_assoc(:users)
+
+      assert %Ecto.Changeset{
+        changes: %{
+          users: [
+            %Ecto.Changeset{
+              changes: %{id: 1}
+            }
+          ]
+        }
+      } = changeset
+    end
   end
 
   describe "preload_changeset_assoc: " do
+    test "when options[:ids] is given no changes are made if the association does not exist" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      initial_changeset = Post.changeset(post, %{})
+
+      returned_changeset =
+        CommonChanges.preload_changeset_assoc(initial_changeset, :non_existent_association, ids: [1])
+
+      assert initial_changeset === returned_changeset
+    end
+
+    test "raises if option [:ids] is given and the association does not have a many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      assert {:ok, comment} = Actions.create(Comment, %{body: "body", post_id: post.id})
+
+      expected_message =
+        """
+        The option `:ids` was provided with the association :post
+        for the schema EctoShorts.Support.Schemas.Post which does not have the cardinality
+        `:many`.
+
+        This can only be used with `belongs_to` and `*_one` relationships.
+        """
+
+      func =
+        fn ->
+          comment
+          |> Comment.changeset(%{post: %{title: "updated_post_title"}})
+          |> CommonChanges.preload_changeset_assoc(:post, ids: [post.id])
+        end
+
+      assert_raise ArgumentError, expected_message, func
+    end
+
+    test "preloads many relationship by option [:ids]" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        Actions.create(Comment, %{
+          body: "body",
+          post_id: post_id
+        })
+
+      comment_id = comment.id
+
+      changeset =
+        post
+        |> Post.changeset(%{})
+        |> CommonChanges.preload_changeset_assoc(:comments, ids: [comment_id])
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{},
+        data: %Post{
+          id: ^post_id,
+          comments: [
+            %Comment{id: ^comment_id}
+          ]
+        },
+        errors: [],
+        valid?: true
+      } = changeset
+    end
+
     test "puts an association when the parameter is a map with an ID key" do
       assert {:ok, existing_post} = Actions.create(Post, %{title: "title"})
 
-      params = %{}
-
       changeset =
         %Comment{}
-        |> Comment.changeset(params)
+        |> Comment.changeset(%{})
         |> Ecto.Changeset.put_assoc(:post, existing_post)
         |> CommonChanges.preload_changeset_assoc(:post)
 
