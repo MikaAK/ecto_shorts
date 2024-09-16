@@ -51,7 +51,17 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
-    test "deletes many record by schema data" do
+    test "deletes many records by changeset" do
+      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+
+      changeset = Comment.changeset(schema_data, %{})
+
+      assert {:ok, [deleted_schema_data]} = Actions.delete([changeset])
+
+      assert deleted_schema_data.id === schema_data.id
+    end
+
+    test "deletes many records by schema data" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
       assert {:ok, [deleted_schema_data]} = Actions.delete([schema_data])
@@ -59,7 +69,35 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
-    test "returns error when delete fails due to a constraint delete" do
+    test "returns error when given a changeset and a constraint error occurs" do
+      assert {:ok, post_schema_data} = Actions.create(Post, %{title: "title"})
+
+      assert {:ok, _comment_schema_data} =
+        Actions.create(
+          Comment,
+          %{
+            body: "body",
+            post_id: post_schema_data.id
+          }
+        )
+
+      assert {:error, error} =
+        post_schema_data
+        |> Post.changeset(%{})
+        |> Actions.delete()
+
+      assert %ErrorMessage{
+        code: :internal_server_error,
+        details: %{changeset: changeset},
+        message: "Cannot delete record"
+      } = error
+
+      assert %Ecto.Changeset{} = changeset
+
+      assert {:comments, ["are still associated with this entry"]} in errors_on(changeset)
+    end
+
+    test "returns error when given schema data and a constraint error occurs" do
       assert {:ok, post_schema_data} = Actions.create(Post, %{title: "title"})
 
       assert {:ok, _comment_schema_data} =
@@ -79,7 +117,7 @@ defmodule EctoShorts.ActionsTest do
           changeset: changeset,
           schema_data: schema_data
         },
-        message: "Error deleting EctoShorts.Support.Schemas.Post"
+        message: "Cannot delete record"
       } = error
 
       assert %Ecto.Changeset{} = changeset
