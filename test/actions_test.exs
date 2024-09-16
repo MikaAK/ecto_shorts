@@ -69,7 +69,7 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
-    test "returns error when given a changeset and delete fails due to a constraint delete" do
+    test "returns error when given a changeset and a constraint error occurs" do
       assert {:ok, post_schema_data} = Actions.create(Post, %{title: "title"})
 
       assert {:ok, _comment_schema_data} =
@@ -97,7 +97,7 @@ defmodule EctoShorts.ActionsTest do
       assert {:comments, ["are still associated with this entry"]} in errors_on(changeset)
     end
 
-    test "returns error when given schema data and delete fails due to a constraint delete" do
+    test "returns error when given schema data and a constraint error occurs" do
       assert {:ok, post_schema_data} = Actions.create(Post, %{title: "title"})
 
       assert {:ok, _comment_schema_data} =
