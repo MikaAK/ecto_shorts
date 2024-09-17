@@ -8,7 +8,8 @@ defmodule EctoShorts.Support.Schemas.User do
 
     has_many :comments, EctoShorts.Support.Schemas.Comment
 
-    many_to_many :posts, EctoShorts.Support.Schemas.Post, join_through: "users_posts"
+    many_to_many :posts, EctoShorts.Support.Schemas.Post,
+      join_through: EctoShorts.Support.Schemas.UserPost
 
     timestamps()
   end

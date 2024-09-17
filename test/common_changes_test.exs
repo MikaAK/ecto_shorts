@@ -2,7 +2,7 @@ defmodule EctoShorts.CommonChangesTest do
   use EctoShorts.DataCase
 
   alias EctoShorts.{Actions, CommonChanges}
-  alias EctoShorts.Support.Schemas.{Comment, Post}
+  alias EctoShorts.Support.Schemas.{Comment, Post, User}
 
   describe "put_when: " do
     test "returns changeset without changes if evaluator function returns false" do
@@ -270,7 +270,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns invalid changeset when option :required is set and association does not exist in data or changes" do
+    test "changeset invalid when option :required is set and association does not exist in data or changes" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{})
@@ -281,7 +281,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert {:post, ["can't be blank"]} in errors_on(changeset)
     end
 
-    test "returns valid changeset when option :required is set and association exist in data" do
+    test "changeset valid when option :required is set and association exist in data" do
       changeset =
         %Comment{post: %Post{id: 1}}
         |> Comment.changeset(%{})
@@ -293,7 +293,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns a valid changeset when :required is set and the association exists in params" do
+    test "changeset valid when :required is set and the association exists in params" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{post: %{id: 1}})
@@ -306,7 +306,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns an invalid changeset when :required_when_missing is set and the association is missing in data or changes." do
+    test "changeset invalid when :required_when_missing set and the association does not exist in changeset data or changes" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{})
@@ -317,7 +317,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert {:post, ["can't be blank"]} in errors_on(changeset)
     end
 
-    test "returns a valid changeset when :required_when_missing is set and the association exists in data" do
+    test "changeset valid when :required_when_missing set, the required key is not given, and association exists in changeset data" do
       changeset =
         %Comment{post: %Post{id: 1}}
         |> Comment.changeset(%{})
@@ -329,7 +329,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns a valid changeset when :required_when_missing is set, the association is absent in data, and the key exists in params" do
+    test "changeset valid when :required_when_missing set, the required key is given, and association does not exist in changeset data" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{post_id: 1})
@@ -343,21 +343,81 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "can preload change for many_to_many relationship" do
-      changeset =
+    test "can preload has_many relationship" do
+      assert {:ok, post} =
         %Post{}
-        |> Post.changeset(%{users: [%{id: 1}]})
+        |> Post.changeset()
+        |> EctoShorts.Support.Repo.insert()
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{post: %{id: post_id}})
+        |> Ecto.Changeset.cast_assoc(:post)
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
+
+      post_changeset =
+        post
+        |> Post.changeset(%{comments: [%{id: comment_id, body: "updated_body"}]})
+        |> CommonChanges.preload_change_assoc(:comments)
+
+      assert %Ecto.Changeset{
+        changes: %{
+          comments: [
+            %Ecto.Changeset{
+              changes: %{body: "updated_body"},
+              data: %Comment{id: ^comment_id}
+            }
+          ]
+        },
+        data: %Post{
+          id: ^post_id,
+          comments: [
+            %Comment{id: ^comment_id}
+          ]
+        }
+      } = post_changeset
+    end
+
+    test "can preload many_to_many relationship" do
+      assert {:ok, post} =
+        %Post{}
+        |> Post.changeset()
+        |> EctoShorts.Support.Repo.insert()
+
+      assert {:ok, user} =
+        %User{}
+        |> User.changeset(%{email: "example"})
+        |> Ecto.Changeset.put_assoc(:posts, [post])
+        |> EctoShorts.Support.Repo.insert()
+
+      post_id = post.id
+      user_id = user.id
+
+      post_changeset =
+        post
+        |> Post.changeset(%{users: [%{id: user_id, email: "updated_email"}]})
         |> CommonChanges.preload_change_assoc(:users)
 
       assert %Ecto.Changeset{
         changes: %{
           users: [
             %Ecto.Changeset{
-              changes: %{id: 1}
+              changes: %{email: "updated_email"},
+              data: %User{id: ^user_id}
             }
           ]
+        },
+        data: %Post{
+          id: ^post_id,
+          users: [
+            %User{id: ^user_id}
+          ]
         }
-      } = changeset
+      } = post_changeset
     end
   end
 
@@ -397,7 +457,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert_raise ArgumentError, expected_message, func
     end
 
-    test "preloads many relationship by option [:ids]" do
+    test "can preloads has_many relationship given option :ids" do
       assert {:ok, post} = Actions.create(Post, %{title: "title"})
 
       post_id = post.id
@@ -429,7 +489,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "puts an association when the parameter is a map with an ID key" do
+    test "preloads belongs_to relationship" do
       assert {:ok, existing_post} = Actions.create(Post, %{title: "title"})
 
       changeset =

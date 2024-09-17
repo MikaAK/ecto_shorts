@@ -152,7 +152,7 @@ defmodule EctoShorts.CommonChanges do
     changeset
   end
 
-  defp do_preload_change_assoc(changeset, key, %{cardinality: :many}, opts) do
+  defp do_preload_change_assoc(changeset, key, %Ecto.Association.ManyToMany{}, opts) do
     case Map.get(changeset.params, Atom.to_string(key)) do
       nil -> changeset
       params_data ->
