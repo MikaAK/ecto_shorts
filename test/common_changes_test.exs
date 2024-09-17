@@ -528,18 +528,22 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "when when option :ids set no changes are made if the association does not exist" do
+    test "when option :ids set raises if the association does not exist" do
       assert {:ok, post} = Actions.create(Post, %{title: "title"})
 
-      initial_changeset = Post.changeset(post, %{})
+      expected_message = ~r|The key (.*) is not an association for the queryable (.*)|
 
-      returned_changeset =
-        CommonChanges.preload_changeset_assoc(initial_changeset, :non_existent_association, ids: [1])
+      func =
+        fn ->
+          post
+          |> Post.changeset(%{})
+          |> CommonChanges.preload_changeset_assoc(:non_existent_association, ids: [1])
+        end
 
-      assert initial_changeset === returned_changeset
+      assert_raise ArgumentError, expected_message, func
     end
 
-    test "when when option :ids set raises if association does have the cardinality many" do
+    test "when option :ids set raises if association does not have the cardinality many" do
       assert {:ok, post} = Actions.create(Post, %{title: "title"})
 
       assert {:ok, comment} = Actions.create(Comment, %{body: "body", post_id: post.id})
@@ -547,7 +551,7 @@ defmodule EctoShorts.CommonChangesTest do
       expected_message =
         """
         The option `:ids` was provided with the association :post
-        for the schema EctoShorts.Support.Schemas.Post which does not have the cardinality
+        for the schema EctoShorts.Support.Schemas.Comment which does not have the cardinality
         `:many`.
 
         This can only be used with `belongs_to` and `*_one` relationships.

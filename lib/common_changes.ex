@@ -167,32 +167,29 @@ defmodule EctoShorts.CommonChanges do
   def preload_changeset_assoc(changeset, key, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
-    ids = opts[:ids]
+    if opts[:ids] do
+      assoc_schema = changeset_relationship_schema(changeset, key)
 
-    if ids do
-      case changeset.data.__struct__.__schema__(:association, key) do
-        nil -> changeset
+      queryable = changeset.data.__struct__
 
-        association ->
-          schema = changeset_relationship_schema(changeset, key)
+      assoc = queryable.__schema__(:association, key)
 
-          preloaded_data =
-            if association.cardinality === :many do
-              Actions.all(schema, %{id: opts[:ids]}, repo: opts[:repo])
-            else
-              raise ArgumentError, """
-              The option `:ids` was provided with the association #{inspect(key)}
-              for the schema #{inspect(schema)} which does not have the cardinality
-              `:many`.
+      if assoc && (assoc.cardinality !== :many) do
+        raise ArgumentError, """
+        The option `:ids` was provided with the association #{inspect(key)}
+        for the schema #{inspect(queryable)} which does not have the cardinality
+        `:many`.
 
-              This can only be used with `belongs_to` and `*_one` relationships.
-              """
-            end
-
-          Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
+        This can only be used with `belongs_to` and `*_one` relationships.
+        """
       end
+
+      preloaded_data = Actions.all(assoc_schema, %{ids: opts[:ids]}, repo: opts[:repo])
+
+      Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
     else
       Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
+
     end
   end
 
