@@ -167,12 +167,30 @@ defmodule EctoShorts.CommonChanges do
   def preload_changeset_assoc(changeset, key, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
-    if opts[:ids] do
-      schema = changeset_relationship_schema(changeset, key)
+    ids = opts[:ids]
 
-      preloaded_data = Actions.all(schema, %{ids: opts[:ids]}, repo: opts[:repo])
+    if ids do
+      case changeset.data.__struct__.__schema__(:association, key) do
+        nil -> changeset
 
-      Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
+        association ->
+          schema = changeset_relationship_schema(changeset, key)
+
+          preloaded_data =
+            if association.cardinality === :many do
+              Actions.all(schema, %{id: opts[:ids]}, repo: opts[:repo])
+            else
+              raise ArgumentError, """
+              The option `:ids` was provided with the association #{inspect(key)}
+              for the schema #{inspect(schema)} which does not have the cardinality
+              `:many`.
+
+              This can only be used with `belongs_to` and `*_one` relationships.
+              """
+            end
+
+          Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
+      end
     else
       Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
     end

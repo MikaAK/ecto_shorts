@@ -391,19 +391,7 @@ defmodule EctoShorts.Actions do
       iex> schema.first_name === user.first_name
       true
   """
-  @spec delete(schema_data :: Ecto.Changeset.t() | Ecto.Schema.t | schema_list() | module(), opts) :: {:ok, Ecto.Schema.t} | {:error, any()}
-  def delete(%Ecto.Changeset{} = changeset, opts) do
-    case repo!(opts).delete(changeset, opts) do
-      {:error, changeset} ->
-        {:error, Error.call(
-          :internal_server_error,
-          "Cannot delete record",
-          %{changeset: changeset}
-        )}
-      ok -> ok
-    end
-  end
-
+  @spec delete(schema_data :: Ecto.Schema.t | schema_list() | module(), opts) :: {:ok, Ecto.Schema.t} | {:error, any()}
   def delete(%schema{} = schema_data, opts) do
     # The schema data is wrapped in a changeset before delete
     # so that ecto can apply the constraint error to the
@@ -414,7 +402,7 @@ defmodule EctoShorts.Actions do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
-          "Cannot delete record",
+          "Error deleting #{inspect(schema)}",
           %{changeset: changeset, schema_data: schema_data}
         )}
       ok -> ok
