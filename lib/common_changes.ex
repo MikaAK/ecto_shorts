@@ -140,7 +140,7 @@ defmodule EctoShorts.CommonChanges do
 
     association_or_nil = changeset.data.__struct__.__schema__(:association, key)
 
-    do_preload_change_assoc(changeset, key, association_or_nil, opts)
+    preload_association_and_put_or_cast(changeset, key, association_or_nil, opts)
   end
 
   @spec preload_change_assoc(Changeset.t(), atom()) :: Changeset.t
@@ -148,11 +148,11 @@ defmodule EctoShorts.CommonChanges do
     preload_change_assoc(changeset, key, default_opts())
   end
 
-  defp do_preload_change_assoc(changeset, _key, nil, _opts) do
+  defp preload_association_and_put_or_cast(changeset, _key, nil, _opts) do
     changeset
   end
 
-  defp do_preload_change_assoc(changeset, key, %Ecto.Association.ManyToMany{}, opts) do
+  defp preload_association_and_put_or_cast(changeset, key, %Ecto.Association.ManyToMany{}, opts) do
     case Map.get(changeset.params, Atom.to_string(key)) do
       nil -> changeset
       params_data ->
@@ -162,7 +162,7 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  defp do_preload_change_assoc(changeset, key, _ecto_association, opts) do
+  defp preload_association_and_put_or_cast(changeset, key, _ecto_association, opts) do
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
       changeset
       |> preload_changeset_assoc(key, opts)
@@ -172,12 +172,12 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-   @doc "Preloads a changesets association"
-   @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
-   @spec preload_changeset_assoc(Changeset.t, atom, keyword()) :: Changeset.t
-   def preload_changeset_assoc(changeset, key, opts \\ [])
+  @doc "Preloads a changesets association"
+  @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
+  @spec preload_changeset_assoc(Changeset.t, atom, keyword()) :: Changeset.t
+  def preload_changeset_assoc(changeset, key, opts \\ [])
 
-   def preload_changeset_assoc(changeset, key, opts) do
+  def preload_changeset_assoc(changeset, key, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
     if opts[:ids] do
