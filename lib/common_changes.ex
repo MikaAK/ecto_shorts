@@ -58,7 +58,6 @@ defmodule EctoShorts.CommonChanges do
   import Ecto.Changeset, only: [
     get_field: 2,
     put_assoc: 4,
-    cast_assoc: 2,
     cast_assoc: 3
   ]
 
@@ -139,6 +138,31 @@ defmodule EctoShorts.CommonChanges do
 
     opts = Keyword.put(opts, :required, required?)
 
+    association_or_nil = changeset.data.__struct__.__schema__(:association, key)
+
+    do_preload_change_assoc(changeset, key, association_or_nil, opts)
+  end
+
+  @spec preload_change_assoc(Changeset.t(), atom()) :: Changeset.t
+  def preload_change_assoc(changeset, key) do
+    preload_change_assoc(changeset, key, default_opts())
+  end
+
+  defp do_preload_change_assoc(changeset, _key, nil, _opts) do
+    changeset
+  end
+
+  defp do_preload_change_assoc(changeset, key, %Ecto.Association.ManyToMany{}, opts) do
+    case Map.get(changeset.params, Atom.to_string(key)) do
+      nil -> changeset
+      params_data ->
+        changeset
+        |> preload_changeset_assoc(key, opts)
+        |> put_assoc(key, params_data, opts)
+    end
+  end
+
+  defp do_preload_change_assoc(changeset, key, _ecto_association, opts) do
     if Map.has_key?(changeset.params, Atom.to_string(key)) do
       changeset
       |> preload_changeset_assoc(key, opts)
@@ -148,23 +172,12 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  @spec preload_change_assoc(Changeset.t(), atom()) :: Changeset.t
-  def preload_change_assoc(changeset, key) do
-    if Map.has_key?(changeset.params, Atom.to_string(key)) do
-      changeset
-      |> preload_changeset_assoc(key)
-      |> put_or_cast_assoc(key)
-    else
-      cast_assoc(changeset, key)
-    end
-  end
+   @doc "Preloads a changesets association"
+   @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
+   @spec preload_changeset_assoc(Changeset.t, atom, keyword()) :: Changeset.t
+   def preload_changeset_assoc(changeset, key, opts \\ [])
 
-  @doc "Preloads a changesets association"
-  @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
-  @spec preload_changeset_assoc(Changeset.t, atom, keyword()) :: Changeset.t
-  def preload_changeset_assoc(changeset, key, opts \\ [])
-
-  def preload_changeset_assoc(changeset, key, opts) do
+   def preload_changeset_assoc(changeset, key, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
     if opts[:ids] do
@@ -175,18 +188,6 @@ defmodule EctoShorts.CommonChanges do
       Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
     else
       Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
-    end
-  end
-
-  defp changeset_relationship_schema(changeset, key) do
-    if Map.has_key?(changeset.types, key) and relationship_exists?(changeset.types[key]) do
-      {:assoc, assoc} = Map.get(changeset.types, key)
-
-      assoc.queryable
-    else
-      %parent_schema{} = changeset.data
-
-      raise ArgumentError, "The key #{inspect(key)} is not an association for the queryable #{inspect(parent_schema)}."
     end
   end
 
@@ -249,6 +250,18 @@ defmodule EctoShorts.CommonChanges do
       put_assoc(changeset, key, param_data, opts)
     else
       cast_assoc(changeset, key, opts)
+    end
+  end
+
+  defp changeset_relationship_schema(changeset, key) do
+    if Map.has_key?(changeset.types, key) and relationship_exists?(changeset.types[key]) do
+      {:assoc, assoc} = Map.get(changeset.types, key)
+
+      assoc.queryable
+    else
+      %parent_schema{} = changeset.data
+
+      raise ArgumentError, "The key #{inspect(key)} is not an association for the queryable #{inspect(parent_schema)}."
     end
   end
 
