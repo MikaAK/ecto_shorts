@@ -397,7 +397,7 @@ defmodule EctoShorts.Actions do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
-          "Cannot delete record",
+          "Error deleting #{inspect(changeset.data.__struct__)}",
           %{changeset: changeset}
         )}
       ok -> ok
@@ -414,7 +414,7 @@ defmodule EctoShorts.Actions do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
-          "Cannot delete record",
+          "Error deleting #{inspect(schema)}",
           %{changeset: changeset, schema_data: schema_data}
         )}
       ok -> ok

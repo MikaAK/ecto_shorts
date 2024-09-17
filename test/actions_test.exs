@@ -89,7 +89,7 @@ defmodule EctoShorts.ActionsTest do
       assert %ErrorMessage{
         code: :internal_server_error,
         details: %{changeset: changeset},
-        message: "Cannot delete record"
+        message: "Error deleting EctoShorts.Support.Schemas.Post"
       } = error
 
       assert %Ecto.Changeset{} = changeset
@@ -117,7 +117,7 @@ defmodule EctoShorts.ActionsTest do
           changeset: changeset,
           schema_data: schema_data
         },
-        message: "Cannot delete record"
+        message: "Error deleting EctoShorts.Support.Schemas.Post"
       } = error
 
       assert %Ecto.Changeset{} = changeset
