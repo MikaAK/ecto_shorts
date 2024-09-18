@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonSchemasTest do
   doctest EctoShorts.CommonSchemas
 
   alias EctoShorts.CommonSchemas
+  alias EctoShorts.Support.MockSchemas.PrefixSchema
 
   require Ecto.Query
 
@@ -173,30 +174,25 @@ defmodule EctoShorts.CommonSchemasTest do
   end
 
   describe "get_schema_query/1: " do
-    test "returns the given ecto query" do
+    test "returns the given ecto query struct" do
       query = Ecto.Query.from(EctoShorts.CommonSchemasTest.MockSchema)
 
       assert ^query = CommonSchemas.get_schema_query(query)
     end
 
-    test "returns query where the from prefix is the value set by the @schema_prefix module attribute" do
-      query = CommonSchemas.get_schema_query(EctoShorts.CommonSchemasTest.MockSchemaWithPrefix)
+    test "returns the given queryable" do
+      queryable = EctoShorts.CommonSchemasTest.MockSchema
 
-      assert %Ecto.Query{
-        from: %{
-          prefix: "mock_schema_prefix",
-          source: {"mock_schemas", EctoShorts.CommonSchemasTest.MockSchemaWithPrefix}
-        }
-      } = query
+      assert ^queryable = CommonSchemas.get_schema_query(queryable)
     end
 
-    test "returns query given {source, queryable} where the from prefix is the value set by the @schema_prefix module attribute" do
-      query = CommonSchemas.get_schema_query(EctoShorts.CommonSchemasTest.MockSchemaWithPrefix)
+    test "returns query where the from prefix is the value set by the @schema_prefix module attribute" do
+      query = CommonSchemas.get_schema_query({"concrete_table", PrefixSchema})
 
       assert %Ecto.Query{
         from: %{
           prefix: "mock_schema_prefix",
-          source: {"mock_schemas", EctoShorts.CommonSchemasTest.MockSchemaWithPrefix}
+          source: {"concrete_table", PrefixSchema}
         }
       } = query
     end

@@ -107,22 +107,22 @@ defmodule EctoShorts.QueryHelpers do
   ) :: Ecto.Query.t()
   def build_schema_query(query, opts \\ [])
 
+  def build_schema_query(%Ecto.Query{} = query, opts) do
+    case opts[:query_prefix] do
+      nil -> query
+      query_prefix -> Query.put_query_prefix(query, query_prefix)
+    end
+  end
+
   def build_schema_query({source, queryable}, opts) do
     {source, queryable}
     |> build_query_from(schema_prefix: opts[:schema_prefix])
     |> build_schema_query(query_prefix: opts[:query_prefix])
   end
 
-  def build_schema_query(queryable, opts) when is_atom(queryable) do
+  def build_schema_query(queryable, opts) do
     queryable
     |> build_query_from(schema_prefix: opts[:schema_prefix])
     |> build_schema_query(query_prefix: opts[:query_prefix])
-  end
-
-  def build_schema_query(query, opts) do
-    case opts[:query_prefix] do
-      nil -> query
-      query_prefix -> Query.put_query_prefix(query, query_prefix)
-    end
   end
 end

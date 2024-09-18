@@ -173,7 +173,11 @@ defmodule EctoShorts.CommonSchemas do
   @spec get_schema_query(
     queryable :: Ecto.Query.t() | Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()}
   ) :: Ecto.Query.t()
-  def get_schema_query(queryable) do
-    QueryHelpers.build_schema_query(queryable)
+  def get_schema_query({source, queryable}) do
+    QueryHelpers.build_schema_query({source, queryable})
+  end
+
+  def get_schema_query(query) do
+    query
   end
 end
