@@ -472,7 +472,7 @@ defmodule EctoShorts.ActionsAbstractSchemaTest do
       assert {:ok, created_schema_data} = Actions.create({"file_info_user_avatars", FileInfo}, %{name: "example.txt"})
 
       assert {:ok, [returned_schema_data]} =
-        EctoShorts.Support.Repo.transaction(fn ->
+        Repo.transaction(fn ->
           {"file_info_user_avatars", FileInfo}
           |> Actions.stream(%{})
           |> Enum.to_list()
