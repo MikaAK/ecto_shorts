@@ -73,6 +73,16 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
+    test "deletes many records by changeset" do
+      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+
+      changeset = Comment.changeset(schema_data, %{})
+
+      assert {:ok, [deleted_schema_data]} = Actions.delete([changeset])
+
+      assert deleted_schema_data.id === schema_data.id
+    end
+
     test "deletes many record by schema data" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
@@ -81,7 +91,7 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
-    test "returns error when delete fails due to a constraint delete" do
+    test "returns error when given a changeset and a constraint error occurs" do
       assert {:ok, post_schema_data} = Actions.create(Post, %{title: "title"})
 
       assert {:ok, _comment_schema_data} =
@@ -93,22 +103,20 @@ defmodule EctoShorts.ActionsTest do
           }
         )
 
-      assert {:error, error} = Actions.delete(post_schema_data)
+      assert {:error, error} =
+        post_schema_data
+        |> Post.changeset(%{})
+        |> Actions.delete()
 
       assert %ErrorMessage{
         code: :internal_server_error,
-        details: %{
-          changeset: changeset,
-          schema_data: schema_data
-        },
+        details: %{changeset: changeset},
         message: "Error deleting EctoShorts.Support.Schemas.Post"
       } = error
 
       assert %Ecto.Changeset{} = changeset
 
       assert {:comments, ["are still associated with this entry"]} in errors_on(changeset)
-
-      assert schema_data === post_schema_data
     end
   end
 

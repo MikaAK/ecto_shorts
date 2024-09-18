@@ -2,7 +2,11 @@ defmodule EctoShorts.CommonChangesTest do
   use EctoShorts.DataCase
 
   alias EctoShorts.{Actions, CommonChanges}
-  alias EctoShorts.Support.Schemas.{Comment, Post}
+  alias EctoShorts.Support.Schemas.{
+    Comment,
+    Post,
+    User
+  }
 
   describe "put_when: " do
     test "returns changeset without changes if evaluator function returns false" do
@@ -95,14 +99,39 @@ defmodule EctoShorts.CommonChangesTest do
   end
 
   describe "preload_change_assoc: " do
-    test "puts an association when the parameter is a map with an ID key" do
-      assert {:ok, existing_post} = Actions.create(Post, %{title: "title"})
+    test "raises if association does not exist" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
 
-      params = %{post: existing_post}
+      expected_message = "cannot cast assoc `invalid_association`, assoc `invalid_association` not found. Make sure it is spelled correctly and that the association type is not read-only"
+
+      func =
+        fn ->
+          post
+          |> Post.changeset(%{})
+          |> CommonChanges.preload_change_assoc(:invalid_association)
+        end
+
+      assert_raise ArgumentError, expected_message, func
+    end
+
+    test "adds change for belongs_to relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{body: "created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
 
       changeset =
-        %Comment{}
-        |> Comment.changeset(params)
+        comment
+        |> Comment.changeset(%{post: %{
+          id: post_id,
+          title: "updated_title"
+        }})
         |> CommonChanges.preload_change_assoc(:post)
 
       assert %Ecto.Changeset{
@@ -110,62 +139,48 @@ defmodule EctoShorts.CommonChangesTest do
         changes: %{
           post: %Ecto.Changeset{
             action: :update,
-            data: ^existing_post,
-            changes: %{},
+            data: %Post{
+              id: ^post_id
+            },
+            changes: %{title: "updated_title"},
             errors: [],
-            params: nil,
+            params:  %{
+              "id" => ^post_id,
+              "title" => "updated_title"
+            },
             valid?: true
           }
         },
-        data: %Comment{},
-        errors: [],
-        valid?: true
-      } = changeset
-    end
-
-    test "puts associations when all parameters are existing data." do
-      assert {:ok, existing_comment} = Actions.create(Comment, %{body: "created_body"})
-
-      params = %{comments: [existing_comment]}
-
-      changeset =
-        %Post{}
-        |> Post.changeset(params)
-        |> CommonChanges.preload_change_assoc(:comments)
-
-      assert %Ecto.Changeset{
-        action: nil,
-        changes: %{
-          comments: [
-            %Ecto.Changeset{
-              action: :update,
-              data: ^existing_comment,
-              changes: %{},
-              errors: [],
-              valid?: true
-            }
-          ]
+        data: %Comment{
+          id: ^comment_id,
+          post: %Post{
+            id: ^post_id
+          }
         },
-        data: %Post{},
-        errors: [],
         valid?: true
       } = changeset
     end
 
-    test "preloads data, applies changes, and casts associations with an ID key" do
-      assert {:ok, existing_comment} = Actions.create(Comment, %{body: "created_body"})
+    test "adds change for has_many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
 
-      params =
-        %{
-          comments: [
-            %{id: existing_comment.id, body: "updated_body"},
-            %{body: "body"}
-          ]
-        }
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{body: "created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
 
       changeset =
-        %Post{}
-        |> Post.changeset(params)
+        post
+        |> Post.changeset(%{comments: [
+          %{
+            id: comment_id,
+            body: "updated_body"
+          }
+        ]})
         |> CommonChanges.preload_change_assoc(:comments)
 
       assert %Ecto.Changeset{
@@ -174,82 +189,274 @@ defmodule EctoShorts.CommonChangesTest do
           comments: [
             %Ecto.Changeset{
               action: :update,
-              data: ^existing_comment,
+              data: %Comment{
+                id: ^comment_id
+              },
               changes: %{body: "updated_body"},
               errors: [],
-              valid?: true
-            },
-            %Ecto.Changeset{
-              action: :insert,
-              changes: %{body: "body"},
-              errors: [],
+              params:  %{
+                "id" => ^comment_id,
+                "body" => "updated_body"
+              },
               valid?: true
             }
           ]
         },
-        data: %Post{},
-        errors: [],
+        data: %Post{
+          id: ^post_id,
+          comments: [
+            %Comment{
+              id: ^comment_id
+            }
+          ]
+        },
         valid?: true
       } = changeset
     end
 
-    test "casts associations when no parameters have an ID key" do
-      params =
-        %{
-          comments: [
-            %{body: "body"}
-          ]
-        }
+    test "adds change for many_to_many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      post_id = post.id
+
+      assert {:ok, user} =
+        %User{}
+        |> User.changeset(%{email: "email"})
+        |> Ecto.Changeset.put_assoc(:posts, [post])
+        |> EctoShorts.Support.Repo.insert()
+
+      user_id = user.id
 
       changeset =
-        %Post{}
-        |> Post.changeset(params)
-        |> CommonChanges.preload_change_assoc(:comments)
+        post
+        |> Post.changeset(%{users: [
+          %{
+            id: user_id,
+            email: "updated_email"
+          }
+        ]})
+        |> CommonChanges.preload_change_assoc(:users)
 
       assert %Ecto.Changeset{
         action: nil,
         changes: %{
-          comments: [
+          users: [
             %Ecto.Changeset{
-              action: :insert,
-              changes: %{body: "body"},
-              errors: [],
+              action: :update,
+              data: %User{
+                id: ^user_id
+              },
+              changes: %{email: "updated_email"},
+              params: %{
+                "email" => "updated_email",
+                "id" => ^user_id
+              },
               valid?: true
             }
           ]
         },
-        errors: [],
+        data: %Post{
+          id: ^post_id,
+          users: [
+            %User{
+              id: ^user_id
+            }
+          ]
+        },
+        params: %{
+          "users" => [%{email: "updated_email", id: ^user_id}]
+        },
         valid?: true
       } = changeset
     end
 
-    test "casts an association from existing changes" do
+    test "adds change for many_to_many relationship does not load association if parameters not set" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      post_id = post.id
+
       changeset =
+        post
+        |> Post.changeset(%{})
+        |> CommonChanges.preload_change_assoc(:users)
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{},
+        data: %Post{
+          id: ^post_id,
+          users: %Ecto.Association.NotLoaded{}
+        },
+        params: %{},
+        valid?: true
+      } = changeset
+    end
+
+    test "does not add change when given schema_data that's already associated with record" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
         %Comment{}
-        |> Comment.changeset(%{})
-        |> Ecto.Changeset.put_change(:post, %{title: "new_title"})
+        |> Comment.changeset(%{body: "created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
+
+      changeset =
+        comment
+        |> Comment.changeset(%{post: post})
+        |> CommonChanges.preload_change_assoc(:post)
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: changes,
+        data: %Comment{
+          id: ^comment_id,
+          post: %Post{
+            id: ^post_id
+          }
+        },
+        valid?: true
+      } = changeset
+
+      assert %{} === changes
+    end
+
+    test "adds changeset and no changes when given schema_data that's is not associated with record" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{body: "created_body"})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
+
+      changeset =
+        comment
+        |> Comment.changeset(%{post: post})
         |> CommonChanges.preload_change_assoc(:post)
 
       assert %Ecto.Changeset{
         action: nil,
         changes: %{
           post: %Ecto.Changeset{
-            action: :insert,
-            changes: %{
-              title: "new_title"
+            action: :update,
+            data: %Post{
+              id: ^post_id
             },
-            errors: [],
+            changes: changes,
             params: nil,
             valid?: true
           }
         },
-        data: %Comment{},
+        data: %Comment{
+          id: ^comment_id,
+          post: nil
+        },
+        valid?: true
+      } = changeset
+
+      assert %{} === changes
+    end
+
+    test "adds a new changeset when association params does not have :id set" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_post_title"})
+
+      post_id = post.id
+
+      changeset =
+        post
+        |> Post.changeset(%{comments: [%{body: "new_comment_body"}]})
+        |> CommonChanges.preload_change_assoc(:comments)
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{
+          comments: [
+            %Ecto.Changeset{
+              action: :insert,
+              changes: %{body: "new_comment_body"},
+              data: %Comment{},
+              errors: [],
+              valid?: true
+            }
+          ]
+        },
+        data: %Post{
+          id: ^post_id,
+          title: "created_post_title"
+        },
         errors: [],
         valid?: true
       } = changeset
     end
 
-    test "returns invalid changeset when option :required is set and association does not exist in data or changes" do
+    test "creates association when preload record not found by id " do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_post_title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{body: "created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      assert {:ok, deleted_comment} =
+        comment
+        |> Comment.changeset()
+        |> EctoShorts.Support.Repo.delete()
+
+      deleted_comment_id = deleted_comment.id
+
+      changeset =
+        post
+        |> Post.changeset(%{
+          comments: [
+            %{
+              id: deleted_comment_id,
+              body: "new_comment_body"
+            }
+          ]
+        })
+        |> CommonChanges.preload_change_assoc(:comments)
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{
+          comments: [
+            %Ecto.Changeset{
+              action: :insert,
+              changes: %{body: "new_comment_body"},
+              data: %Comment{},
+              params: %{
+                "body" => "new_comment_body",
+                "id" => ^deleted_comment_id
+              },
+              errors: [],
+              valid?: true
+            }
+          ]
+        },
+        data: %Post{
+          id: ^post_id,
+          title: "created_post_title"
+        },
+        params: %{
+          "comments" => [
+            %{body: "new_comment_body", id: ^deleted_comment_id}
+          ]
+        },
+        errors: [],
+        valid?: true
+      } = changeset
+    end
+
+    test "changeset invalid when option :required is set and association does not exist in data or changes" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{})
@@ -260,7 +467,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert {:post, ["can't be blank"]} in errors_on(changeset)
     end
 
-    test "returns valid changeset when option :required is set and association exist in data" do
+    test "changeset valid when option :required is set and association exist in data" do
       changeset =
         %Comment{post: %Post{id: 1}}
         |> Comment.changeset(%{})
@@ -272,7 +479,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns a valid changeset when :required is set and the association exists in params" do
+    test "changeset valid when :required is set and the association exists in params" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{post: %{id: 1}})
@@ -285,7 +492,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns an invalid changeset when :required_when_missing is set and the association is missing in data or changes." do
+    test "changeset invalid when :required_when_missing set and the association does not exist in changeset data or changes" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{})
@@ -296,7 +503,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert {:post, ["can't be blank"]} in errors_on(changeset)
     end
 
-    test "returns a valid changeset when :required_when_missing is set and the association exists in data" do
+    test "changeset valid when :required_when_missing set, the required key is not given, and association exists in changeset data" do
       changeset =
         %Comment{post: %Post{id: 1}}
         |> Comment.changeset(%{})
@@ -308,7 +515,7 @@ defmodule EctoShorts.CommonChangesTest do
       } = changeset
     end
 
-    test "returns a valid changeset when :required_when_missing is set, the association is absent in data, and the key exists in params" do
+    test "changeset valid when :required_when_missing set, the required key is given, and association does not exist in changeset data" do
       changeset =
         %Comment{}
         |> Comment.changeset(%{post_id: 1})
@@ -324,33 +531,223 @@ defmodule EctoShorts.CommonChangesTest do
   end
 
   describe "preload_changeset_assoc: " do
-    test "puts an association when the parameter is a map with an ID key" do
-      assert {:ok, existing_post} = Actions.create(Post, %{title: "title"})
+    test "can preload belongs_to relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_title"})
 
-      params = %{}
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{body: "created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
 
       changeset =
-        %Comment{}
-        |> Comment.changeset(params)
-        |> Ecto.Changeset.put_assoc(:post, existing_post)
+        comment
+        |> Comment.changeset(%{post: %{
+          id: post_id,
+          title: "updated_title"
+        }})
         |> CommonChanges.preload_changeset_assoc(:post)
 
       assert %Ecto.Changeset{
         action: nil,
-        changes: %{
-          post: %Ecto.Changeset{
-            action: :update,
-            data: ^existing_post,
-            changes: %{},
-            errors: [],
-            params: nil,
-            valid?: true
+        changes: %{},
+        data: %Comment{
+          id: ^comment_id,
+          body: "created_body",
+          post: %Post{
+            id: ^post_id
           }
         },
-        data: %Comment{},
         errors: [],
         valid?: true
       } = changeset
+    end
+
+    test "can preload has_many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_title"})
+
+      post_id = post.id
+
+      assert {:ok, comment} =
+        %Comment{}
+        |> Comment.changeset(%{body: "created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_id = comment.id
+
+      changeset =
+        post
+        |> Post.changeset(%{comments: [
+          %{
+            id: comment_id,
+            body: "updated_body"
+          }
+        ]})
+        |> CommonChanges.preload_changeset_assoc(:comments)
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{},
+        data: %Post{
+          id: ^post_id,
+          comments: [
+            %Comment{
+              id: ^comment_id
+            }
+          ]
+        },
+        valid?: true
+      } = changeset
+    end
+
+    test "can preload many_to_many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_title"})
+
+      post_id = post.id
+
+      assert {:ok, user} =
+        %User{}
+        |> User.changeset(%{email: "created_email"})
+        |> Ecto.Changeset.put_assoc(:posts, [post])
+        |> EctoShorts.Support.Repo.insert()
+
+      user_id = user.id
+
+      changeset =
+        post
+        |> Post.changeset(%{users: [
+          %{
+            id: user_id,
+            email: "updated_email"
+          }
+        ]})
+        |> CommonChanges.preload_changeset_assoc(:users)
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{},
+        data: %Post{
+          id: ^post_id,
+          users: [
+            %User{
+              id: ^user_id
+            }
+          ]
+        },
+        valid?: true
+      } = changeset
+    end
+
+    test "when option :ids set can preload has_many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_title"})
+
+      post_id = post.id
+
+      assert {:ok, comment_1} =
+        %Comment{}
+        |> Comment.changeset(%{body: "comment_1_created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      assert {:ok, comment_2} =
+        %Comment{}
+        |> Comment.changeset(%{body: "comment_2_created_body", post_id: post_id})
+        |> EctoShorts.Support.Repo.insert()
+
+      comment_1_id = comment_1.id
+      comment_2_id = comment_2.id
+
+      changeset =
+        post
+        |> Post.changeset(%{comments: [
+          %{
+            id: comment_1_id,
+            body: "comment_1_updated_body"
+          }
+        ]})
+        |> CommonChanges.preload_changeset_assoc(:comments, ids: [comment_1_id, comment_2_id])
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{},
+        data: %Post{
+          id: ^post_id,
+          comments: [
+            %Comment{
+              id: ^comment_1_id
+            },
+            %Comment{
+              id: ^comment_2_id
+            }
+          ]
+        },
+        valid?: true
+      } = changeset
+    end
+
+    test "when option :ids set can preload many_to_many relationship" do
+      assert {:ok, post} = Actions.create(Post, %{title: "created_title"})
+
+      post_id = post.id
+
+      assert {:ok, user_1} =
+        %User{}
+        |> User.changeset(%{email: "user_1_created_email"})
+        |> Ecto.Changeset.put_assoc(:posts, [post])
+        |> EctoShorts.Support.Repo.insert()
+
+      assert {:ok, user_2} =
+        %User{}
+        |> User.changeset(%{email: "user_2_created_email"})
+        |> Ecto.Changeset.put_assoc(:posts, [post])
+        |> EctoShorts.Support.Repo.insert()
+
+      user_1_id = user_1.id
+      user_2_id = user_2.id
+
+      changeset =
+        post
+        |> Post.changeset(%{users: [
+          %{
+            id: user_1_id,
+            email: "user_1_updated_email"
+          }
+        ]})
+        |> CommonChanges.preload_changeset_assoc(:users, ids: [user_1_id, user_2_id])
+
+      assert %Ecto.Changeset{
+        action: nil,
+        changes: %{},
+        data: %Post{
+          id: ^post_id,
+          users: [
+            %User{
+              id: ^user_1_id
+            },
+            %User{
+              id: ^user_2_id
+            }
+          ]
+        },
+        valid?: true
+      } = changeset
+    end
+
+    test "when option :ids set raises if the association does not exist" do
+      assert {:ok, post} = Actions.create(Post, %{title: "title"})
+
+      expected_message = ~r|The key (.*) is not an association for the queryable (.*)|
+
+      func =
+        fn ->
+          post
+          |> Post.changeset(%{})
+          |> CommonChanges.preload_changeset_assoc(:non_existent_association, ids: [1])
+        end
+
+      assert_raise ArgumentError, expected_message, func
     end
   end
 
