@@ -206,13 +206,25 @@ defmodule EctoShorts do
   a database.
 
   To use an abstract schema with ecto you must specify the
-  `source` and `schema` for the operation in a tuple, for example:
+  `source` and `schema` for the operation in a tuple:
 
-  ```elixir
+  ```
   {"comments", Comment}
   ```
 
-  The following apis support this syntax:
+  For example:
+
+  ```
+  EctoShorts.Actions.all({"source", YourSchema})
+  ```
+
+  or
+
+  ```
+  EctoShorts.CommonFilters.convert_params_to_filter({"source", YourSchema}, %{name: "example.txt"})
+  ```
+
+  The abstract schema syntax can be used with:
 
     * `EctoShorts.Actions`
     * `EctoShorts.CommonFilters`
