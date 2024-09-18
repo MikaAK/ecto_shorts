@@ -15,7 +15,8 @@ defmodule EctoShorts.Support.Schemas.Post do
 
     belongs_to :user, EctoShorts.Support.Schemas.User
 
-    many_to_many :users, EctoShorts.Support.Schemas.User, join_through: "users_posts"
+    many_to_many :users, EctoShorts.Support.Schemas.User,
+      join_through: EctoShorts.Support.Schemas.UserPost
 
     timestamps()
   end

@@ -7,7 +7,7 @@ defmodule EctoShorts.Support.Repo.Migrations.CreatePosts do
       add :unique_identifier, :text
 
       add :user_id, references(:users,
-        on_delete: :restrict,
+        on_delete: :nilify_all,
         on_update: :update_all
       )
 
