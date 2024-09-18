@@ -2,9 +2,8 @@ defmodule EctoShorts.CommonSchemas do
   @moduledoc """
   An interface for the `Ecto.Schema` abstract table syntax
   `{source :: binary(), queryable :: Ecto.Queryable.t()}`.
-  This allows you to use the abstract table syntax
-  interchangeably where a `queryable` is accepted as an
-  argument.
+  This allows you to use the abstract table syntax in place
+  of your ecto schema.
 
   For example:
 
@@ -23,6 +22,7 @@ defmodule EctoShorts.CommonSchemas do
   `source` defined in the schema. This means you can use an
   ecto schema on any database table that has a matching schema.
   """
+  @moduledoc since: "2.5.0"
   alias EctoShorts.{QueryHelpers, SchemaHelpers}
 
   @doc """

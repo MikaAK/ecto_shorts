@@ -14,9 +14,9 @@ defmodule EctoShorts.Support.Schemas.User do
     timestamps()
   end
 
-  @available_attributes [:email]
+  @available_fields [:email]
 
   def changeset(model_or_changeset, attrs \\ %{}) do
-    cast(model_or_changeset, attrs, @available_attributes)
+    cast(model_or_changeset, attrs, @available_fields)
   end
 end

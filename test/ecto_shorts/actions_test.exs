@@ -3,30 +3,14 @@ defmodule EctoShorts.ActionsTest do
   use EctoShorts.DataCase
 
   alias EctoShorts.Actions
+  alias EctoShorts.Support.{
+    Repo,
+    TestRepo
+  }
   alias EctoShorts.Support.Schemas.{
     Comment,
     Post
   }
-
-  defmodule MockRepo do
-    @moduledoc false
-    use Ecto.Repo,
-      otp_app: :ecto_shorts,
-      adapter: Ecto.Adapters.Postgres
-  end
-
-  def start_mock_repo do
-    MockRepo.start_link(
-      username: "postgres",
-      database: "ecto_shorts",
-      hostname: "localhost",
-      show_sensitive_data_on_connection_error: true,
-      log: :debug,
-      stacktrace: true,
-      pool: Ecto.Adapters.SQL.Sandbox,
-      pool_size: 10
-    )
-  end
 
   test "raises if repo not configured" do
     assert_raise ArgumentError, ~r|ecto shorts must be configured with a repo|, fn ->
@@ -52,7 +36,7 @@ defmodule EctoShorts.ActionsTest do
     test "returns nil when record does not exist" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert nil === Actions.get(Comment, schema_data.id)
     end
@@ -158,19 +142,19 @@ defmodule EctoShorts.ActionsTest do
     end
 
     test "can use repo in keyword parameters" do
-      assert {:ok, _} = start_mock_repo()
+      TestRepo.with_shared_connection(fn ->
+        assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"}, repo: TestRepo)
 
-      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
-
-      assert [^schema_data] = Actions.all(Comment, id: schema_data.id, repo: MockRepo)
+        assert [^schema_data] = Actions.all(Comment, id: schema_data.id, repo: TestRepo, replica: nil)
+      end)
     end
 
     test "can use replica in keyword parameters" do
-      assert {:ok, _} = start_mock_repo()
+      TestRepo.with_shared_connection(fn ->
+        assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"}, repo: TestRepo)
 
-      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
-
-      assert [^schema_data] = Actions.all(Comment, id: schema_data.id, replica: MockRepo, repo: nil)
+        assert [^schema_data] = Actions.all(Comment, id: schema_data.id, repo: nil, replica: TestRepo)
+      end)
     end
   end
 
@@ -184,7 +168,7 @@ defmodule EctoShorts.ActionsTest do
     test "returns error message with params and query" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:error, error} = Actions.find(Comment, %{id: schema_data.id})
 
@@ -224,7 +208,7 @@ defmodule EctoShorts.ActionsTest do
     test "creates a record if matching record not found" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:ok, created_schema_data} =
         Actions.find_or_create(Comment, %{
@@ -268,7 +252,7 @@ defmodule EctoShorts.ActionsTest do
     test "returns error when id in params does not match an existing record" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:error, error} =
         Actions.update(Comment, schema_data.id, %{body: "updated_body"})
@@ -295,7 +279,7 @@ defmodule EctoShorts.ActionsTest do
     test "creates a record if matching record not found" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:ok, schema_data} =
         Actions.find_and_upsert(
@@ -323,14 +307,16 @@ defmodule EctoShorts.ActionsTest do
 
   describe "stream: " do
     test "returns records given" do
-      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+      assert {:ok, created_schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, [^schema_data]} =
-        EctoShorts.Support.Repo.transaction(fn ->
+      assert {:ok, [returned_schema_data]} =
+        Repo.transaction(fn ->
           Comment
           |> Actions.stream(%{})
           |> Enum.to_list()
         end)
+
+      assert created_schema_data.id === returned_schema_data.id
     end
   end
 
@@ -383,7 +369,7 @@ defmodule EctoShorts.ActionsTest do
     test "creates a record if matching record not found" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:ok, list_of_schema_data} =
         Actions.find_or_create_many(

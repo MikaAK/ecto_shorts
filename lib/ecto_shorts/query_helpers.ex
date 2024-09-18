@@ -2,15 +2,18 @@ defmodule EctoShorts.QueryHelpers do
   @moduledoc """
   Helper functions for ecto queries.
   """
+  @moduledoc since: "2.5.0"
   alias Ecto.Query
 
   require Ecto.Query
 
-  @type query :: EctoShorts.query()
-  @type queryable :: EctoShorts.queryable()
-  @type source_queryable :: EctoShorts.source_queryable()
-
-  @logger_prefix "EctoShorts.QueryHelpers"
+  @type source :: binary()
+  @type params :: map()
+  @type query :: Ecto.Query.t()
+  @type queryable :: Ecto.Queryable.t()
+  @type source_queryable :: {source(), queryable()}
+  @type filter_key :: atom()
+  @type filter_value :: any()
 
   @doc """
   Returns a `{source, Ecto.Queryable}` tuple given an `Ecto.Query` or `Ecto.Queryable`.

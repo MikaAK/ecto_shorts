@@ -1,43 +1,34 @@
-defmodule EctoShorts.Support.Schemas.Post do
+defmodule EctoShorts.Support.Schemas.FileInfo do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
   require Ecto.Query
 
-  schema "posts" do
-    field :title, :string
+  schema "abstract table: file_infos" do
+    field :assoc_id, :integer
+    field :name, :string
+    field :content_length, :integer
     field :unique_identifier, :string
-    field :likes, :integer
-
-    has_many :comments, EctoShorts.Support.Schemas.Comment
-
-    has_many :authors, through: [:comments, :user]
 
     belongs_to :user, EctoShorts.Support.Schemas.User
-
-    many_to_many :users, EctoShorts.Support.Schemas.User,
-      join_through: EctoShorts.Support.Schemas.UserPost
 
     timestamps()
   end
 
   @available_fields [
-    :likes,
-    :title,
+    :name,
+    :content_length,
     :unique_identifier,
+    :assoc_id,
     :user_id
   ]
 
   def changeset(model_or_changeset, attrs \\ %{}) do
     model_or_changeset
     |> cast(attrs, @available_fields)
-    |> no_assoc_constraint(:comments)
     |> unique_constraint(:unique_identifier)
-  end
-
-  def create_changeset(attrs \\ %{}) do
-    changeset(%__MODULE__{}, attrs)
+    |> validate_length(:unique_identifier, min: 3)
   end
 
   # This callback function is invoked by `EctoShorts.CommonFilters.convert_params_to_filter`

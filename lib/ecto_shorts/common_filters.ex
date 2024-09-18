@@ -56,10 +56,11 @@ defmodule EctoShorts.CommonFilters do
     QueryBuilder
   }
 
-  @type params :: EctoShorts.Actions.params()
-  @type query :: EctoShorts.Actions.query()
-  @type queryable :: EctoShorts.Actions.queryable()
-  @type source_queryable :: EctoShorts.Actions.source_queryable()
+  @type source :: binary()
+  @type params :: map() | keyword()
+  @type query :: Ecto.Query.t()
+  @type queryable :: Ecto.Queryable.t()
+  @type source_queryable :: {source(), queryable()}
   @type filter_key :: atom()
   @type filter_value :: any()
 
@@ -97,7 +98,7 @@ defmodule EctoShorts.CommonFilters do
   end
 
   @doc """
-  Implementation for `c:EctoShorts.QueryBuilder.create_schema_filter/3`.
+  Implementation for `c:EctoShorts.QueryBuilder.create_schema_filter/2`.
 
   ### Examples
 

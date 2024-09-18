@@ -5,28 +5,29 @@ defmodule EctoShorts.Actions do
   Generally we can define our contexts to be very reusable by creating
   them to look something like this:
 
+  ```elixir
+  defmodule MyApp.Accounts do
+    alias EctoShorts.Actions
+    alias MyApp.Accounts.User
 
-      defmodule MyApp.Accounts do
-        alias EctoShorts.Actions
-        alias MyApp.Accounts.User
-
-        def all_users(params), do: Actions.all(User, params)
-        def find_user(params), do: Actions.find(User, params)
-      end
+    def all_users(params), do: Actions.all(User, params)
+    def find_user(params), do: Actions.find(User, params)
+  end
+  ```
 
   We're then able to use this context with all filters that are
   supported by `EctoShorts.CommonFilters` without having to create new queries
 
-
-      def do_something do
-        MyApp.Accounts.all_user(%{
-          first_name: %{ilike: "john"},
-          age: %{gte: 18},
-          priority_level: 5,
-          address: %{country: "Canada"}
-        })
-      end
-
+  ```elixir
+  def do_something do
+    MyApp.Accounts.all_user(%{
+      first_name: %{ilike: "john"},
+      age: %{gte: 18},
+      priority_level: 5,
+      address: %{country: "Canada"}
+    })
+  end
+  ```
 
   You can read more on reusable ecto code [here](https://learn-elixir.dev/blogs/creating-reusable-ecto-code)
 
@@ -37,15 +38,15 @@ defmodule EctoShorts.Actions do
 
   #### Example
 
-      defmodule MyApp.Accounts do
-        alias EctoShorts.Actions
-        alias MyApp.Accounts.User
+  ```elixir
+  defmodule MyApp.Accounts do
+    alias EctoShorts.Actions
+    alias MyApp.Accounts.User
 
-        @repo [repo: MyApp.Repo.Replica1]
-
-        def all_users(params), do: Actions.all(User, params, @repo)
-        def find_user(params), do: Actions.find(User, params, @repo)
-      end
+    def all_users(params), do: Actions.all(User, params, replica: MyApp.Repo.Replica)
+    def create_user(params), do: Actions.find(User, params, repo: MyApp.Repo)
+  end
+  ```
   """
   @type id :: binary() | integer()
   @type source :: binary()
@@ -58,7 +59,7 @@ defmodule EctoShorts.Actions do
   @type changeset :: Ecto.Changeset.t()
   @type changesets :: list(changeset())
   @type schema :: Ecto.Schema.t()
-  @type schemas :: list(schema())
+  @type schemas :: list() | list(schema())
   @type opts :: Keyword.t()
   @type aggregate_options :: :avg | :count | :max | :min | :sum
   @type schema_res :: {:ok, schema()} | {:error, any}
@@ -67,7 +68,8 @@ defmodule EctoShorts.Actions do
     Actions.Error,
     CommonFilters,
     CommonSchemas,
-    Config
+    Config,
+    SchemaHelpers
   }
 
   @doc """
@@ -89,14 +91,14 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.get({"source", YourSchema}, 1)
   """
   @spec get(
-    query :: queryable() | source_queryable(),
+    query :: query() | queryable() | source_queryable(),
     id :: id(),
     options :: opts()
-  ) :: Ecto.Schema.t | nil
+  ) :: schema() | nil
   @spec get(
-    query :: queryable() | source_queryable(),
+    query :: query() | queryable() | source_queryable(),
     id :: id()
-  ) :: Ecto.Schema.t | nil
+  ) :: schema() | nil
   def get(query, id, opts \\ []) do
     replica!(opts).get(query, id, opts)
   end
@@ -112,9 +114,7 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.all({"source", YourSchema})
       iex> EctoSchemas.Actions.all(%Ecto.Query{})
   """
-  @spec all(
-    query :: queryable() | source_queryable()
-  ) :: list()
+  @spec all(query :: queryable() | source_queryable()) :: schemas()
   def all(query) do
     all(query, default_opts())
   end
@@ -150,18 +150,21 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, id: 1, replica: YourApp.Repo)
   """
   @spec all(
-    query :: queryable() | source_queryable(),
-    filter_params_or_opts :: params() | opts()
-  ) :: list()
+    query :: query() | queryable() | source_queryable(),
+    params_or_opts :: params() | opts()
+  ) :: schemas()
   def all(query, params) when is_map(params) do
     all(query, params, default_opts())
   end
 
   def all(query, opts) do
-    query_params = Keyword.drop(opts, [:repo, :replica])
+    query_params =
+      opts
+      |> Keyword.drop([:repo, :replica])
+      |> Map.new()
 
     if Enum.any?(query_params) do
-      all(query, query_params, default_opts())
+      all(query, query_params, Keyword.take(opts, [:repo, :replica]))
     else
       all(query, %{}, Keyword.take(opts, [:repo, :replica]))
     end
@@ -198,10 +201,10 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, replica: YourApp.Repo)
   """
   @spec all(
-    query :: queryable() | source_queryable(),
+    query :: query() | queryable() | source_queryable(),
     params :: params(),
     opts :: opts()
-  ) :: list()
+  ) :: schemas()
   def all(query, params, opts)  do
     order_by = Keyword.get(opts, :order_by, nil)
 
@@ -291,16 +294,14 @@ defmodule EctoShorts.Actions do
     query :: queryable() | source_queryable(),
     params :: params(),
     opts :: opts()
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  ) :: {:ok, schema()} | {:error, changeset()}
   @spec create(
     query :: queryable() | source_queryable(),
-    params :: params(),
-    opts :: opts()
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+    params :: params()
+  ) :: {:ok, schema()} | {:error, changeset()}
   def create(query, params, opts \\ []) do
     query
-    |> CommonSchemas.get_schema_queryable()
-    |> create_changeset(params)
+    |> build_changeset(params, opts)
     |> repo!(opts).insert(opts)
   end
 
@@ -341,8 +342,8 @@ defmodule EctoShorts.Actions do
 
     find_params = drop_associations(params, queryable)
 
-    with {:error, %{code: :not_found}} <- find(queryable, find_params, opts) do
-      create(queryable, params, opts)
+    with {:error, %{code: :not_found}} <- find(query, find_params, opts) do
+      create(query, params, opts)
     end
   end
 
@@ -502,11 +503,9 @@ defmodule EctoShorts.Actions do
     update(query, schema_data, update_params, opts)
   end
 
-  def update(queryable, schema_data, update_params, opts) do
-    queryable = CommonSchemas.get_schema_queryable(queryable)
-
-    schema_data
-    |> queryable.changeset(update_params)
+  def update(query, schema_data, update_params, opts) do
+    query
+    |> build_changeset(schema_data, update_params, opts)
     |> repo!(opts).update(opts)
   end
 
@@ -566,17 +565,14 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  def delete(%schema{} = schema_data, opts) do
-    # The schema data is wrapped in a changeset before delete
-    # so that ecto can apply the constraint error to the
-    # changeset instead of raising `Ecto.ConstraintError`.
-    changeset = schema.changeset(schema_data, %{})
+  def delete(%queryable{} = schema_data, opts) do
+    changeset = build_changeset(queryable, schema_data, %{}, opts)
 
     case repo!(opts).delete(changeset, opts) do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
-          "Error deleting #{inspect(schema)}",
+          "Error deleting #{inspect(queryable)}",
           %{changeset: changeset, schema_data: schema_data}
         )}
       ok -> ok
@@ -584,13 +580,11 @@ defmodule EctoShorts.Actions do
   end
 
   def delete(schema_data, opts) when is_list(schema_data) do
-    schema_data |> Enum.map(&delete(&1, opts)) |> reduce_status_tuples
+    schema_data |> Enum.map(&delete(&1, opts)) |> reduce_status_tuples()
   end
 
   def delete(query, id) when (is_binary(id) or is_integer(id)) do
-    query
-    |> CommonSchemas.get_schema_queryable()
-    |> delete(id, default_opts())
+    delete(query, id, default_opts())
   end
 
   @doc """
@@ -620,8 +614,8 @@ defmodule EctoShorts.Actions do
     id :: id(),
     opts :: opts()
   ) :: {:ok, schema()} | {:error, any()}
-  def delete(schema, id, opts) when is_atom(schema) and (is_integer(id) or is_binary(id)) do
-    with {:ok, schema_data} <- find(schema, %{id: id}, opts) do
+  def delete(query, id, opts) when (is_integer(id) or is_binary(id)) do
+    with {:ok, schema_data} <- find(query, %{id: id}, opts) do
       repo!(opts).delete(schema_data, opts)
     end
   end
@@ -737,10 +731,10 @@ defmodule EctoShorts.Actions do
         drop_associations(params, queryable)
       end)
 
-    {create_params, found_results} = find_many(queryable, find_param_list, opts)
+    {create_params, found_results} = find_many(query, find_param_list, opts)
 
-    queryable
-    |> multi_insert(param_list, create_params)
+    query
+    |> multi_insert(param_list, create_params, opts)
     |> repo!(opts).transaction()
     |> case do
       {:ok, created_map} -> {:ok, merge_found(created_map, found_results)}
@@ -764,27 +758,48 @@ defmodule EctoShorts.Actions do
     |> Enum.split_with(fn {schema_data, _index} -> is_nil(schema_data) end)
   end
 
-  defp multi_insert(queryable, param_list, create_params) do
+  defp multi_insert(queryable, param_list, create_params, opts) do
     Enum.reduce(create_params, Ecto.Multi.new(), fn {nil, i}, multi ->
       Ecto.Multi.insert(multi, i, fn _ ->
-        create_changeset(queryable, Enum.at(param_list, i))
+        build_changeset(queryable, Enum.at(param_list, i), opts)
       end)
     end)
   end
 
-  defp create_changeset({source, queryable}, params) do
-    {source, queryable}
-    |> CommonSchemas.get_loaded_struct()
-    |> queryable.changeset(params)
+  defp build_changeset({source, queryable}, schema_data, params, opts) do
+    schema_data = SchemaHelpers.build_struct(schema_data, source: source)
+
+    build_changeset(queryable, schema_data, params, opts)
   end
 
-  defp create_changeset(queryable, params) do
+  defp build_changeset(queryable, schema_data, params, opts) do
+    case opts[:changeset] do
+      nil ->
+        queryable.changeset(schema_data, params)
+
+      func when is_function(func, 2) ->
+        func.(schema_data, params)
+
+      func when is_function(func, 1) ->
+        schema_data
+        |> queryable.changeset(params)
+        |> func.()
+    end
+  end
+
+  defp build_changeset({source, queryable}, params, opts) do
+    loaded_struct = CommonSchemas.get_loaded_struct({source, queryable})
+
+    build_changeset(queryable, loaded_struct, params, opts)
+  end
+
+  defp build_changeset(queryable, params, opts) do
     if Code.ensure_loaded?(queryable) and function_exported?(queryable, :create_changeset, 1) do
       queryable.create_changeset(params)
     else
-      queryable
-      |> struct()
-      |> queryable.changeset(params)
+      struct = struct(queryable)
+
+      build_changeset(queryable, struct, params, opts)
     end
   end
 
@@ -822,7 +837,8 @@ defmodule EctoShorts.Actions do
   # returning the value under the repo: key if no replica is found. If no repos are configured
   # an ArgumentError will be raised.
   defp replica!(opts) do
-    with nil <- Keyword.get(opts, :replica, repo(opts)) do
+    with nil <- Keyword.get(opts, :replica),
+      nil <- repo(opts) do
       raise ArgumentError, message: "ecto shorts must be configured with a repo. For further guidence consult the docs. https://hexdocs.pm/ecto_shorts/EctoShorts.html#module-config"
     end
   end
@@ -833,8 +849,8 @@ defmodule EctoShorts.Actions do
 
   defp repo(opts) do
     default_opts()
-      |> Keyword.merge(opts)
-      |> Keyword.get(:repo)
+    |> Keyword.merge(opts)
+    |> Keyword.get(:repo)
   end
 
   defp default_opts, do: [repo: Config.repo()]
