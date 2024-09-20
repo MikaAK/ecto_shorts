@@ -62,6 +62,7 @@ defmodule EctoShorts.Actions do
   @type schemas :: list() | list(schema())
   @type opts :: Keyword.t()
   @type aggregate_options :: :avg | :count | :max | :min | :sum
+  @type error_message :: ErrorMessage.t()
   @type schema_res :: {:ok, schema()} | {:error, any}
 
   alias EctoShorts.{
@@ -459,26 +460,26 @@ defmodule EctoShorts.Actions do
   """
   @spec update(
     query :: queryable() | source_queryable(),
-    id :: pos_integer | String.t(),
-    updates :: map() | Keyword.t()
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+    id :: id(),
+    updates :: params()
+  ) :: {:ok, schema()} | {:error, error_message() | changeset()}
   @spec update(
     query :: queryable() | source_queryable(),
-    id :: pos_integer | String.t(),
-    updates :: map() | Keyword.t(),
+    id :: id(),
+    updates :: params(),
     opts
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  ) :: {:ok, schema()} | {:error, error_message() | changeset()}
   @spec update(
     query :: queryable() | source_queryable(),
-    schema_data :: Ecto.Schema.t(),
-    updates :: map() | Keyword.t()
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+    schema_data :: schema(),
+    updates :: params()
+  ) :: {:ok, schema()} | {:error, error_message() | changeset()}
   @spec update(
     query :: queryable() | source_queryable(),
-    schema_data :: Ecto.Schema.t(),
-    updates :: map() | Keyword.t(),
+    schema_data :: schema(),
+    updates :: params(),
     opts
-  ) :: {:ok, Ecto.Schema.t} | {:error, Ecto.Changeset.t}
+  ) :: {:ok, schema()} | {:error, error_message() | changeset()}
   def update(query, schema_data, update_params, opts \\ [])
 
   def update(query, schema_id, update_params, opts) when is_integer(schema_id) or is_binary(schema_id) do
