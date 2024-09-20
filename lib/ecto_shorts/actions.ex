@@ -348,11 +348,11 @@ defmodule EctoShorts.Actions do
     query :: queryable() | source_queryable(),
     params :: params(),
     opts :: opts()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  ) :: {:ok, schema()} | {:error, changeset()}
   @spec find_or_create(
     query :: queryable() | source_queryable(),
     params :: params()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  ) :: {:ok, schema()} | {:error, changeset()}
   def find_or_create(query, params, opts \\ []) do
     queryable = CommonSchemas.get_schema_queryable(query)
 
@@ -387,12 +387,12 @@ defmodule EctoShorts.Actions do
     find_params :: params(),
     update_params :: params(),
     opts :: opts()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  ) :: {:ok, schema()} | {:error, changeset()}
   @spec find_and_update(
     query :: queryable() | source_queryable(),
     find_params :: params(),
     update_params :: params()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  ) :: {:ok, schema()} | {:error, changeset()}
   def find_and_update(query, find_params, update_params, opts \\ []) do
     with {:ok, schema_data} <- find(query, find_params, opts) do
       update(query, schema_data, update_params, opts)
@@ -423,12 +423,12 @@ defmodule EctoShorts.Actions do
     find_params :: params(),
     update_params :: params(),
     opts :: opts()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  ) :: {:ok, schema()} | {:error, changeset()}
   @spec find_and_upsert(
     query :: queryable() | source_queryable(),
     find_params :: params(),
     update_params :: params()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  ) :: {:ok, schema()} | {:error, changeset()}
   def find_and_upsert(query, find_params, update_params, opts \\ []) do
     case find(query, find_params, opts) do
       {:ok, schema_data} ->
@@ -678,13 +678,13 @@ defmodule EctoShorts.Actions do
     aggregate :: aggregate_options(),
     field :: field(),
     opts :: opts()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, any()}
+  ) :: any() | nil
   @spec aggregate(
     query :: query() | queryable() | source_queryable(),
     params :: params(),
     aggregate :: aggregate_options(),
     field :: field()
-  ) :: {:ok, Ecto.Schema.t()} | {:error, any()}
+  ) :: any() | nil
   def aggregate(query, params, aggregate, field, opts \\ []) do
     query
     |> CommonSchemas.get_schema_query()
