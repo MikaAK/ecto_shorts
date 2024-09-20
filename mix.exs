@@ -13,7 +13,6 @@ defmodule EctoShorts.MixProject do
       package: package(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [tool: ExCoveralls],
-
       preferred_cli_env: [
         coveralls: :test,
         doctor: :test,
@@ -23,9 +22,11 @@ defmodule EctoShorts.MixProject do
         "coveralls.json": :test,
         "coveralls.html": :test
       ],
-
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix],
+        plt_local_path: "dialyzer",
+        plt_core_path: "dialyzer",
+        plt_ignore_apps: [],
         list_unused_filters: true,
         ignore_warnings: ".dialyzer-ignore.exs",
         flags: [:unmatched_returns, :no_improper_lists]
@@ -43,7 +44,7 @@ defmodule EctoShorts.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ecto, "~> 3.0", optional: true},
+      {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0", optional: true},
 

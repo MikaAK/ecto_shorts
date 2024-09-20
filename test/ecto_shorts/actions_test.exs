@@ -3,6 +3,10 @@ defmodule EctoShorts.ActionsTest do
   use EctoShorts.DataCase
 
   alias EctoShorts.Actions
+  alias EctoShorts.Support.{
+    Repo,
+    TestRepo
+  }
   alias EctoShorts.Support.Schemas.{
     Comment,
     Post
@@ -17,6 +21,24 @@ defmodule EctoShorts.ActionsTest do
   test "raises if repo not configured for replica" do
     assert_raise ArgumentError, ~r|ecto shorts must be configured with a repo|, fn ->
       Actions.all(Comment, %{}, repo: nil)
+    end
+  end
+
+  describe "get: " do
+    test "returns record" do
+      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+
+      schema_data_id = schema_data.id
+
+      assert %Comment{id: ^schema_data_id} = Actions.get(Comment, schema_data_id)
+    end
+
+    test "returns nil when record does not exist" do
+      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+
+      assert {:ok, _} = Repo.delete(schema_data)
+
+      assert nil === Actions.get(Comment, schema_data.id)
     end
   end
 
@@ -51,6 +73,16 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
+    test "deletes many records by changeset" do
+      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+
+      changeset = Comment.changeset(schema_data, %{})
+
+      assert {:ok, [deleted_schema_data]} = Actions.delete([changeset])
+
+      assert deleted_schema_data.id === schema_data.id
+    end
+
     test "deletes many record by schema data" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
@@ -59,7 +91,7 @@ defmodule EctoShorts.ActionsTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
-    test "returns error when delete fails due to a constraint delete" do
+    test "returns error when given a changeset and a constraint error occurs" do
       assert {:ok, post_schema_data} = Actions.create(Post, %{title: "title"})
 
       assert {:ok, _comment_schema_data} =
@@ -71,22 +103,20 @@ defmodule EctoShorts.ActionsTest do
           }
         )
 
-      assert {:error, error} = Actions.delete(post_schema_data)
+      assert {:error, error} =
+        post_schema_data
+        |> Post.changeset(%{})
+        |> Actions.delete()
 
       assert %ErrorMessage{
         code: :internal_server_error,
-        details: %{
-          changeset: changeset,
-          schema_data: schema_data
-        },
+        details: %{changeset: changeset},
         message: "Error deleting EctoShorts.Support.Schemas.Post"
       } = error
 
       assert %Ecto.Changeset{} = changeset
 
       assert {:comments, ["are still associated with this entry"]} in errors_on(changeset)
-
-      assert schema_data === post_schema_data
     end
   end
 
@@ -107,16 +137,32 @@ defmodule EctoShorts.ActionsTest do
       assert [^schema_data_2, ^schema_data_1] = Actions.all(Comment, %{}, order_by: {:desc, :count})
     end
 
-    test "returns records by query parameters" do
+    test "returns records by map query parameters" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
       assert [^schema_data] = Actions.all(Comment, %{id: schema_data.id})
     end
 
-    test "returns records when parameters is a keyword list" do
+    test "returns records by keyword parameters" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
       assert [^schema_data] = Actions.all(Comment, id: schema_data.id)
+    end
+
+    test "can use repo in keyword parameters" do
+      TestRepo.with_shared_connection(fn ->
+        assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"}, repo: TestRepo)
+
+        assert [^schema_data] = Actions.all(Comment, id: schema_data.id, repo: TestRepo, replica: nil)
+      end)
+    end
+
+    test "can use replica in keyword parameters" do
+      TestRepo.with_shared_connection(fn ->
+        assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"}, repo: TestRepo)
+
+        assert [^schema_data] = Actions.all(Comment, id: schema_data.id, repo: nil, replica: TestRepo)
+      end)
     end
   end
 
@@ -130,7 +176,7 @@ defmodule EctoShorts.ActionsTest do
     test "returns error message with params and query" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:error, error} = Actions.find(Comment, %{id: schema_data.id})
 
@@ -167,18 +213,20 @@ defmodule EctoShorts.ActionsTest do
       assert {:ok, ^schema_data} = Actions.find_or_create(Comment, %{id: schema_data.id})
     end
 
-    test "creates a record if the id in params doesn't match an existing record." do
+    test "creates a record if matching record not found" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
-      assert {:ok, schema_data} =
+      assert {:ok, created_schema_data} =
         Actions.find_or_create(Comment, %{
           id: schema_data.id,
           body: "created_record"
         })
 
-      assert %{body: "created_record"} = schema_data
+      assert %{body: "created_record"} = created_schema_data
+
+      refute schema_data.id === created_schema_data.id
     end
   end
 
@@ -212,7 +260,7 @@ defmodule EctoShorts.ActionsTest do
     test "returns error when id in params does not match an existing record" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:error, error} =
         Actions.update(Comment, schema_data.id, %{body: "updated_body"})
@@ -235,50 +283,11 @@ defmodule EctoShorts.ActionsTest do
     end
   end
 
-  describe "find_and_update: " do
-    test "updates existing record" do
-      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
-
-      assert {:ok, updated_schema_data} =
-        Actions.find_and_update(
-          Comment,
-          %{id: schema_data.id},
-          %{body: "updated_body"}
-        )
-
-      assert %{body: "updated_body"} = updated_schema_data
-    end
-
-    test "returns error when params does not match an existing record" do
-      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
-
-      assert {:ok, _} = Actions.delete(schema_data)
-
-      assert {:error, error} =
-        Actions.find_and_update(
-          Comment,
-          %{id: schema_data.id},
-          %{body: "updated_body"}
-        )
-
-      assert %ErrorMessage{
-        code: :not_found,
-        details: %{
-          params: %{id: error_id},
-          query: EctoShorts.Support.Schemas.Comment
-        },
-        message: "no records found"
-      } = error
-
-      assert error_id === schema_data.id
-    end
-  end
-
   describe "find_and_upsert: " do
-    test "creates a record if the id in params doesn't match an existing record." do
+    test "creates a record if matching record not found" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:ok, schema_data} =
         Actions.find_and_upsert(
@@ -305,15 +314,17 @@ defmodule EctoShorts.ActionsTest do
   end
 
   describe "stream: " do
-    test "returns records" do
-      assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
+    test "returns records given" do
+      assert {:ok, created_schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, [^schema_data]} =
-        EctoShorts.Config.repo().transaction(fn ->
+      assert {:ok, [returned_schema_data]} =
+        Repo.transaction(fn ->
           Comment
           |> Actions.stream(%{})
           |> Enum.to_list()
         end)
+
+      assert created_schema_data.id === returned_schema_data.id
     end
   end
 
@@ -363,10 +374,10 @@ defmodule EctoShorts.ActionsTest do
         Actions.find_or_create_many(Comment, [%{id: schema_data.id}])
     end
 
-    test "creates a record if the id in params doesn't match an existing record." do
+    test "creates a record if matching record not found" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
-      assert {:ok, _} = Actions.delete(schema_data)
+      assert {:ok, _} = Repo.delete(schema_data)
 
       assert {:ok, list_of_schema_data} =
         Actions.find_or_create_many(

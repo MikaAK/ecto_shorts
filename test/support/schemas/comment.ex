@@ -15,11 +15,11 @@ defmodule EctoShorts.Support.Schemas.Comment do
     timestamps()
   end
 
-  @available_attributes [:body, :count, :post_id, :user_id]
+  @available_fields [:body, :count, :post_id, :user_id]
 
   def changeset(model_or_changeset, attrs \\ %{}) do
     model_or_changeset
-    |> cast(attrs, @available_attributes)
+    |> cast(attrs, @available_fields)
     |> validate_length(:body, min: 3)
   end
 end

@@ -4,6 +4,54 @@ defmodule EctoShorts.SchemaHelpers do
   """
 
   @doc """
+  Returns a struct for the given ecto schema.
+
+  ### Options
+
+      See `Ecto.put_meta/2` for more information.
+
+  ### Examples
+
+      iex> EctoShorts.SchemaHelpers.build_struct(%EctoShorts.Support.Schemas.Comment{}, state: :loaded, source: "comment", prefix: "prefix")
+      %EctoShorts.Support.Schemas.Comment{
+        __meta__: %Ecto.Schema.Metadata{
+          context: nil,
+          prefix: "prefix",
+          schema: EctoShorts.Support.Schemas.Comment,
+          source: "comment",
+          state: :loaded
+        }
+      }
+
+      iex> EctoShorts.SchemaHelpers.build_struct(EctoShorts.Support.Schemas.Comment, state: :loaded, source: "comment", prefix: "prefix")
+      %EctoShorts.Support.Schemas.Comment{
+        __meta__: %Ecto.Schema.Metadata{
+          context: nil,
+          prefix: "prefix",
+          schema: EctoShorts.Support.Schemas.Comment,
+          source: "comment",
+          state: :loaded
+        }
+      }
+  """
+  @doc since: "2.5.0"
+  @spec build_struct(
+    schema :: Ecto.Queryable.t() | Ecto.Schema.t(),
+    meta :: keyword()
+  ) :: Ecto.Schema.t()
+  def build_struct(%_{} = schema_data, meta) do
+    meta = Keyword.put_new(meta, :state, :loaded)
+
+    Ecto.put_meta(schema_data, meta)
+  end
+
+  def build_struct(schema, meta) do
+    schema
+    |> struct()
+    |> build_struct(meta)
+  end
+
+  @doc """
   Determine if item passed in is a Ecto Schema
 
   ## Example

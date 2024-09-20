@@ -13,7 +13,7 @@ defmodule EctoShorts.Support.Repo.Migrations.CreateComments do
       )
 
       add :user_id, references(:users,
-        on_delete: :restrict,
+        on_delete: :nilify_all,
         on_update: :update_all
       )
 
