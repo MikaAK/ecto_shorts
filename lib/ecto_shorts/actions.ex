@@ -105,7 +105,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.get/3](https://hexdocs.pm/ecto/Ecto.Repo.html#c:get/3) for more options.
 
@@ -133,7 +133,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
@@ -159,7 +159,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
@@ -207,7 +207,7 @@ defmodule EctoShorts.Actions do
 
     * `:order_by` - Orders the fields based on one or more fields.
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
@@ -243,7 +243,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:one/2) for more options.
 
@@ -299,7 +299,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.insert/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:insert/2) for more options.
 
@@ -331,7 +331,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3` and `create/3` for more information.
 
@@ -369,7 +369,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3` and `update/4` for more information.
 
@@ -405,7 +405,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3`, `create/3` and `update/4` for more information.
 
@@ -448,7 +448,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `update/4` and [Ecto.Repo.get/3](https://hexdocs.pm/ecto/Ecto.Repo.html#c:get/3) for more options.
 
@@ -536,7 +536,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.delete/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:delete/2) for more options.
 
@@ -596,7 +596,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3` and [Ecto.Repo.delete/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:delete/2) for more options.
 
@@ -625,7 +625,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.stream/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:stream/2) for more options.
 
@@ -659,7 +659,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.aggregate/4](https://hexdocs.pm/ecto/Ecto.Repo.html#c:aggregate/4) for more options.
 
@@ -700,7 +700,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-  See the ["Shared options"](#shared-options) section at the module documentation for remaining options.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   ### Examples
 
