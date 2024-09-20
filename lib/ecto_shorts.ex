@@ -19,7 +19,7 @@ defmodule EctoShorts do
     build Ecto queries with parameters. In other words, you
     can turn data into a query without having to write one.
 
-  ## EctoShorts.Actions
+  ## Actions
 
   `EctoShorts.Actions` allows you to use the `Ecto.Repo` api
   without having the do any of the pre-requisite setup as it
@@ -79,19 +79,11 @@ defmodule EctoShorts do
   ```
 
   All actions can accept an optional argument of a keyword list
-  that can be used to configure which Repo the action should use.
+  that can be used to configure which `repo` the action should use.
 
-  ## Options
+  See the `EctoShorts.Actions` module documentation for more information.
 
-    * `:replica` - A module that uses Ecto.Repo. If you don't
-    want to perform any reads against your primary, you can
-    specify a replica to read from. This option takes
-    precedence over the :repo option and will be used if set.
-
-    * `:repo` - A module that uses Ecto.Repo. This is
-    commonly your primary repository.
-
-  ## EctoShorts.CommonFilters
+  ## Common Filters
 
   CommonFilters allows you build queries from data instead of
   writing your own queries. For example, where you would
@@ -120,7 +112,7 @@ defmodule EctoShorts do
   See `EctoShorts.CommonFilters` for more info on information on
   the available filters.
 
-  ## EctoShorts.CommonChanges
+  ## Common Changes
 
   `EctoShorts.CommonChanges` is responsible for updating
   relations on schemas. It allows you to update associations
@@ -209,22 +201,10 @@ defmodule EctoShorts do
   `source` and `schema` for the operation in a tuple:
 
   ```
-  {"comments", Comment}
+  YourRepo.all({"source", YourSchema})
   ```
 
-  For example:
-
-  ```
-  EctoShorts.Actions.all({"source", YourSchema})
-  ```
-
-  or
-
-  ```
-  EctoShorts.CommonFilters.convert_params_to_filter({"source", YourSchema}, %{name: "example.txt"})
-  ```
-
-  The abstract schema syntax can be used with:
+  The syntax can be used with any function in the modules:
 
     * `EctoShorts.Actions`
     * `EctoShorts.CommonFilters`
