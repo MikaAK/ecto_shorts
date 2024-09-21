@@ -1,6 +1,5 @@
 defmodule EctoShorts.ActionsAbstractSchemaTest do
   @moduledoc false
-  alias EctoShorts.Support.Schemas.UserAvatarNoConstraint
   use EctoShorts.DataCase
 
   alias EctoShorts.Actions
