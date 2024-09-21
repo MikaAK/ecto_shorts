@@ -3,6 +3,7 @@ defmodule EctoShorts.QueryBuilder.Common do
   This module contains query building parts for common things such
   as preload, start/end date and others
   """
+  @moduledoc since: "2.5.0"
   import Logger, only: [debug: 1]
 
   alias EctoShorts.{

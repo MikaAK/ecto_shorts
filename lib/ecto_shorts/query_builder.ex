@@ -2,6 +2,7 @@ defmodule EctoShorts.QueryBuilder do
   @moduledoc """
   Specifies the query builder API required from adapters.
   """
+  @moduledoc since: "2.5.0"
 
   @type adapter :: module()
   @type filter_key :: atom()

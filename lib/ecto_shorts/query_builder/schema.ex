@@ -4,6 +4,8 @@ defmodule EctoShorts.QueryBuilder.Schema do
   when passed a query it can pull the schema from it and attempt
   to filter on any natural field
   """
+  @moduledoc since: "2.5.0"
+
   alias EctoShorts.{
     QueryBuilder,
     QueryHelpers
