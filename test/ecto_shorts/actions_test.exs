@@ -13,14 +13,14 @@ defmodule EctoShorts.ActionsTest do
   }
 
   test "raises if repo not configured" do
-    assert_raise ArgumentError, ~r|ecto shorts must be configured with a repo|, fn ->
+    assert_raise ArgumentError, ~r|EctoShorts must be configured with a repo|, fn ->
       Actions.create(Comment, %{}, repo: nil)
     end
   end
 
   test "raises if repo not configured for replica" do
-    assert_raise ArgumentError, ~r|ecto shorts must be configured with a repo|, fn ->
-      Actions.all(Comment, %{}, repo: nil)
+    assert_raise ArgumentError, ~r|EctoShorts must be configured with a repo|, fn ->
+      Actions.all(Comment, %{}, repo: nil, replica: nil)
     end
   end
 

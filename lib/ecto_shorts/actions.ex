@@ -100,7 +100,7 @@ defmodule EctoShorts.Actions do
     id :: id()
   ) :: schema() | nil
   def get(query, id, opts \\ []) do
-    replica!(opts).get(query, id, opts)
+    Config.replica!(opts).get(query, id, opts)
   end
 
   @doc """
@@ -212,7 +212,7 @@ defmodule EctoShorts.Actions do
 
     query
     |> CommonFilters.convert_params_to_filter(params)
-    |> replica!(opts).all(opts)
+    |> Config.replica!(opts).all(opts)
   end
 
   @doc """
@@ -262,7 +262,7 @@ defmodule EctoShorts.Actions do
 
     query
     |> CommonFilters.convert_params_to_filter(params)
-    |> replica!(opts).one(opts)
+    |> Config.replica!(opts).one(opts)
     |> case do
       nil ->
         {:error, Error.call(:not_found, "no records found", %{
@@ -302,7 +302,7 @@ defmodule EctoShorts.Actions do
   def create(query, params, opts \\ []) do
     query
     |> build_changeset(params, opts)
-    |> repo!(opts).insert(opts)
+    |> Config.repo!(opts).insert(opts)
   end
 
   @doc """
@@ -506,7 +506,7 @@ defmodule EctoShorts.Actions do
   def update(query, schema_data, update_params, opts) do
     query
     |> build_changeset(schema_data, update_params, opts)
-    |> repo!(opts).update(opts)
+    |> Config.repo!(opts).update(opts)
   end
 
   @doc """
@@ -554,7 +554,7 @@ defmodule EctoShorts.Actions do
     id :: id()
   ) :: {:ok, schema()} | {:error, any()}
   def delete(%Ecto.Changeset{} = changeset, opts) do
-    case repo!(opts).delete(changeset, opts) do
+    case Config.repo!(opts).delete(changeset, opts) do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
@@ -568,7 +568,7 @@ defmodule EctoShorts.Actions do
   def delete(%queryable{} = schema_data, opts) do
     changeset = build_changeset(queryable, schema_data, %{}, opts)
 
-    case repo!(opts).delete(changeset, opts) do
+    case Config.repo!(opts).delete(changeset, opts) do
       {:error, changeset} ->
         {:error, Error.call(
           :internal_server_error,
@@ -616,7 +616,7 @@ defmodule EctoShorts.Actions do
   ) :: {:ok, schema()} | {:error, any()}
   def delete(query, id, opts) when (is_integer(id) or is_binary(id)) do
     with {:ok, schema_data} <- find(query, %{id: id}, opts) do
-      repo!(opts).delete(schema_data, opts)
+      Config.repo!(opts).delete(schema_data, opts)
     end
   end
 
@@ -655,7 +655,7 @@ defmodule EctoShorts.Actions do
     query
     |> CommonSchemas.get_schema_query()
     |> CommonFilters.convert_params_to_filter(params)
-    |> replica!(opts).stream(opts)
+    |> Config.replica!(opts).stream(opts)
   end
 
   @doc """
@@ -697,7 +697,7 @@ defmodule EctoShorts.Actions do
     query
     |> CommonSchemas.get_schema_query()
     |> CommonFilters.convert_params_to_filter(params)
-    |> replica!(opts).aggregate(aggregate, field, opts)
+    |> Config.replica!(opts).aggregate(aggregate, field, opts)
   end
 
   @doc """
@@ -735,7 +735,7 @@ defmodule EctoShorts.Actions do
 
     query
     |> multi_insert(param_list, create_params, opts)
-    |> repo!(opts).transaction()
+    |> Config.repo!(opts).transaction()
     |> case do
       {:ok, created_map} -> {:ok, merge_found(created_map, found_results)}
       error -> error
@@ -827,31 +827,7 @@ defmodule EctoShorts.Actions do
     {status, Enum.reverse(res)}
   end
 
-  defp repo!(opts) do
-    with nil <- repo(opts) do
-      raise ArgumentError, message: "ecto shorts must be configured with a repo. For further guidence consult the docs. https://hexdocs.pm/ecto_shorts/EctoShorts.html#module-config"
-    end
+  defp default_opts do
+    [repo: Config.repo(), replica: Config.replica()]
   end
-
-  # `replica!/1` will attempt to retrieve a repo from the replica key and default to
-  # returning the value under the repo: key if no replica is found. If no repos are configured
-  # an ArgumentError will be raised.
-  defp replica!(opts) do
-    with nil <- Keyword.get(opts, :replica),
-      nil <- repo(opts) do
-      raise ArgumentError, message: "ecto shorts must be configured with a repo. For further guidence consult the docs. https://hexdocs.pm/ecto_shorts/EctoShorts.html#module-config"
-    end
-  end
-
-  defp repo([]) do
-    Config.repo()
-  end
-
-  defp repo(opts) do
-    default_opts()
-    |> Keyword.merge(opts)
-    |> Keyword.get(:repo)
-  end
-
-  defp default_opts, do: [repo: Config.repo()]
 end
