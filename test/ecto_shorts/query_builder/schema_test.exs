@@ -1,5 +1,8 @@
 defmodule EctoShorts.QueryBuilder.SchemaTest do
   use ExUnit.Case, async: true
+
+  require Ecto.Query
+
   doctest EctoShorts.QueryBuilder.Schema
 
   alias EctoShorts.QueryBuilder.Schema
@@ -7,7 +10,7 @@ defmodule EctoShorts.QueryBuilder.SchemaTest do
 
   describe "create_schema_filter: " do
     test "returns a query where record matches query field value" do
-      query = Schema.create_schema_filter({:id, 1}, Post)
+      query = Schema.create_schema_filter(Post, :id, 1)
 
       assert %Ecto.Query{
         aliases: %{},
@@ -29,7 +32,7 @@ defmodule EctoShorts.QueryBuilder.SchemaTest do
     end
 
     test "returns a query where record matches association params" do
-      query = Schema.create_schema_filter({:comments, %{id: 1}}, Post)
+      query = Schema.create_schema_filter(Post, :comments, %{id: 1})
 
       assert %Ecto.Query{
         aliases: %{
@@ -68,13 +71,13 @@ defmodule EctoShorts.QueryBuilder.SchemaTest do
     end
 
     test "returns query without changes when key is not a valid field" do
-      expected_query = Post
+      query = Post
 
-      assert ^expected_query = Schema.create_schema_filter({:invalid_association, 1}, expected_query)
+      assert ^query = Schema.create_schema_filter(query, :invalid_association, 1)
     end
 
     test "returns query that joins on has_many through association" do
-      query = Schema.create_schema_filter({:authors, %{id: 1}}, Post)
+      query = Schema.create_schema_filter(Post, :authors, %{id: 1})
 
       assert %Ecto.Query{
         aliases: %{
@@ -113,7 +116,7 @@ defmodule EctoShorts.QueryBuilder.SchemaTest do
     end
 
     test "returns query that matches on record by an array query field" do
-      query = Schema.create_schema_filter({:tags, ["tag"]}, Comment)
+      query = Schema.create_schema_filter(Comment, :tags, ["tag"])
 
       assert %Ecto.Query{
         aliases: %{},
