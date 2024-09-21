@@ -25,6 +25,13 @@ defmodule EctoShorts.CommonSchemas do
   @moduledoc since: "2.5.0"
   alias EctoShorts.{QueryHelpers, SchemaHelpers}
 
+  @type query :: Ecto.Query.t()
+  @type queryable :: Ecto.Queryable.t()
+  @type source :: binary()
+  @type source_queryable :: {source(), queryable()}
+  @type schema_arg :: atom()
+  @type schema :: Ecto.Schema.t()
+
   @doc """
   This function invokes the `&__schema__/1` callback function.
 
@@ -34,8 +41,8 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_schema_reflection({"comments", EctoShorts.Support.Schemas.Comment}, :fields)
   """
   @spec get_schema_reflection(
-    queryable :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()},
-    arg :: atom()
+    queryable :: queryable(),
+    arg :: schema_arg()
   ) :: any()
   def get_schema_reflection({_source, queryable}, arg) do
     queryable.__schema__(arg)
@@ -54,9 +61,9 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_schema_reflection({"comments", EctoShorts.Support.Schemas.Comment}, :type, :body)
   """
   @spec get_schema_reflection(
-    queryable :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()},
-    arg1 :: atom(),
-    arg2 :: atom()
+    queryable :: queryable(),
+    arg1 :: schema_arg(),
+    arg2 :: schema_arg()
   ) :: any()
   def get_schema_reflection({_source, queryable}, arg1, arg2) do
     queryable.__schema__(arg1, arg2)
@@ -74,9 +81,7 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_loaded_struct(EctoShorts.Support.Schemas.Comment)
       iex> EctoShorts.CommonSchemas.get_loaded_struct({"comments", EctoShorts.Support.Schemas.Comment})
   """
-  @spec get_loaded_struct(
-    queryable :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()}
-  ) :: Ecto.Schema.t()
+  @spec get_loaded_struct(queryable :: queryable() | source_queryable()) :: schema()
   def get_loaded_struct({source, queryable}) do
     prefix = get_schema_prefix(queryable)
 
@@ -106,9 +111,7 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_schema_prefix(EctoShorts.Support.Schemas.Comment)
       iex> EctoShorts.CommonSchemas.get_schema_prefix({"comments", EctoShorts.Support.Schemas.Comment})
   """
-  @spec get_schema_prefix(
-    queryable :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()}
-  ) :: binary() | nil
+  @spec get_schema_prefix(queryable :: queryable() | source_queryable()) :: binary() | nil
   def get_schema_prefix({_source, queryable}) do
     queryable.__schema__(:prefix)
   end
@@ -125,9 +128,7 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_schema_source(EctoShorts.Support.Schemas.Comment)
       iex> EctoShorts.CommonSchemas.get_schema_source({"comments", EctoShorts.Support.Schemas.Comment})
   """
-  @spec get_schema_source(
-    queryable :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()}
-  ) :: binary()
+  @spec get_schema_source(queryable :: queryable() | source_queryable()) :: binary()
   def get_schema_source({source, _queryable}) do
     source
   end
@@ -144,9 +145,7 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_schema_queryable(EctoShorts.Support.Schemas.Comment)
       iex> EctoShorts.CommonSchemas.get_schema_queryable({"comments", EctoShorts.Support.Schemas.Comment})
   """
-  @spec get_schema_queryable(
-    queryable :: Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()}
-  ) :: Ecto.Queryable.t()
+  @spec get_schema_queryable(queryable :: queryable() | source_queryable()) :: queryable()
   def get_schema_queryable({_source, queryable}) do
     queryable
   end
@@ -170,9 +169,7 @@ defmodule EctoShorts.CommonSchemas do
       iex> EctoShorts.CommonSchemas.get_schema_query(EctoShorts.Support.Schemas.Comment)
       iex> EctoShorts.CommonSchemas.get_schema_query({"comments", EctoShorts.Support.Schemas.Comment})
   """
-  @spec get_schema_query(
-    queryable :: Ecto.Query.t() | Ecto.Queryable.t() | {binary(), Ecto.Queryable.t()}
-  ) :: Ecto.Query.t()
+  @spec get_schema_query(query :: query() | queryable() | source_queryable()) :: query()
   def get_schema_query({source, queryable}) do
     QueryHelpers.build_schema_query({source, queryable})
   end
