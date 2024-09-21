@@ -1,5 +1,6 @@
 defmodule EctoShorts.ActionsAbstractSchemaTest do
   @moduledoc false
+  alias EctoShorts.Support.Schemas.UserAvatarNoConstraint
   use EctoShorts.DataCase
 
   alias EctoShorts.Actions
@@ -9,7 +10,8 @@ defmodule EctoShorts.ActionsAbstractSchemaTest do
   }
   alias EctoShorts.Support.Schemas.{
     FileInfo,
-    UserAvatar
+    UserAvatar,
+    UserAvatarNoConstraint
   }
 
   test "raises if repo not configured" do
@@ -107,21 +109,13 @@ defmodule EctoShorts.ActionsAbstractSchemaTest do
       assert deleted_schema_data.id === schema_data.id
     end
 
-    test "returns error when delete fails due to a constraint delete" do
+    test "returns error when constraint error occurs" do
       assert {:ok, user_avatar} = Actions.create(UserAvatar, %{})
 
       assert {:ok, _file_info} =
         Actions.create({"file_info_user_avatars", FileInfo}, %{assoc_id: user_avatar.id})
 
-      assert {:error, error} =
-        Actions.delete(user_avatar, changeset: fn changeset ->
-          Ecto.Changeset.foreign_key_constraint(
-            changeset,
-            :assoc_id,
-            name: "file_info_user_avatars_assoc_id_fkey",
-            message: "Cannot delete, record is being referenced."
-          )
-        end)
+      assert {:error, error} = Actions.delete(user_avatar)
 
       assert %ErrorMessage{
         code: :internal_server_error,
@@ -131,7 +125,33 @@ defmodule EctoShorts.ActionsAbstractSchemaTest do
 
       assert %{changeset: changeset, schema_data: user_avatar} === details
 
-      assert {:assoc_id, ["Cannot delete, record is being referenced."]} in errors_on(changeset)
+      assert {:file_info, ["is still associated with this entry"]} in errors_on(changeset)
+    end
+
+    test "returns error when constraint error occurs and constraint is added with :changeset option" do
+      assert {:ok, user_avatar} = Actions.create(UserAvatarNoConstraint, %{})
+
+      assert {:ok, _file_info} =
+        Actions.create({"file_info_user_avatars", FileInfo}, %{assoc_id: user_avatar.id})
+
+      assert {:error, error} =
+        Actions.delete(user_avatar, changeset: fn changeset ->
+          Ecto.Changeset.no_assoc_constraint(
+            changeset,
+            :file_info,
+            name: "file_info_user_avatars_assoc_id_fkey"
+          )
+        end)
+
+      assert %ErrorMessage{
+        code: :internal_server_error,
+        details: %{changeset: changeset} = details,
+        message: "Error deleting EctoShorts.Support.Schemas.UserAvatarNoConstraint"
+      } = error
+
+      assert %{changeset: changeset, schema_data: user_avatar} === details
+
+      assert {:file_info, ["is still associated with this entry"]} in errors_on(changeset)
     end
   end
 
