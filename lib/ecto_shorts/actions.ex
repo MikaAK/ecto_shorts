@@ -62,8 +62,7 @@ defmodule EctoShorts.Actions do
   @type schemas :: list() | list(schema())
   @type opts :: Keyword.t()
   @type aggregate_options :: :avg | :count | :max | :min | :sum
-  @type error_message :: ErrorMessage.t()
-  @type schema_res :: {:ok, schema()} | {:error, any}
+  @type error_message :: ErrorMessage.t() | any()
 
   alias EctoShorts.{
     Actions.Error,
@@ -242,11 +241,11 @@ defmodule EctoShorts.Actions do
     query :: queryable() | source_queryable(),
     params :: params(),
     opts
-  ) :: schema_res | {:error, any}
+  ) :: {:ok, schema()} | {:error, error_message()}
   @spec find(
     query :: queryable() | source_queryable(),
     params :: params()
-  ) :: schema_res | {:error, any}
+  ) :: {:ok, schema()} | {:error, error_message()}
   def find(query, params, opts \\ [])
 
   def find(query, params, _options) when params === %{} and is_atom(query) do
@@ -518,8 +517,8 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.delete(%YourSchema{})
       iex> EctoSchemas.Actions.delete([%YourSchema{}])
   """
-  @spec delete(schema :: schema()) :: {:ok, schema()} | {:error, any()}
-  @spec delete(schemas :: schemas()) :: {:ok, schemas()} | {:error, any()}
+  @spec delete(schema :: schema()) :: {:ok, schema()} | {:error, error_message()}
+  @spec delete(schemas :: schemas()) :: {:ok, schemas()} | {:error, error_message()}
   def delete(%_{} = schema_data) do
     delete(schema_data, default_opts())
   end
@@ -545,15 +544,15 @@ defmodule EctoShorts.Actions do
   @spec delete(
     schema :: schema(),
     opts :: opts()
-  ) :: {:ok, schema()} | {:error, any()}
+  ) :: {:ok, schema()} | {:error, error_message()}
   @spec delete(
     schemas :: schemas(),
     opts :: opts()
-  ) :: {:ok, schemas()} | {:error, any()}
+  ) :: {:ok, schemas()} | {:error, error_message()}
   @spec delete(
     query :: queryable() | source_queryable(),
     id :: id()
-  ) :: {:ok, schema()} | {:error, any()}
+  ) :: {:ok, schema()} | {:error, error_message()}
   def delete(%Ecto.Changeset{} = changeset, opts) do
     case repo!(opts).delete(changeset, opts) do
       {:error, changeset} ->
@@ -614,7 +613,7 @@ defmodule EctoShorts.Actions do
     query :: queryable() | source_queryable(),
     id :: id(),
     opts :: opts()
-  ) :: {:ok, schema()} | {:error, any()}
+  ) :: {:ok, schema()} | {:error, error_message()}
   def delete(query, id, opts) when (is_integer(id) or is_binary(id)) do
     with {:ok, schema_data} <- find(query, %{id: id}, opts) do
       repo!(opts).delete(schema_data, opts)
