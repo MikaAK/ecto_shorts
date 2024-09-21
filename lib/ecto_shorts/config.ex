@@ -24,6 +24,7 @@ defmodule EctoShorts.Config do
       iex> EctoShorts.Config.replica()
       nil
   """
+  @doc since: "2.5.0"
   @spec replica :: Ecto.Repo.t() | nil
   def replica do
     Application.get_env(@app, :replica)
@@ -42,6 +43,7 @@ defmodule EctoShorts.Config do
       iex> EctoShorts.Config.repo!(repo: YourApp.Repo)
       YourApp.Repo
   """
+  @doc since: "2.5.0"
   @spec repo!(keyword()) :: Ecto.Repo.t()
   @spec repo! :: Ecto.Repo.t()
   def repo!(opts \\ []) do
@@ -83,6 +85,7 @@ defmodule EctoShorts.Config do
       iex> EctoShorts.Config.replica!(replica: YourApp.Repo.Replica)
       YourApp.Repo.Replica
   """
+  @doc since: "2.5.0"
   @spec replica!(keyword()) :: Ecto.Repo.t()
   @spec replica! :: Ecto.Repo.t()
   def replica!(opts \\ []) do
