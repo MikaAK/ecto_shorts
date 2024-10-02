@@ -84,7 +84,7 @@ defmodule EctoShorts.MixProject do
 
   defp docs do
     [
-      main: "readme",
+      main: "EctoShorts",
       source_url: "https://github.com/MikaAK/ecto_shorts",
       extras: [
         "README.md",
@@ -100,16 +100,24 @@ defmodule EctoShorts.MixProject do
         "docs/how-to/crud-operations.md",
         "docs/how-to/custom-filters.md",
         "docs/how-to/configuration.md",
+        "docs/how-to/graphql-integration.md",
         # Explanation (Understanding-oriented)
         "docs/explanation/index.md",
         "docs/explanation/why-ecto-shorts.md",
         "docs/explanation/architecture.md",
         "docs/explanation/comparison.md",
-        "docs/explanation/best-practices.md"
+        "docs/explanation/best-practices.md",
+
+        # Reference (Technical-oriented)
+        "docs/reference/index.md",
+        "docs/reference/actions.md",
+        "docs/reference/api-reference.md",
+        "docs/reference/filter-options.md"
       ],
       groups_for_extras: [
         "Tutorials": ~r{docs/tutorials/},
         "How-to Guides": ~r{docs/how-to/},
+        "Reference": ~r{docs/reference/},
         "Explanation": ~r{docs/explanation/}
       ],
       groups_for_modules: [

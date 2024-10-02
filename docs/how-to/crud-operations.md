@@ -264,4 +264,4 @@ end
 
 The `Actions` module in ecto_shorts provides a consistent, powerful interface for performing CRUD operations. By abstracting away the details of Ecto's `Repo` functions and automatically handling associations and filtering, it helps you write cleaner, more maintainable code.
 
-For more information on available options, see the [Actions Reference](../reference/actions.md).
+For more information on available options, see the `EctoShorts.Actions` module documentation.

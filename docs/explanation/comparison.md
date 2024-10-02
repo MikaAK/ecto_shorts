@@ -394,6 +394,96 @@ ecto_shorts is a good choice when:
 
 5. **You're building a CRUD-heavy application**: If your application is heavy on CRUD operations, ecto_shorts can significantly reduce the amount of code you need to write.
 
+## GraphQL Integration
+
+When building GraphQL APIs with Elixir (typically using [Absinthe](https://github.com/absinthe-graphql/absinthe)), ecto_shorts can simplify your resolver functions.
+
+### Standard Approach with Ecto
+
+```elixir
+defmodule MyAppWeb.Schema.Resolvers.Accounts do
+  alias MyApp.{Repo, User}
+  
+  def get_user(_parent, %{id: id}, _resolution) do
+    case Repo.get(User, id) do
+      nil -> {:error, "User not found"}
+      user -> {:ok, user}
+    end
+  end
+  
+  def list_users(_parent, args, _resolution) do
+    query = User
+    
+    query = if Map.has_key?(args, :name) do
+      name_pattern = "%#{args.name}%"
+      from u in query, where: ilike(u.name, ^name_pattern)
+    else
+      query
+    end
+    
+    query = if Map.has_key?(args, :age_min) do
+      from u in query, where: u.age >= ^args.age_min
+    else
+      query
+    end
+    
+    {:ok, Repo.all(query)}
+  end
+  
+  # More resolver functions...
+end
+```
+
+### ecto_shorts Approach
+
+```elixir
+defmodule MyAppWeb.Schema.Resolvers.Accounts do
+  alias EctoShorts.Actions
+  alias MyApp.{Repo, User}
+  
+  @actions_opts [repo: Repo]
+  
+  def get_user(_parent, %{id: id}, _resolution) do
+    # Note: While this works, it's generally better practice to use a context module
+    # This approach is shown for comparison purposes only
+    Actions.get(User, id, @actions_opts)
+  end
+  
+  def list_users(_parent, args, _resolution) do
+    # Convert GraphQL args to ecto_shorts filters
+    filters = args
+    |> Map.take([:id, :email, :age_min, :age_max])
+    |> Map.new(fn
+      {:age_min, value} -> {:age, %{gte: value}}
+      {:age_max, value} -> {:age, %{lte: value}}
+      {k, v} -> {k, v}
+    end)
+    |> Map.put_new(:preload, args[:preload] || [])
+    
+    # Add search if present
+    filters = if Map.has_key?(args, :search) do
+      Map.put(filters, :search, args.search)
+    else
+      filters
+    end
+    
+    # Note: While this works, it's generally better practice to use a context module
+    # This approach is shown for comparison purposes only
+    {:ok, Actions.all(User, filters, @actions_opts)}
+  end
+  
+  # More resolver functions...
+end
+```
+
+The ecto_shorts approach offers several advantages in GraphQL resolvers:
+
+1. **Consistent error handling**: Actions.get/3 returns `{:ok, record}` or `{:error, :not_found}`, which aligns well with GraphQL resolver return values.
+2. **Declarative filtering**: The parameter-based filtering system makes it easy to convert GraphQL arguments to database queries.
+3. **Automatic preloading**: You can easily preload associations based on GraphQL arguments.
+
+However, it's generally better practice to use context modules rather than calling ecto_shorts directly in resolvers, as this provides better separation of concerns and makes your code more testable.
+
 ## When to Choose Other Approaches
 
 Other approaches might be better when:

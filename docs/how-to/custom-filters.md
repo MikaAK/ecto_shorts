@@ -288,4 +288,4 @@ end
 
 Custom filters allow you to extend ecto_shorts' capabilities to meet your specific requirements. By implementing custom search functions, creating schema-specific filters, or extending the `CommonFilters` module, you can build a powerful and flexible querying system for your application.
 
-For more information on the built-in filters, see the [Filter Options Reference](../reference/filter-options.md).
+For more information on the built-in filters, see the Filter Options Reference section in the documentation.

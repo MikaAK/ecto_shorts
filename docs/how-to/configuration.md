@@ -275,4 +275,4 @@ end
 
 ecto_shorts is highly configurable and can be adapted to a wide range of use cases. By setting up appropriate defaults, using read replicas, and customizing changeset functions, you can optimize ecto_shorts for your specific needs.
 
-For more information on available options, see the [Configuration Options Reference](../reference/configuration-options.md).
+For more information on available options, see the module documentation for the various ecto_shorts modules.

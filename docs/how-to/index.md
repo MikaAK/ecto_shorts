@@ -11,3 +11,4 @@ How-to guides are goal-oriented and designed to help you solve real-world proble
 - [How to Use Actions for CRUD Operations](./crud-operations.md) - Simplify your Create, Read, Update, Delete operations
 - [How to Implement Custom Filters](./custom-filters.md) - Extend the filtering system with your own custom filters
 - [How to Configure ecto_shorts](./configuration.md) - Set up ecto_shorts for your specific needs
+- [How to Use ecto_shorts with GraphQL](./graphql-integration.md) - Integrate ecto_shorts with GraphQL APIs

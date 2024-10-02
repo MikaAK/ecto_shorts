@@ -37,14 +37,15 @@ Problem-oriented guides to help you accomplish specific tasks:
 - [How to Use Actions for CRUD Operations](./docs/how-to/crud-operations.md)
 - [How to Implement Custom Filters](./docs/how-to/custom-filters.md)
 - [How to Configure ecto_shorts](./docs/how-to/configuration.md)
+- [How to Integrate with GraphQL](./docs/how-to/graphql-integration.md)
 
 ### [Reference](./docs/reference/index.md)
 
 Technical information about ecto_shorts components:
 
+- [Actions Reference](./docs/reference/actions.md)
 - [API Reference](./docs/reference/api-reference.md)
 - [Filter Options Reference](./docs/reference/filter-options.md)
-- [Actions Reference](./docs/reference/actions.md)
 
 ### [Explanation](./docs/explanation/index.md)
 

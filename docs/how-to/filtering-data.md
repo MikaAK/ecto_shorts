@@ -249,4 +249,4 @@ EctoShorts.Actions.count(User, %{age: %{gte: 18}})
 
 The CommonFilters module in ecto_shorts provides a powerful, flexible way to build dynamic queries. By converting parameter maps into Ecto queries, it simplifies your code and makes it more maintainable.
 
-For more information on available filters, see the [Filter Options Reference](../reference/filter-options.md).
+For more information on available filters, see the Filter Options Reference section in the documentation.

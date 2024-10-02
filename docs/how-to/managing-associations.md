@@ -225,4 +225,4 @@ role_params = %{
 
 The `CommonChanges` module in ecto_shorts simplifies working with associations in Ecto by providing intelligent functions that determine the appropriate way to handle each association. This reduces boilerplate code and makes your application more maintainable.
 
-For more information on available options, see the [Common Changes Reference](../reference/common-changes.md).
+For more information on available options, see the `EctoShorts.CommonChanges` module documentation.

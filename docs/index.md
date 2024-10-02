@@ -18,6 +18,7 @@ Problem-oriented content that guides you through specific tasks and real-world u
 - [How to Use Actions for CRUD Operations](./how-to/crud-operations.md)
 - [How to Implement Custom Filters](./how-to/custom-filters.md)
 - [How to Configure ecto_shorts](./how-to/configuration.md)
+- [How to Use ecto_shorts with GraphQL](./how-to/graphql-integration.md)
 
 ## [Reference](./reference/index.md)
 
