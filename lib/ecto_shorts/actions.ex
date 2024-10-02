@@ -686,13 +686,13 @@ defmodule EctoShorts.Actions do
     aggregate :: aggregate_options(),
     field :: field(),
     opts :: opts()
-  ) :: any() | nil
+  ) :: any()
   @spec aggregate(
     query :: query() | queryable() | source_queryable(),
     params :: params(),
     aggregate :: aggregate_options(),
     field :: field()
-  ) :: any() | nil
+  ) :: any()
   def aggregate(query, params, aggregate, field, opts \\ []) do
     query
     |> CommonSchemas.get_schema_query()
