@@ -3,6 +3,8 @@ defmodule EctoShorts.Support.Schemas.Comment do
   use Ecto.Schema
   import Ecto.Changeset
 
+  require Ecto.Query
+
   schema "comments" do
     field :body, :string
     field :count, :integer
@@ -21,5 +23,16 @@ defmodule EctoShorts.Support.Schemas.Comment do
     model_or_changeset
     |> cast(attrs, @available_fields)
     |> validate_length(:body, min: 3)
+  end
+
+  def select_body(queryable \\ __MODULE__),
+    do: Ecto.Query.select(queryable, [c], c.body)
+
+  def post_id_with_comment_count_gte(queryable \\ __MODULE__, count) do
+    queryable
+    |> Ecto.Query.group_by([c], c.post_id)
+    |> Ecto.Query.select([c], c.post_id)
+    |> Ecto.Query.having([c], count(c.post_id) >= ^count)
+    |> Ecto.Query.subquery()
   end
 end
