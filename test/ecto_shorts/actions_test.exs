@@ -11,6 +11,7 @@ defmodule EctoShorts.ActionsTest do
     Comment,
     Post
   }
+  alias EctoShorts.Support.Contexts.Posts
 
   test "raise when :repo not set in option and configuration" do
     assert_raise ArgumentError, ~r|EctoShorts repo not configured!|, fn ->
@@ -143,6 +144,13 @@ defmodule EctoShorts.ActionsTest do
       assert [^schema_data] = Actions.all(Comment, %{id: schema_data.id})
     end
 
+    test "returns data by map query parameters with custom filter and query builder in options" do
+      assert {:ok, %Comment{id: id, body: body}} = Actions.create(Comment, %{body: "body"})
+
+      assert [^body] = Actions.all(Comment, %{id: id, select_body: true}, query_builder: Posts)
+      assert [^body] = Actions.all({"comments", Comment}, %{id: id, select_body: true}, query_builder: Posts)
+    end
+
     test "returns records by keyword parameters" do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
@@ -164,6 +172,12 @@ defmodule EctoShorts.ActionsTest do
         assert [^schema_data] = Actions.all(Comment, id: schema_data.id, repo: nil, replica: TestRepo)
       end)
     end
+
+    test "can use custom filters and query_builder in keyword parameters" do
+      assert {:ok, %Comment{id: id, body: body}} = Actions.create(Comment, %{body: "body"})
+
+      assert [^body] = Actions.all(Comment, id: id, select_body: true, query_builder: Posts)
+    end
   end
 
   describe "find: " do
@@ -171,6 +185,12 @@ defmodule EctoShorts.ActionsTest do
       assert {:ok, schema_data} = Actions.create(Comment, %{body: "body"})
 
       assert {:ok, ^schema_data} = Actions.find(Comment, %{id: schema_data.id})
+    end
+
+    test "returns data with custom filters and query_builder in keyword parameters" do
+      assert {:ok, %Comment{id: id, body: body}} = Actions.create(Comment, %{body: "body"})
+
+      assert {:ok, ^body} = Actions.find(Comment, %{id: id, select_body: true}, query_builder: Posts)
     end
 
     test "returns error message with params and query" do
@@ -326,6 +346,20 @@ defmodule EctoShorts.ActionsTest do
 
       assert created_schema_data.id === returned_schema_data.id
     end
+
+    test "returns data according to custom filter" do
+      assert {:ok, created_schema_data} = Actions.create(Comment, %{body: "body"})
+
+      assert {:ok, [returned_schema_data]} =
+               Repo.transaction(fn ->
+                 Comment
+                 |> Actions.stream(%{select_body: true}, query_builder: Posts)
+                 |> Enum.to_list()
+               end)
+
+      assert created_schema_data.body === returned_schema_data
+    end
+
   end
 
   describe "aggregate: " do
@@ -363,6 +397,17 @@ defmodule EctoShorts.ActionsTest do
       assert {:ok, _} = Actions.create(Comment, %{count: 20})
 
       assert 20 = Actions.aggregate(Comment, %{}, :max, :count)
+    end
+
+    test "returns expected value for aggregate count using custom filter" do
+      assert {:ok, post_schema_data_1} = Actions.create(Post, %{title: "title"})
+      assert {:ok, post_schema_data_2} = Actions.create(Post, %{title: "title"})
+      assert {:ok, _schema_data} = Actions.create(Comment, %{post_id: post_schema_data_1.id})
+      assert {:ok, _schema_data} = Actions.create(Comment, %{post_id: post_schema_data_2.id})
+      assert {:ok, _schema_data} = Actions.create(Comment, %{post_id: post_schema_data_2.id})
+
+      assert 1 =
+        Actions.aggregate(Comment, %{post_id_with_comment_count_gte: 2}, :count, :post_id, query_builder: Posts)
     end
   end
 
