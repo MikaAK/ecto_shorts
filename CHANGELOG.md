@@ -1,10 +1,14 @@
 ## Changelog
 
+#### V2.5.0
+- feat: add support for abstract queries
+- refactor: changes function `create_schema_filter` in `EctoShorts.QueryBuilder` to a 3-arity function.
+- test: add tests
+
 #### V2.4.0
 - add recursive relational filtering
 - add `%{field: %{!=: [1, 2, 3]}}` to allow `NOT IN ANY` queries
 - fix intermittent failure from `function_exported?(schema, :create_changeset, 1)`
-
 
 #### V2.3.0
 - add ability to optionally require a id or a cast/put assoc
