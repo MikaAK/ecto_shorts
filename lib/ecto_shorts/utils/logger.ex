@@ -32,7 +32,7 @@ defmodule EctoShorts.Utils.Logger do
     message :: binary(),
     options :: keyword()
   ) :: :ok
-  if Code.ensure_loaded?(:logger) and function_exported?(:logger, :warning, 1) do
+  if Code.ensure_loaded?(:logger) and function_exported?(:logger, :warning, 2) do
     def warning(identifier, message, options \\ []) do
       identifier
       |> format_message(message)
