@@ -5,152 +5,154 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
   # values which then forces us to define two separate versions
 
   require Logger
-  import Ecto.Query, only: [where: 3]
+
+  alias Ecto.Query
+  require Ecto.Query
 
   # Non relational fields
-  def build(query, filter_field, val) when is_list(val) do
-    where(query, [scm], field(scm, ^filter_field) in ^val)
+  def build(query, filter_key, filter_value) when is_list(filter_value) do
+    Query.where(query, [scm], field(scm, ^filter_key) in ^filter_value)
   end
 
-  def build(query, filter_field, %NaiveDateTime{} = val) do
-    where(query, [scm], field(scm, ^filter_field) == ^val)
+  def build(query, filter_key, %NaiveDateTime{} = filter_value) do
+    Query.where(query, [scm], field(scm, ^filter_key) == ^filter_value)
   end
 
-  def build(query, filter_field, %DateTime{} = val) do
-    where(query, [scm], field(scm, ^filter_field) == ^val)
+  def build(query, filter_key, %DateTime{} = filter_value) do
+    Query.where(query, [scm], field(scm, ^filter_key) == ^filter_value)
   end
 
-  def build(_query, _filter_field, nil) do
+  def build(_query, _filter_key, nil) do
     raise ArgumentError, message: "comparison with nil is forbidden as it is unsafe. If you want to check if a value is nil, use %{==: nil} or %{!=: nil} instead"
   end
 
-  def build(query, filter_field, filters) when is_map(filters) do
+  def build(query, filter_key, filters) when is_map(filters) do
     Enum.reduce(filters, query, fn ({filter_type, value}, query) ->
-      build_schema_field_filters(query, nil, filter_field, filter_type, value)
+      build_schema_field_filters(query, nil, filter_key, filter_type, value)
     end)
   end
 
-  def build(query, filter_field, {:lower, val}) do
-    where(query, [scm], fragment("lower(?)", field(scm, ^filter_field)) == ^val)
+  def build(query, filter_key, {:lower, filter_value}) do
+    Query.where(query, [scm], fragment("lower(?)", field(scm, ^filter_key)) == ^filter_value)
   end
 
-  def build(query, filter_field, {:upper, val}) do
-    where(query, [scm], fragment("upper(?)", field(scm, ^filter_field)) == ^val)
+  def build(query, filter_key, {:upper, filter_value}) do
+    Query.where(query, [scm], fragment("upper(?)", field(scm, ^filter_key)) == ^filter_value)
   end
 
-  def build(query, filter_field, val) do
-    where(query, [scm], field(scm, ^filter_field) == ^val)
+  def build(query, filter_key, filter_value) do
+    Query.where(query, [scm], field(scm, ^filter_key) == ^filter_value)
   end
 
-  def build_array(query, filter_field, val) when is_list(val) do
-    where(query, [scm], field(scm, ^filter_field) == ^val)
+  def build_array(query, filter_key, filter_value) when is_list(filter_value) do
+    Query.where(query, [scm], field(scm, ^filter_key) == ^filter_value)
   end
 
-  def build_array(query, filter_field, filters) when is_map(filters) do
-    build(query, filter_field, filters)
+  def build_array(query, filter_key, filters) when is_map(filters) do
+    build(query, filter_key, filters)
   end
 
-  def build_array(query, filter_field, val) do
-    where(query, [scm], ^val in field(scm, ^filter_field))
+  def build_array(query, filter_key, filter_value) do
+    Query.where(query, [scm], ^filter_value in field(scm, ^filter_key))
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :==, nil) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :==, nil) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], is_nil(field(scm, ^filter_field)))
+      Query.where(query, [{^binding_alias, scm}], is_nil(field(scm, ^filter_key)))
     else
-      where(query, [scm], is_nil(field(scm, ^filter_field)))
+      Query.where(query, [scm], is_nil(field(scm, ^filter_key)))
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, nil) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :!=, nil) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], not is_nil(field(scm, ^filter_field)))
+      Query.where(query, [{^binding_alias, scm}], not is_nil(field(scm, ^filter_key)))
     else
-      where(query, [scm], not is_nil(field(scm, ^filter_field)))
+      Query.where(query, [scm], not is_nil(field(scm, ^filter_key)))
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, val) when is_list(val) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :!=, filter_value) when is_list(filter_value) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], field(scm, ^filter_field) not in ^val)
+      Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) not in ^filter_value)
     else
-      where(query, [scm], field(scm, ^filter_field) not in ^val)
+      Query.where(query, [scm], field(scm, ^filter_key) not in ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, {:lower, val}) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :!=, {:lower, filter_value}) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], fragment("lower(?)", field(scm, ^filter_field)) != ^val)
+      Query.where(query, [{^binding_alias, scm}], fragment("lower(?)", field(scm, ^filter_key)) != ^filter_value)
     else
-      where(query, [scm], fragment("lower(?)", field(scm, ^filter_field)) != ^val)
+      Query.where(query, [scm], fragment("lower(?)", field(scm, ^filter_key)) != ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, {:upper, val}) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :!=, {:upper, filter_value}) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], fragment("upper(?)", field(scm, ^filter_field)) != ^val)
+      Query.where(query, [{^binding_alias, scm}], fragment("upper(?)", field(scm, ^filter_key)) != ^filter_value)
     else
-      where(query, [scm], fragment("upper(?)", field(scm, ^filter_field)) != ^val)
+      Query.where(query, [scm], fragment("upper(?)", field(scm, ^filter_key)) != ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :!=, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :!=, filter_value) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], field(scm, ^filter_field) != ^val)
+      Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) != ^filter_value)
     else
-      where(query, [scm], field(scm, ^filter_field) != ^val)
+      Query.where(query, [scm], field(scm, ^filter_key) != ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :gt, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :gt, filter_value) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], field(scm, ^filter_field) > ^val)
+      Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) > ^filter_value)
     else
-      where(query, [scm], field(scm, ^filter_field) > ^val)
+      Query.where(query, [scm], field(scm, ^filter_key) > ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :lt, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :lt, filter_value) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], field(scm, ^filter_field) < ^val)
+      Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) < ^filter_value)
     else
-      where(query, [scm], field(scm, ^filter_field) < ^val)
+      Query.where(query, [scm], field(scm, ^filter_key) < ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :gte, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :gte, filter_value) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], field(scm, ^filter_field) >= ^val)
+      Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) >= ^filter_value)
     else
-      where(query, [scm], field(scm, ^filter_field) >= ^val)
+      Query.where(query, [scm], field(scm, ^filter_key) >= ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :lte, val) do
+  defp build_schema_field_filters(query, binding_alias, filter_key, :lte, filter_value) do
     if binding_alias do
-      where(query, [{^binding_alias, scm}], field(scm, ^filter_field) <= ^val)
+      Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) <= ^filter_value)
     else
-      where(query, [scm], field(scm, ^filter_field) <= ^val)
+      Query.where(query, [scm], field(scm, ^filter_key) <= ^filter_value)
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :like, val) do
-    search_query = "%#{val}%"
+  defp build_schema_field_filters(query, binding_alias, filter_key, :like, filter_value) do
+    search_query = "%#{filter_value}%"
 
     if binding_alias do
-      where(query, [{^binding_alias, scm}], like(field(scm, ^filter_field), ^search_query))
+      Query.where(query, [{^binding_alias, scm}], like(field(scm, ^filter_key), ^search_query))
     else
-      where(query, [scm], like(field(scm, ^filter_field), ^search_query))
+      Query.where(query, [scm], like(field(scm, ^filter_key), ^search_query))
     end
   end
 
-  defp build_schema_field_filters(query, binding_alias, filter_field, :ilike, val) do
-    search_query = "%#{val}%"
+  defp build_schema_field_filters(query, binding_alias, filter_key, :ilike, filter_value) do
+    search_query = "%#{filter_value}%"
 
     if binding_alias do
-      where(query, [{^binding_alias, scm}], ilike(field(scm, ^filter_field), ^search_query))
+      Query.where(query, [{^binding_alias, scm}], ilike(field(scm, ^filter_key), ^search_query))
     else
-      where(query, [scm], ilike(field(scm, ^filter_field), ^search_query))
+      Query.where(query, [scm], ilike(field(scm, ^filter_key), ^search_query))
     end
   end
 
@@ -170,16 +172,16 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     raise ArgumentError, message: "must provide a map for associations to filter on\ngiven #{inspect value}"
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) when is_list(val) do
-    where(query, [{^binding_alias, scm}], field(scm, ^filter_field) in ^val)
+  defp build_relational_filter(query, binding_alias, filter_key, filter_value, _relational_schema) when is_list(filter_value) do
+    Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) in ^filter_value)
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, %NaiveDateTime{} = val, _relational_schema) do
-    where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
+  defp build_relational_filter(query, binding_alias, filter_key, %NaiveDateTime{} = filter_value, _relational_schema) do
+    Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) == ^filter_value)
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, %DateTime{} = val, _relational_schema) do
-    where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
+  defp build_relational_filter(query, binding_alias, filter_key, %DateTime{} = filter_value, _relational_schema) do
+    Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) == ^filter_value)
   end
 
   defp build_relational_filter(query, binding_alias, field_key, filters, relational_schema) when is_map(filters) do
@@ -209,8 +211,8 @@ defmodule EctoShorts.QueryBuilder.Schema.ComparisonFilter do
     end
   end
 
-  defp build_relational_filter(query, binding_alias, filter_field, val, _relational_schema) do
-    where(query, [{^binding_alias, scm}], field(scm, ^filter_field) == ^val)
+  defp build_relational_filter(query, binding_alias, filter_key, filter_value, _relational_schema) do
+    Query.where(query, [{^binding_alias, scm}], field(scm, ^filter_key) == ^filter_value)
   end
 
   defp ecto_association_queryable!(schema, field_key) do
