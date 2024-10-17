@@ -165,16 +165,14 @@ defmodule EctoShorts.CommonChanges do
   def preload_changeset_assoc(changeset, key, opts \\ [])
 
   def preload_changeset_assoc(changeset, key, opts) do
-    opts = Keyword.merge(default_opts(), opts)
-
     if opts[:ids] do
       schema = changeset_relationship_schema(changeset, key)
 
-      preloaded_data = Actions.all(schema, %{ids: opts[:ids]}, repo: opts[:repo])
+      preloaded_data = Actions.all(schema, %{ids: opts[:ids]}, opts)
 
       Map.update!(changeset, :data, &Map.put(&1, key, preloaded_data))
     else
-      Map.update!(changeset, :data, &opts[:repo].preload(&1, key, opts))
+      Map.update!(changeset, :data, &Config.repo!(opts).preload(&1, key, opts))
     end
   end
 
@@ -263,6 +261,4 @@ defmodule EctoShorts.CommonChanges do
 
   defp relationship_exists?({:assoc, _}), do: true
   defp relationship_exists?(_), do: false
-
-  def default_opts, do: [repo: Config.repo()]
 end
