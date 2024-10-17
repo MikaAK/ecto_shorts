@@ -33,7 +33,8 @@ defmodule EctoShorts.Config do
   @doc """
   Returns a `Ecto.Repo` module.
 
-  Raises if the repo is not configured and the option `:repo` is not set.
+  Raises if the key `:repo` is not specified in configuration
+  and the option `:repo` is not specified at runtime.
 
   ### Examples
 
@@ -44,26 +45,29 @@ defmodule EctoShorts.Config do
       YourApp.Repo
   """
   @doc since: "2.5.0"
-  @spec repo!(keyword()) :: Ecto.Repo.t()
+  @spec repo!(opts :: keyword()) :: Ecto.Repo.t()
   @spec repo! :: Ecto.Repo.t()
   def repo!(opts \\ []) do
     with nil <- Keyword.get(opts, :repo, repo()) do
       raise ArgumentError, """
-      EctoShorts must be configured with a repo.
+      EctoShorts repo not configured!
 
-      To fix this error you can do one of the following:
+      Expected one of the following:
 
-      1. Configure the repo:
+      * The option `:repo` is specified at runtime.
 
-      ```
-      config :ecto_shorts, :repo, YourApp.Repo
-      ```
+        ```
+        EctoShorts.Actions.all(YourApp.Schema, %{id: [1, 2, 3]}, repo: YourApp.Repo)
+        ```
 
-      2. Pass in the `:repo` option:
+      * The option `:repo` is set in configuration.
 
-      ```
-      [repo: YourApp.Repo]
-      ```
+        ```
+        # config.exs
+        import Config
+
+        config :ecto_shorts, :repo, YourApp.Repo.Replica
+        ```
       """
     end
   end
@@ -71,11 +75,9 @@ defmodule EctoShorts.Config do
   @doc """
   Returns a `Ecto.Repo` module.
 
-  This function attempts to retrieve a repo from the `:replica` option
-  and will fallback to returning the value from the `:repo` option or
-  the configured repo if the option `:replica` is not set.
-
-  Raises if no repo is found.
+  Raises if the key `:replica` and `:repo` is not specified in
+  configuration and the option `:replica` and `:repo` is not
+  specified at runtime.
 
   ### Examples
 
@@ -86,11 +88,46 @@ defmodule EctoShorts.Config do
       YourApp.Repo.Replica
   """
   @doc since: "2.5.0"
-  @spec replica!(keyword()) :: Ecto.Repo.t()
+  @spec replica!(opts :: keyword()) :: Ecto.Repo.t()
   @spec replica! :: Ecto.Repo.t()
   def replica!(opts \\ []) do
-    with nil <- Keyword.get(opts, :replica, replica()) do
-      repo!(opts)
+    with nil <- Keyword.get(opts, :replica, replica()),
+      nil <- Keyword.get(opts, :repo, repo()) do
+      raise ArgumentError, """
+      EctoShorts replica and repo not configured!
+
+      Expected one of the following:
+
+      * The option `:replica` is specified at runtime.
+
+        ```
+        EctoShorts.Actions.all(YourApp.Schema, %{id: [1, 2, 3]}, replica: YourApp.Repo)
+        ```
+
+      * The option `:replica` is set in configuration.
+
+        ```
+        # config.exs
+        import Config
+
+        config :ecto_shorts, :replica, YourApp.Repo.Replica
+        ```
+
+      * The option `:repo` is specified at runtime.
+
+        ```
+        EctoShorts.Actions.all(YourApp.Schema, %{id: [1, 2, 3]}, repo: YourApp.Repo)
+        ```
+
+      * The option `:repo` is set in configuration.
+
+        ```
+        # config.exs
+        import Config
+
+        config :ecto_shorts, :repo, YourApp.Repo.Replica
+        ```
+      """
     end
   end
 end
