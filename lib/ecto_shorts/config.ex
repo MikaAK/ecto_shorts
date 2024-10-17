@@ -66,7 +66,7 @@ defmodule EctoShorts.Config do
         # config.exs
         import Config
 
-        config :ecto_shorts, :repo, YourApp.Repo.Replica
+        config :ecto_shorts, :repo, YourApp.Repo
         ```
       """
     end
@@ -101,7 +101,7 @@ defmodule EctoShorts.Config do
       * The option `:replica` is specified at runtime.
 
         ```
-        EctoShorts.Actions.all(YourApp.Schema, %{id: [1, 2, 3]}, replica: YourApp.Repo)
+        EctoShorts.Actions.all(YourApp.Schema, %{id: [1, 2, 3]}, replica: YourApp.Repo.Replica)
         ```
 
       * The option `:replica` is set in configuration.
@@ -125,7 +125,7 @@ defmodule EctoShorts.Config do
         # config.exs
         import Config
 
-        config :ecto_shorts, :repo, YourApp.Repo.Replica
+        config :ecto_shorts, :repo, YourApp.Repo
         ```
       """
     end
