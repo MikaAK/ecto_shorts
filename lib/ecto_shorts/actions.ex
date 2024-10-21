@@ -65,6 +65,7 @@ defmodule EctoShorts.Actions do
   @type schema_res :: {:ok, schema()} | {:error, any}
 
   alias EctoShorts.{
+    Actions,
     Actions.Error,
     CommonFilters,
     CommonSchemas,
@@ -124,9 +125,9 @@ defmodule EctoShorts.Actions do
 
   ### Filter Parameters
 
-  When the parameters is a keyword list the options `:repo` and `:replica` can be set.
+  When the parameters is a keyword list the options `:repo`, `:replica` and `:query_builder` can be set.
 
-  See `EctoShorts.CommonFilters` for more information.
+  See `EctoShorts.CommonFilters`, `EctoShorts.Actions.QueryBuilder` for more information.
 
   ### Options
 
@@ -135,6 +136,8 @@ defmodule EctoShorts.Actions do
 
     * `:repo` - A module that uses `Ecto.Repo`.
 
+    * `:query_builder` - A module that handles custom filters.
+
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
   ### Examples
@@ -142,12 +145,15 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.all(YourSchema, %{id: 1})
       iex> EctoSchemas.Actions.all(YourSchema, id: 1, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.all(YourSchema, id: 1, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.all(YourSchema, id: 1, custom_filter: val, query_builder: YourContext)
       iex> EctoSchemas.Actions.all({"source", YourSchema}, %{id: 1})
       iex> EctoSchemas.Actions.all({"source", YourSchema}, id: 1, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.all({"source", YourSchema}, id: 1, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.all({"source", YourSchema}, id: 1, custom_filter: val, query_builder: YourContext)
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, %{id: 1})
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, id: 1, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, id: 1, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.all(%Ecto.Query{}, id: 1, custom_filter: val, query_builder: YourContext)
   """
   @spec all(
     query :: query() | queryable() | source_queryable(),
@@ -158,16 +164,9 @@ defmodule EctoShorts.Actions do
   end
 
   def all(query, opts) do
-    query_params =
-      opts
-      |> Keyword.drop([:repo, :replica])
-      |> Map.new()
+    {opts, params} = Keyword.split(opts, [:repo, :replica, :query_builder])
 
-    if Enum.any?(query_params) do
-      all(query, query_params, Keyword.take(opts, [:repo, :replica]))
-    else
-      all(query, %{}, Keyword.take(opts, [:repo, :replica]))
-    end
+    all(query, Map.new(params), opts)
   end
 
   @doc """
@@ -175,7 +174,7 @@ defmodule EctoShorts.Actions do
 
   ### Filter Parameters
 
-  See `EctoShorts.CommonFilters` for more information.
+  See `EctoShorts.CommonFilters`, `EctoShorts.Actions.QueryBuilder` for more information.
 
   ### Options
 
@@ -184,21 +183,26 @@ defmodule EctoShorts.Actions do
 
     * `:repo` - A module that uses `Ecto.Repo`.
 
-    * `:order_by` - Orders the fields based on one or more fields.
+    * `:query_builder` - A module that handles custom filters.
+
+    * `:order_by` - Orders the records based on one or more fields.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
-  ## Examples
+  ### Examples
 
       iex> EctoSchemas.Actions.all(YourSchema, %{id: 1}, prefix: "public")
       iex> EctoSchemas.Actions.all(YourSchema, %{id: 1}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.all(YourSchema, %{id: 1}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.all(YourSchema, %{id: 1, custom_filter: val}, query_builder: YourContext)
       iex> EctoSchemas.Actions.all({"source", YourSchema}, %{id: 1}, prefix: "public")
       iex> EctoSchemas.Actions.all({"source", YourSchema}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.all({"source", YourSchema}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.all({"source", YourSchema}, %{id: 1, custom_filter: val}, query_builder: YourContext)
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, %{id: 1}, prefix: "public")
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.all(%Ecto.Query{}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.all(%Ecto.Query{}, %{id: 1, custom_filter: val}, query_builder: YourContext)
   """
   @spec all(
     query :: query() | queryable() | source_queryable(),
@@ -212,6 +216,7 @@ defmodule EctoShorts.Actions do
 
     query
     |> CommonFilters.convert_params_to_filter(params)
+    |> Actions.Filters.convert_params_to_filter(params, Keyword.get(opts, :query_builder, nil))
     |> Config.replica!(opts).all(opts)
   end
 
@@ -225,17 +230,22 @@ defmodule EctoShorts.Actions do
 
     * `:repo` - A module that uses `Ecto.Repo`.
 
+    * `:query_builder` - A module that handles custom filters (see EctoShorts.Actions.QueryBuilder).
+
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:one/2) for more options.
 
   ### Examples
 
       iex> EctoSchemas.Actions.find(YourSchema, %{id: 1})
+      iex> EctoSchemas.Actions.find(YourSchema, %{id: 1, custom_filter: val}, query_builder: YourContext)
       iex> EctoSchemas.Actions.find({"source", YourSchema}, %{id: 1})
       iex> EctoSchemas.Actions.find({"source", YourSchema}, %{id: 1}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.find({"source", YourSchema}, %{id: 1}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.find({"source", YourSchema}, %{id: 1, custom_filter: val}, query_builder: YourContext)
       iex> EctoSchemas.Actions.find(%Ecto.Query{}, %{id: 1})
       iex> EctoSchemas.Actions.find(%Ecto.Query{}, %{id: 1}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.find(%Ecto.Query{}, %{id: 1}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.find(%Ecto.Query{}, %{id: 1, custom_filter: val}, query_builder: YourContext)
   """
   @spec find(
     query :: queryable() | source_queryable(),
@@ -262,6 +272,7 @@ defmodule EctoShorts.Actions do
 
     query
     |> CommonFilters.convert_params_to_filter(params)
+    |> Actions.Filters.convert_params_to_filter(params, Keyword.get(opts, :query_builder, nil))
     |> Config.replica!(opts).one(opts)
     |> case do
       nil ->
@@ -631,6 +642,8 @@ defmodule EctoShorts.Actions do
 
     * `:repo` - A module that uses `Ecto.Repo`.
 
+    * `:query_builder` - A module that handles custom filters.
+
   See [Ecto.Repo.stream/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:stream/2) for more options.
 
   ### Examples
@@ -638,9 +651,11 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.stream(YourSchema, %{id: 1})
       iex> EctoSchemas.Actions.stream(YourSchema, %{id: 1}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.stream(YourSchema, %{id: 1}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.stream(YourSchema, %{id: 1, custom_filter: val}, query_builder: YourContext)
       iex> EctoSchemas.Actions.stream({"source", YourSchema}, %{id: 1})
       iex> EctoSchemas.Actions.stream({"source", YourSchema}, %{id: 1}, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.stream({"source", YourSchema}, %{id: 1}, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.stream({"source", YourSchema}, %{id: 1, custom_filter: val}, query_builder: YourContext)
   """
   @spec stream(
     query :: queryable() | source_queryable(),
@@ -655,6 +670,7 @@ defmodule EctoShorts.Actions do
     query
     |> CommonSchemas.get_schema_query()
     |> CommonFilters.convert_params_to_filter(params)
+    |> Actions.Filters.convert_params_to_filter(params, Keyword.get(opts, :query_builder, nil))
     |> Config.replica!(opts).stream(opts)
   end
 
@@ -669,6 +685,8 @@ defmodule EctoShorts.Actions do
 
     * `:repo` - A module that uses `Ecto.Repo`.
 
+    * `:query_builder` - A module that handles custom filters.
+
   See [Ecto.Repo.aggregate/4](https://hexdocs.pm/ecto/Ecto.Repo.html#c:aggregate/4) for more options.
 
   ### Examples
@@ -676,9 +694,11 @@ defmodule EctoShorts.Actions do
       iex> EctoSchemas.Actions.aggregate(YourSchema, %{id: 1}, :count, :id)
       iex> EctoSchemas.Actions.aggregate(YourSchema, %{id: 1}, :count, :id, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.aggregate(YourSchema, %{id: 1}, :count, :id, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.aggregate(YourSchema, %{id: 1, custom_filter: val}, :count, :id, query_builder: YourContext)
       iex> EctoSchemas.Actions.aggregate({"source", YourSchema}, %{id: 1}, :count, :id)
       iex> EctoSchemas.Actions.aggregate({"source", YourSchema}, %{id: 1}, :count, :id, repo: YourApp.Repo)
       iex> EctoSchemas.Actions.aggregate({"source", YourSchema}, %{id: 1}, :count, :id, replica: YourApp.Repo)
+      iex> EctoSchemas.Actions.aggregate({"source", YourSchema}, %{id: 1, custom_filter: val}, :count, :id, query_builder: YourContext)
   """
   @spec aggregate(
     query :: query() | queryable() | source_queryable(),
@@ -697,6 +717,7 @@ defmodule EctoShorts.Actions do
     query
     |> CommonSchemas.get_schema_query()
     |> CommonFilters.convert_params_to_filter(params)
+    |> Actions.Filters.convert_params_to_filter(params, Keyword.get(opts, :query_builder, nil))
     |> Config.replica!(opts).aggregate(aggregate, field, opts)
   end
 
