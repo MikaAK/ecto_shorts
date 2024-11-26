@@ -31,22 +31,50 @@ defmodule EctoShorts.Actions do
 
   You can read more on reusable ecto code [here](https://learn-elixir.dev/blogs/creating-reusable-ecto-code)
 
-  ### Supporting multiple Repos
+  ### Multiple Repos
 
-  To support multiple repos, what we can do is pass arguments to the last parameter
-  of most `EctoShorts.Actions` calls
-
-  #### Example
+  The `repo` used the functions in this module can
+  be configured by passing in the option `:repo` or
+  `:replica` during the function call:
 
   ```elixir
   defmodule MyApp.Accounts do
     alias EctoShorts.Actions
     alias MyApp.Accounts.User
 
-    def all_users(params), do: Actions.all(User, params, replica: MyApp.Repo.Replica)
-    def create_user(params), do: Actions.find(User, params, repo: MyApp.Repo)
+    def all_users(params) do
+      Actions.all(User, params, replica: MyApp.Repo.Replica)
+    end
+
+    def create_user(params) do
+      Actions.find(User, params, repo: MyApp.Repo)
+    end
   end
   ```
+
+  ## Shared Options
+
+  Almost of the functions outlined in this module accept the following options:
+
+    * `:replica` - A module that uses Ecto.Repo. If you don't
+    want to perform any reads against your primary, you can
+    specify a replica to read from. This option takes
+    precedence over the :repo option and will be used if set.
+
+    * `:repo` - A module that uses Ecto.Repo. This is
+    commonly your primary repository.
+
+    * `:changeset` - Allows you to build or modify the final
+    changeset before executing a repo operation using a
+    function. The can be one of the following:
+
+      * `2-arity` function - This is invoked with the schema
+      data and params (eg. `fun.(schema_data, params)`) and
+      must return an `Ecto.Changeset`.
+
+      * `1-arity` function - This is invoked with the
+      changeset (eg. `fun.(changeset)`) and must return an
+      `Ecto.Changeset`.
   """
   @type id :: binary() | integer()
   @type source :: binary()
@@ -77,10 +105,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.get/3](https://hexdocs.pm/ecto/Ecto.Repo.html#c:get/3) for more options.
 
@@ -106,6 +131,10 @@ defmodule EctoShorts.Actions do
   @doc """
   Fetches all records matching the given query.
 
+  ### Options
+
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
+
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
   ### Examples
@@ -130,10 +159,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
@@ -179,12 +205,9 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
-
     * `:order_by` - Orders the fields based on one or more fields.
+
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:all/2) for more options.
 
@@ -220,10 +243,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.all/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:one/2) for more options.
 
@@ -279,7 +299,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.insert/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:insert/2) for more options.
 
@@ -311,11 +331,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3` and `create/3` for more information.
 
@@ -353,11 +369,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3` and `update/4` for more information.
 
@@ -393,11 +405,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3`, `create/3` and `update/4` for more information.
 
@@ -440,11 +448,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `update/4` and [Ecto.Repo.get/3](https://hexdocs.pm/ecto/Ecto.Repo.html#c:get/3) for more options.
 
@@ -532,7 +536,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.delete/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:delete/2) for more options.
 
@@ -592,11 +596,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See `find/3` and [Ecto.Repo.delete/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:delete/2) for more options.
 
@@ -625,11 +625,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.stream/2](https://hexdocs.pm/ecto/Ecto.Repo.html#c:stream/2) for more options.
 
@@ -663,11 +659,7 @@ defmodule EctoShorts.Actions do
 
   ### Options
 
-    * `:replica` - A module that uses `Ecto.Repo`. This option takes
-      precedence over the `:repo` option and will be used to
-      fetch the record if set.
-
-    * `:repo` - A module that uses `Ecto.Repo`.
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
   See [Ecto.Repo.aggregate/4](https://hexdocs.pm/ecto/Ecto.Repo.html#c:aggregate/4) for more options.
 
@@ -706,11 +698,12 @@ defmodule EctoShorts.Actions do
 
   ***Note: Relational filtering doesn't work on this function***
 
-  ## Options
-    * `:repo` - A module that uses the Ecto.Repo Module.
-    * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
+  ### Options
 
-  ## Examples
+  See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
+
+  ### Examples
+
     iex> {:ok, records} = EctoSchemas.Actions.find_or_create_many(EctoSchemas.Accounts.User, [%{name: "foo"}, %{name: "bar}])
     iex> length(records) === 2
   """
