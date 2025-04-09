@@ -29,6 +29,7 @@ defmodule EctoShorts.Support.Schemas.FileInfo do
     |> cast(attrs, @available_fields)
     |> unique_constraint(:unique_identifier)
     |> validate_length(:unique_identifier, min: 3)
+    |> foreign_key_constraint(:assoc_id)
   end
 
   # This callback function is invoked by `EctoShorts.CommonFilters.convert_params_to_filter`

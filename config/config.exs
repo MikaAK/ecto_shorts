@@ -4,6 +4,7 @@ import Config
 
 config :ecto_shorts,
   repo: nil,
+  replica: nil,
   error_module: EctoShorts.Actions.Error
 
 if Mix.env() === :test do

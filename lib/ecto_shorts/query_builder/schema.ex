@@ -4,35 +4,79 @@ defmodule EctoShorts.QueryBuilder.Schema do
   when passed a query it can pull the schema from it and attempt
   to filter on any natural field
   """
-  alias EctoShorts.QueryBuilder
+  @moduledoc since: "2.5.0"
+
+  alias EctoShorts.{
+    QueryBuilder,
+    QueryHelpers
+  }
+
   alias EctoShorts.QueryBuilder.Schema.ComparisonFilter
 
-  require Logger
+  alias Ecto.Query
   require Ecto.Query
+
+  require Logger
+
+  @type filter_key :: atom()
+  @type filter_value :: any()
+  @type filters :: list(atom())
+  @type source :: binary()
+  @type query :: Ecto.Query.t()
+  @type queryable :: Ecto.Queryable.t()
+  @type source_queryable :: {source(), queryable()}
 
   @behaviour QueryBuilder
 
-  @impl QueryBuilder
-  def create_schema_filter({filter_field, val}, query) do
-    create_schema_filter(
-      {filter_field, val},
-      QueryBuilder.query_schema(query),
-      query
-    )
+  @impl true
+  @doc """
+  Implementation for `c:EctoShorts.QueryBuilder.create_schema_filter/3`.
+
+  ### Examples
+
+      iex> EctoShorts.QueryBuilder.Schema.create_schema_filter(EctoShorts.Support.Schemas.Post, :comments, %{id: 1})
+  """
+  @spec create_schema_filter(
+    query :: query(),
+    filter_key :: filter_key(),
+    filter_value :: filter_value()
+  ) :: query()
+  def create_schema_filter(query, filter_key, filter_value) do
+    queryable = QueryHelpers.get_queryable(query)
+
+    create_schema_filter(queryable, query, filter_key, filter_value)
   end
 
-  def create_schema_filter({filter_field, val}, schema, query) do
+  @doc """
+  Builds an ecto query for the given `Ecto.Schema`.
+
+  ### Examples
+
+      iex> EctoShorts.QueryBuilder.Schema.create_schema_filter(
+      ...>   EctoShorts.Support.Schemas.Post,
+      ...>   Ecto.Query.from(EctoShorts.Support.Schemas.Post),
+      ...>   :comments,
+      ...>   %{id: 1}
+      ...> )
+  """
+  @spec create_schema_filter(
+    queryable :: queryable(),
+    query :: query(),
+    filter_key :: filter_key(),
+    filter_value :: filter_value()
+  ) :: query()
+  def create_schema_filter(queryable, query, filter_key, filter_value) do
     cond do
-      filter_field in schema.__schema__(:query_fields) ->
-        create_schema_query_field_filter(query, schema, filter_field, val)
+      filter_key in queryable.__schema__(:query_fields) ->
+        create_schema_query_field_filter(queryable, query, filter_key, filter_value)
 
-      filter_field in schema.__schema__(:associations) ->
-        relational_schema = ecto_association_queryable!(schema, filter_field)
+      filter_key in queryable.__schema__(:associations) ->
+        assoc_schema = ecto_association_queryable!(queryable, filter_key)
 
-        create_schema_assocation_filter(query, filter_field, val, schema, relational_schema)
+        create_schema_assocation_filter(queryable, query, filter_key, filter_value, assoc_schema)
 
       true ->
-        Logger.debug("[EctoShorts] #{Atom.to_string(filter_field)} is neither a field nor has a valid association for #{schema.__schema__(:source)} where filter")
+        Logger.debug("[EctoShorts] #{Atom.to_string(filter_key)} is neither a field nor has a valid association for #{queryable.__schema__(:source)} where filter")
 
         query
     end
@@ -51,28 +95,29 @@ defmodule EctoShorts.QueryBuilder.Schema do
     end
   end
 
-  defp create_schema_query_field_filter(query, schema, filter_field, val) do
-    case schema.__schema__(:type, filter_field) do
+  defp create_schema_query_field_filter(queryable, query, filter_key, filter_value) do
+    case queryable.__schema__(:type, filter_key) do
       {:array, _} ->
-        ComparisonFilter.build_array(query, schema.__schema__(:field_source, filter_field), val)
+        ComparisonFilter.build_array(query, queryable.__schema__(:field_source, filter_key), filter_value)
 
       _ ->
-        ComparisonFilter.build(query, schema.__schema__(:field_source, filter_field), val)
+        ComparisonFilter.build(query, queryable.__schema__(:field_source, filter_key), filter_value)
 
     end
   end
 
-  defp create_schema_assocation_filter(query, filter_field, val, _schema, relational_schema) do
-    binding_alias = :"ecto_shorts_#{filter_field}"
+  defp create_schema_assocation_filter(_queryable, query, filter_key, filter_value, assoc_schema) do
+    binding_alias = :"ecto_shorts_#{filter_key}"
 
     query
-    |> Ecto.Query.with_named_binding(binding_alias, fn query, binding_alias ->
-      Ecto.Query.join(
+    |> Query.with_named_binding(binding_alias, fn query, binding_alias ->
+      Query.join(
         query,
         :inner,
         [scm],
-        assoc in assoc(scm, ^filter_field), as: ^binding_alias)
+        assoc in assoc(scm, ^filter_key), as: ^binding_alias
+      )
     end)
-    |> ComparisonFilter.build_relational(binding_alias, val, relational_schema)
+    |> ComparisonFilter.build_relational(binding_alias, filter_value, assoc_schema)
   end
 end

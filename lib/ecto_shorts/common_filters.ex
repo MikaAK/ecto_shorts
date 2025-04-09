@@ -56,18 +56,26 @@ defmodule EctoShorts.CommonFilters do
     QueryBuilder
   }
 
-  @type source :: binary()
   @type params :: map() | keyword()
+  @type adapter :: module()
+  @type filter_key :: atom()
+  @type filter_value :: any()
+  @type source :: binary()
   @type query :: Ecto.Query.t()
   @type queryable :: Ecto.Queryable.t()
   @type source_queryable :: {source(), queryable()}
-  @type filter_key :: atom()
-  @type filter_value :: any()
 
   @common_filters QueryBuilder.Common.filters()
 
+  @behaviour EctoShorts.QueryBuilder
+
   @doc """
-  Converts filter params into a query
+  Converts filter params into a query.
+
+  ### Examples
+
+      iex> EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Support.Schemas.Comment, %{id: 1})
+      #Ecto.Query<from c0 in EctoShorts.Support.Schemas.Comment, where: c0.id == ^1>
   """
   @spec convert_params_to_filter(
     query :: query() | queryable() | source_queryable(),
@@ -97,25 +105,29 @@ defmodule EctoShorts.CommonFilters do
     create_schema_filter(query, filter_key, filter_value)
   end
 
+  @impl true
   @doc """
-  Implementation for `c:EctoShorts.QueryBuilder.create_schema_filter/2`.
+  Implementation for `c:EctoShorts.QueryBuilder.create_schema_filter/3`.
 
   ### Examples
 
       iex> EctoShorts.CommonFilters.create_schema_filter(EctoShorts.Support.Schemas.Post, :first, 1_000)
+      #Ecto.Query<from p0 in EctoShorts.Support.Schemas.Post, limit: ^1000>
+
       iex> EctoShorts.CommonFilters.create_schema_filter(EctoShorts.Support.Schemas.Post, :comments, %{id: 1})
+      #Ecto.Query<from p0 in EctoShorts.Support.Schemas.Post, join: c1 in assoc(p0, :comments), as: :ecto_shorts_comments, where: c1.id == ^1>
   """
   @spec create_schema_filter(
     query :: query(),
     filter_key :: filter_key(),
     filter_value :: filter_value()
   ) :: query()
-  def create_schema_filter(query, filter, value) when filter in @common_filters do
-    QueryBuilder.create_schema_filter(QueryBuilder.Common, {filter, value}, query)
+  def create_schema_filter(query, filter_key, filter_value) when filter_key in @common_filters do
+    QueryBuilder.create_schema_filter(QueryBuilder.Common, query, filter_key, filter_value)
   end
 
-  def create_schema_filter(query, filter, value) do
-    QueryBuilder.create_schema_filter(QueryBuilder.Schema, {filter, value}, query)
+  def create_schema_filter(query, filter_key, filter_value) do
+    QueryBuilder.create_schema_filter(QueryBuilder.Schema, query, filter_key, filter_value)
   end
 
   defp ensure_last_is_final_filter(params) do

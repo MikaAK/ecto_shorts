@@ -23,6 +23,8 @@ defmodule EctoShorts.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
+
+      # credo:disable-for-next-line
       import EctoShorts.DataCase
     end
   end
