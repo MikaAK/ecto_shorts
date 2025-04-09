@@ -18,22 +18,20 @@ defmodule EctoShorts.QueryBuilder do
 
   For example the following function call
 
-  ```elixir
-  iex> Ecto.Query.from(c in EctoShorts.Support.Schemas.Comment, where: c.id == 1)
-  #Ecto.Query<from c0 in EctoShorts.Support.Schemas.Comment, where: c0.id == 1>
-  ```
+  ## Example
+      iex> Ecto.Query.from(c in EctoShorts.Support.Schemas.Comment, where: c.id == 1)
+      #Ecto.Query<from c0 in EctoShorts.Support.Schemas.Comment, where: c0.id == 1>
 
   is equivalent to
 
-  ```elixir
-  iex> EctoShorts.QueryBuilder.create_schema_filter(
-  ...>   EctoShorts.QueryBuilder.Schema,
-  ...>   EctoShorts.Support.Schemas.Comment,
-  ...>   :id,
-  ...>   1
-  ...> )
-  #Ecto.Query<from c0 in EctoShorts.Support.Schemas.Comment, where: c0.id == ^1>
-  ```
+  ## Example
+      iex> EctoShorts.QueryBuilder.create_schema_filter(
+      ...>   EctoShorts.QueryBuilder.Schema,
+      ...>   EctoShorts.Support.Schemas.Comment,
+      ...>   :id,
+      ...>   1
+      ...> )
+      #Ecto.Query<from c0 in EctoShorts.Support.Schemas.Comment, where: c0.id == ^1>
   """
   @callback create_schema_filter(query(), filter_key(), filter_value()) :: query()
 

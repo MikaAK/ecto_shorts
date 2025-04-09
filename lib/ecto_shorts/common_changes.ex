@@ -123,10 +123,10 @@ defmodule EctoShorts.CommonChanges do
 
   ## Example
 
-    iex> CommonChanges.preload_change_assoc(changeset, :my_relation)
-    iex> CommonChanges.preload_change_assoc(changeset, :my_relation, repo: MyApp.OtherRepo)
-    iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
-    iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required_when_missing: :my_relation_id)
+      iex> CommonChanges.preload_change_assoc(changeset, :my_relation)
+      iex> CommonChanges.preload_change_assoc(changeset, :my_relation, repo: MyApp.OtherRepo)
+      iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
+      iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required_when_missing: :my_relation_id)
   """
   @spec preload_change_assoc(Changeset.t(), atom(), keyword()) :: Changeset.t
   def preload_change_assoc(changeset, key, opts) do

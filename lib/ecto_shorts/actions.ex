@@ -711,8 +711,8 @@ defmodule EctoShorts.Actions do
     * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
 
   ## Examples
-    iex> {:ok, records} = EctoSchemas.Actions.find_or_create_many(EctoSchemas.Accounts.User, [%{name: "foo"}, %{name: "bar}])
-    iex> length(records) === 2
+      iex> {:ok, records} = EctoSchemas.Actions.find_or_create_many(EctoSchemas.Accounts.User, [%{name: "foo"}, %{name: "bar}])
+      iex> length(records) === 2
   """
   @spec find_or_create_many(
     query :: queryable() | source_queryable(),

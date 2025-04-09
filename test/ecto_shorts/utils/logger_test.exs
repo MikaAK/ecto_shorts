@@ -2,7 +2,7 @@ defmodule EctoShorts.Utils.LoggerTest do
   use ExUnit.Case
   doctest EctoShorts.Utils.Logger
 
-  import ExUnit.CaptureLog
+  import ExUnit.CaptureLog, only: [capture_log: 2]
 
   @logger_prefix "EctoShorts.Utils.LoggerTest"
 

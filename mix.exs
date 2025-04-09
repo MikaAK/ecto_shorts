@@ -11,13 +11,19 @@ defmodule EctoShorts.MixProject do
       description: "Helper tools for making ecto interactions more pleasant and shorter",
       docs: docs(),
       package: package(),
+      aliases: aliases(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
+        credo: :test,
         doctor: :test,
         coverage: :test,
         dialyzer: :test,
+        "ecto.drop": :test,
+        "ecto.migrate": :test,
+        "ecto.create": :test,
+        "ecto.setup": :test,
         "coveralls.lcov": :test,
         "coveralls.json": :test,
         "coveralls.html": :test
@@ -50,15 +56,22 @@ defmodule EctoShorts.MixProject do
 
       {:error_message, "~> 0.1"},
 
-      {:credo, ">= 0.0.0", only: [:dev, :test]},
-      {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
-      {:ex_doc, ">= 0.0.0", only: :dev},
-      {:dialyxir, "~> 1.1", only: :test, runtime: false}
+      {:excoveralls, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.1", only: :test, runtime: false},
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false}
     ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  def aliases do
+    [
+      "ecto.setup": ["ecto.drop", "ecto.create", "ecto.migrate"]
+    ]
+  end
 
   defp package do
     [
