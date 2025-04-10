@@ -1,16 +1,13 @@
 # EctoShorts
 
- [![Hex version badge](https://img.shields.io/hexpm/v/ecto_shorts.svg)](https://hex.pm/packages/ecto_shorts)
- [![Coveralls](https://github.com/MikaAK/ecto_shorts/actions/workflows/coveralls.yml/badge.svg)](https://github.com/MikaAK/ecto_shorts/actions/workflows/coveralls.yml)
- [![Credo](https://github.com/MikaAK/ecto_shorts/actions/workflows/credo.yml/badge.svg)](https://github.com/MikaAK/ecto_shorts/actions/workflows/credo.yml)
- [![Dialyzer](https://github.com/MikaAK/ecto_shorts/actions/workflows/dialyzer.yml/badge.svg)](https://github.com/MikaAK/ecto_shorts/actions/workflows/dialyzer.yml)
+[![Hex version badge](https://img.shields.io/hexpm/v/ecto_shorts.svg)](https://hex.pm/packages/ecto_shorts)
+[![Coveralls](https://github.com/MikaAK/ecto_shorts/actions/workflows/coveralls.yml/badge.svg)](https://github.com/MikaAK/ecto_shorts/actions/workflows/coveralls.yml)
+[![Credo](https://github.com/MikaAK/ecto_shorts/actions/workflows/credo.yml/badge.svg)](https://github.com/MikaAK/ecto_shorts/actions/workflows/credo.yml)
+[![Dialyzer](https://github.com/MikaAK/ecto_shorts/actions/workflows/dialyzer.yml/badge.svg)](https://github.com/MikaAK/ecto_shorts/actions/workflows/dialyzer.yml)
 
-Ecto Shorts is a library focused around making Ecto easier to use in an
-application and helping to write shorter code
+Ecto Shorts is a library focused on making Ecto easier to use in your Elixir applications by providing a concise, consistent API for common database operations.
 
 ## Installation
-
-Documentation can be found at [https://hexdocs.pm/ecto_shorts](https://hexdocs.pm/ecto_shorts).
 
 ```elixir
 def deps do
@@ -20,111 +17,136 @@ def deps do
 end
 ```
 
+## Documentation
 
-### Usage
-There are 4 main modules to `EctoShorts`. `SchemaHelpers`, `CommonFilters`, `CommonChanges` and `Actions`
+Our documentation is organized according to the [Diátaxis framework](https://diataxis.fr/), which divides documentation into four distinct categories based on user needs:
 
-With our `Actions.create` and related functions we can also define `create_changeset(params)` on our schema, this usually looks like:
+### [Tutorials](./docs/tutorials/index.md)
+
+Learning-oriented content to help you get started with ecto_shorts:
+
+- [Getting Started with ecto_shorts](./docs/tutorials/getting-started.md)
+- [Building a Complete Application](./docs/tutorials/complete-application.md)
+
+### [How-to Guides](./docs/how-to/index.md)
+
+Problem-oriented guides to help you accomplish specific tasks:
+
+- [How to Filter Data with CommonFilters](./docs/how-to/filtering-data.md)
+- [How to Manage Associations with CommonChanges](./docs/how-to/managing-associations.md)
+- [How to Use Actions for CRUD Operations](./docs/how-to/crud-operations.md)
+- [How to Implement Custom Filters](./docs/how-to/custom-filters.md)
+- [How to Configure ecto_shorts](./docs/how-to/configuration.md)
+
+### [Reference](./docs/reference/index.md)
+
+Technical information about ecto_shorts components:
+
+- [API Reference](./docs/reference/api-reference.md)
+- [Filter Options Reference](./docs/reference/filter-options.md)
+- [Actions Reference](./docs/reference/actions.md)
+
+### [Explanation](./docs/explanation/index.md)
+
+Conceptual information to help you understand ecto_shorts:
+
+- [Why ecto_shorts Exists](./docs/explanation/why-ecto-shorts.md)
+- [Architecture Overview](./docs/explanation/architecture.md)
+- [Comparison with Other Approaches](./docs/explanation/comparison.md)
+- [Best Practices](./docs/explanation/best-practices.md)
+
+The full documentation is also available at [https://hexdocs.pm/ecto_shorts](https://hexdocs.pm/ecto_shorts).
+
+
+## Overview
+
+ecto_shorts consists of four main modules:
+
+### Actions
+
+Provides a consistent interface for CRUD operations:
+
 ```elixir
-def create_changeset(params \\ %{}), do: changeset(%__MODULE__{}, params)
+# Create a user
+{:ok, user} = EctoShorts.Actions.create(User, %{name: "John", email: "john@example.com"})
+
+# Get a user by ID
+{:ok, user} = EctoShorts.Actions.get(User, 1)
+
+# Get users with filters
+users = EctoShorts.Actions.all(User, %{age: %{gte: 18}, preload: :posts})
+
+# Update a user
+{:ok, user} = EctoShorts.Actions.update(User, 1, %{name: "Jane"})
+
+# Delete a user
+{:ok, user} = EctoShorts.Actions.delete(User, 1)
 ```
-or some other variation of changeset that runs specifically on creates
 
-#### Actions
-This module takes a schema and filter parameters and runs them through CommonFilters, essentially a wrapper
-around Repo. All actions can accept an optional argument of a keyword list that can be used to configure which Repo the Action should use.
+### CommonFilters
 
-## Options
-    * `:repo` - A module that uses the Ecto.Repo Module.
-    * `:replica` - If you don't want to perform any reads against your Primary, you can specify a replica to read from.
-
-For more info on filter options take a look at Common Filters
-
-#### Common Changes
-This module is responsible for determining put/cast assoc as well as creating and updating model relations
-
-###### Extra Magic
-If you pass a list of id's to a many to many relation it will count that as a `member_update` and remove or add members to the relations list
-
-E.G. User many_to_many Fruit
-
-This would update the user to have only fruits with id 1 and 3
-```elixir
-CommonChanges.put_or_cast_assoc(change(user, fruits: [%{id: 1}, %{id: 3}]), :fruits)
-```
-
-#### Schema Helpers
-This module contains helpers to check schema data
-
-#### Common Filters
-This module creates query from filter paramters like
+Converts parameter maps into Ecto queries:
 
 ```elixir
-CommonFilters.convert_params_to_filter(User, %{id: 5})
-```
-is the same as
-```elixir
-from u in User, where: u.id == ^5
-```
+# Simple filter
+EctoShorts.Actions.all(User, %{name: "John"})
 
-This allows for filters to be constructed from data such as
-```elixir
-CommonFilters.convert_params_to_filter(User, %{
-  favorite_food: "curry",
-  age: %{gte: 18, lte: 50},
-  name: %{ilike: "steven"},
-  preload: [:address],
-  last: 5
+# Complex filters
+EctoShorts.Actions.all(User, %{
+  age: %{gte: 18, lte: 65},
+  name: %{ilike: "j"},
+  roles: ["admin", "moderator"],
+  preload: [:posts, :comments],
+  first: 10
 })
-```
-which the equivalent would be
-```elixir
-from u in User,
-  preload: [:address],
-  limit: 5,
-  where: u.favorite_food == "curry" and
-         u.age >= 18 and u.age <= 50 and
-         ilike(u.name, "%steven%")
-```
 
-We are also able to query on the first layer of relations like so:
-```elixir
+# Association filters
 EctoShorts.Actions.all(User, %{
   roles: ["ADMIN", "SUPERUSER"]
 })
-```
 
-which would be equivalent to:
-
-```elixir
-from u in User,
-  inner_join: r in assoc(u, :roles), as: :ecto_shorts_roles,
-  where: r.code in ["ADMIN", "SUPERUSER"]
-```
-
-Finally we can also query array fields by doing the following
-
-```elixir
+# Array field filters
 EctoShorts.Actions.all(User, %{
   items: [1, 2],
   cart: 3
 })
 ```
 
-which for an array field would be the equivalent to:
+### CommonChanges
+
+Handles associations in Ecto changesets:
 
 ```elixir
-from u in User,
-  where: ^3 in u.cart and u.items == [1, 2]
+# Update a user's roles (many-to-many)
+{:ok, user} = EctoShorts.Actions.update(User, 1, %{
+  roles: [1, 2, 3]  # List of role IDs
+})
+
+# Or with the lower-level API
+changeset = CommonChanges.put_or_cast_assoc(changeset, :roles)
 ```
 
-###### List of common filters
-- `preload` - Preloads fields onto the query results
-- `start_date` - Query for items inserted after this date
-- `end_date` - Query for items inserted before this date
-- `before` - Get items with ID's before this value
-- `after` - Get items with ID's after this value
-- `ids` - Get items with a list of ids
-- `first` - Gets the first n items
-- `last` - Gets the last n items
-- `search` - ***Warning:*** This requires schemas using this to have a `&by_search(query, val)` function
+### SchemaHelpers
+
+Provides utility functions for working with Ecto schemas:
+
+```elixir
+# Check if a schema has a field
+if EctoShorts.SchemaHelpers.has_field?(User, :email) do
+  # Do something with the email field
+end
+
+# Check if a schema has an association
+if EctoShorts.SchemaHelpers.has_assoc?(User, :posts) do
+  # Do something with the posts association
+end
+```
+
+## Common Options
+
+All actions accept these options:
+
+- `:repo` - A module that uses the Ecto.Repo Module
+- `:replica` - A read replica to use for read operations
+
+For more detailed information, please refer to our [documentation](./docs/index.md).

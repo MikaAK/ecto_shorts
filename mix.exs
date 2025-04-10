@@ -78,14 +78,40 @@ defmodule EctoShorts.MixProject do
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/MikaAK/ecto_shorts"},
-      files: ~w(mix.exs README.md CHANGELOG.md lib config)
+      files: ~w(mix.exs README.md CHANGELOG.md lib config docs)
     ]
   end
 
   defp docs do
     [
-      main: "EctoShorts",
+      main: "readme",
       source_url: "https://github.com/MikaAK/ecto_shorts",
+      extras: [
+        "README.md",
+        "CHANGELOG.md",
+        # Tutorials (Learning-oriented)
+        "docs/tutorials/index.md",
+        "docs/tutorials/getting-started.md",
+        "docs/tutorials/complete-application.md",
+        # How-to guides (Problem-oriented)
+        "docs/how-to/index.md",
+        "docs/how-to/filtering-data.md",
+        "docs/how-to/managing-associations.md",
+        "docs/how-to/crud-operations.md",
+        "docs/how-to/custom-filters.md",
+        "docs/how-to/configuration.md",
+        # Explanation (Understanding-oriented)
+        "docs/explanation/index.md",
+        "docs/explanation/why-ecto-shorts.md",
+        "docs/explanation/architecture.md",
+        "docs/explanation/comparison.md",
+        "docs/explanation/best-practices.md"
+      ],
+      groups_for_extras: [
+        "Tutorials": ~r{docs/tutorials/},
+        "How-to Guides": ~r{docs/how-to/},
+        "Explanation": ~r{docs/explanation/}
+      ],
       groups_for_modules: [
         "Main Modules": [
           EctoShorts.Actions,
