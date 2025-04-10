@@ -102,7 +102,7 @@ The `Actions` module provides a consistent interface for CRUD operations:
 {:ok, user} = Actions.delete(User, 1)
 ```
 
-This eliminates boilerplate code and provides consistent return values.
+This eliminates boilerplate code and provides consistent return values. The `Actions` module automatically handles common patterns like returning appropriate error tuples when records aren't found.
 
 ### 2. Declarative Filtering
 
@@ -121,7 +121,7 @@ users = Actions.all(User, %{
 })
 ```
 
-This declarative approach is more readable and maintainable than building queries manually.
+This declarative approach is more readable and maintainable than building queries manually. The `CommonFilters` module handles the complexity of joining tables, applying conditions, and building the Ecto query, allowing you to focus on what data you want rather than how to get it.
 
 ### 3. Intelligent Association Handling
 
@@ -134,7 +134,7 @@ The `CommonChanges` module simplifies working with associations:
 })
 ```
 
-ecto_shorts automatically determines whether to use `put_assoc` or `cast_assoc` based on the data, and handles many-to-many relationships intelligently.
+ecto_shorts automatically determines whether to use `put_assoc` or `cast_assoc` based on the data, and handles many-to-many relationships intelligently. The `put_or_cast_assoc/3` function examines the data structure to make the right decision, and the `preload_change_assoc/3` function simplifies the common pattern of preloading associations before applying changes.
 
 ### 4. Consistent Return Values
 
@@ -151,7 +151,7 @@ ecto_shorts is built on several key design principles:
 
 ### 1. Convention Over Configuration
 
-ecto_shorts follows the "convention over configuration" principle, providing sensible defaults while allowing customization when needed. For example, it automatically looks for `create_changeset/1` and `update_changeset/2` functions on schemas, falling back to `changeset/2` if they don't exist.
+ecto_shorts follows the "convention over configuration" principle, providing sensible defaults while allowing customization when needed. For example, it automatically looks for a specialized `create_changeset/1` function on schemas for create operations, falling back to the standard `changeset/2` if it doesn't exist. For update operations, it uses the standard `changeset/2` function by default, but allows you to specify a custom changeset function via the `:changeset` option. This approach provides flexibility while maintaining a consistent API.
 
 ### 2. Declarative Over Imperative
 

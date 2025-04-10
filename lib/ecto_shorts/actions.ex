@@ -1,56 +1,72 @@
 defmodule EctoShorts.Actions do
   @moduledoc """
-  Actions for CRUD in ecto, these can be used by all schemas/queries
+  Provides a consistent interface for CRUD operations on Ecto schemas.
 
-  Generally we can define our contexts to be very reusable by creating
-  them to look something like this:
+  The `EctoShorts.Actions` module is the primary entry point for most users of ecto_shorts.
+  It offers standardized functions for common database operations with consistent
+  return values and simplified parameter handling. Each function follows predictable
+  patterns for error handling and option processing.
+
+  ## Context Module Pattern
+
+  A recommended pattern is to define context modules that encapsulate related
+  functionality using ecto_shorts:
 
   ```elixir
   defmodule MyApp.Accounts do
     alias EctoShorts.Actions
     alias MyApp.Accounts.User
 
-    def all_users(params), do: Actions.all(User, params)
-    def find_user(params), do: Actions.find(User, params)
+    # Set the default repo for Actions to use
+    @actions_opts [repo: MyApp.Repo]
+
+    def all_users(params), do: Actions.all(User, params, @actions_opts)
+    def find_user(params), do: Actions.find(User, params, @actions_opts)
+    def create_user(params), do: Actions.create(User, params, @actions_opts)
+    def update_user(id, params), do: Actions.update(User, id, params, @actions_opts)
+    def delete_user(id), do: Actions.delete(User, id, @actions_opts)
   end
   ```
 
-  We're then able to use this context with all filters that are
-  supported by `EctoShorts.CommonFilters` without having to create new queries
+  This approach allows you to use all filters supported by `EctoShorts.CommonFilters`
+  without having to create custom queries:
 
   ```elixir
-  def do_something do
-    MyApp.Accounts.all_user(%{
-      first_name: %{ilike: "john"},
-      age: %{gte: 18},
-      priority_level: 5,
-      address: %{country: "Canada"}
+  # Get users with complex filtering conditions
+  def get_adult_users_from_canada do
+    MyApp.Accounts.all_users(%{
+      first_name: %{ilike: "john"},  # Case-insensitive pattern matching
+      age: %{gte: 18},               # Greater than or equal to 18
+      priority_level: 5,             # Exact match
+      address: %{country: "Canada"}  # Nested field matching
     })
   end
   ```
 
-  You can read more on reusable ecto code [here](https://learn-elixir.dev/blogs/creating-reusable-ecto-code)
+  ## Multiple Repositories
 
-  ### Multiple Repos
-
-  The `repo` used the functions in this module can
-  be configured by passing in the option `:repo` or
-  `:replica` during the function call:
+  You can specify which repository to use by passing the `:repo` or
+  `:replica` option during function calls:
 
   ```elixir
   defmodule MyApp.Accounts do
     alias EctoShorts.Actions
     alias MyApp.Accounts.User
 
+    # For read operations, use a replica
     def all_users(params) do
       Actions.all(User, params, replica: MyApp.Repo.Replica)
     end
 
+    # For write operations, use the primary repo
     def create_user(params) do
-      Actions.find(User, params, repo: MyApp.Repo)
+      Actions.create(User, params, repo: MyApp.Repo)
     end
   end
   ```
+
+  For more information on creating reusable Ecto code, see the
+  [documentation](https://hexdocs.pm/ecto_shorts/EctoShorts.html).
 
   ## Shared Options
 
@@ -102,6 +118,9 @@ defmodule EctoShorts.Actions do
 
   @doc """
   Fetches a single record where the primary key matches the given `id`.
+  
+  This is a direct wrapper around `Ecto.Repo.get/3` that uses the configured repo.
+  Unlike `find/3`, this function does not return a tuple result.
 
   ### Options
 
@@ -240,8 +259,16 @@ defmodule EctoShorts.Actions do
 
   @doc """
   Finds a schema with matching params. Can also accept a keyword options list.
+  
+  This function returns a tuple result:
+  * `{:ok, record}` - When a record is found
+  * `{:error, %{code: :not_found}}` - When no record matches the params
+  
+  It supports all the filtering capabilities of `CommonFilters`.
 
   ### Options
+
+  * `:order_by` - Orders the fields based on one or more fields
 
   See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
@@ -296,8 +323,16 @@ defmodule EctoShorts.Actions do
 
   @doc """
   Creates a schema with given params. Can also accept a keyword options list.
+  
+  By default, this function will:
+  1. Look for a `create_changeset/1` function on your schema
+  2. If not found, it will fall back to `changeset/2`
+  3. Apply the changeset to a new struct
+  4. Insert the record into the database
 
   ### Options
+
+  * `:changeset` - A function to customize the changeset creation process
 
   See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
@@ -445,8 +480,17 @@ defmodule EctoShorts.Actions do
 
   @doc """
   Updates a schema with given updates. Can also accept a keyword options list.
+  
+  This function will:
+  1. Find the record by ID
+  2. Apply the updates using the schema's changeset function
+  3. Update the record in the database
+  
+  If the record doesn't exist, it returns `{:error, :not_found}`.
 
   ### Options
+
+  * `:changeset` - A function to customize the changeset creation process
 
   See the ["Shared options"](#module-shared-options) section at the module documentation for remaining options.
 
@@ -515,6 +559,8 @@ defmodule EctoShorts.Actions do
 
   @doc """
   Deletes a record given existing data.
+  
+  This function accepts either a schema struct or a changeset and deletes it from the database.
 
   ### Examples
 
@@ -592,7 +638,13 @@ defmodule EctoShorts.Actions do
   end
 
   @doc """
-  Deletes a schema. Can also accept a keyword options list.
+  Deletes a schema by id. Can also accept a keyword options list.
+  
+  This function will:
+  1. Find the record by ID
+  2. Delete the record from the database
+  
+  If the record doesn't exist, it returns `{:error, :not_found}`.
 
   ### Options
 

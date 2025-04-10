@@ -1,16 +1,16 @@
 # How to Manage Associations with CommonChanges
 
-This guide shows you how to use the `CommonChanges` module in ecto_shorts to simplify working with associations between schemas.
+This guide shows you how to use the `EctoShorts.CommonChanges` module to simplify working with associations between Ecto schemas.
 
 ## Understanding CommonChanges
 
-The `CommonChanges` module provides functions to handle associations in Ecto changesets, making it easier to create, update, and manage relationships between schemas.
+The `EctoShorts.CommonChanges` module provides functions that intelligently handle associations in Ecto changesets, making it easier to create, update, and manage relationships between schemas. It automatically determines whether to use `put_assoc/4` or `cast_assoc/3` based on the data provided, reducing boilerplate code in your applications.
 
 ## Basic Association Management
 
 ### Put or Cast Associations
 
-The core function in `CommonChanges` is `put_or_cast_assoc/3`, which intelligently determines whether to use `put_assoc` or `cast_assoc` based on the data provided:
+The core function in `CommonChanges` is `put_or_cast_assoc/3`, which intelligently determines whether to use `put_assoc/4` or `cast_assoc/3` based on the data provided:
 
 ```elixir
 alias EctoShorts.CommonChanges
@@ -19,12 +19,12 @@ alias EctoShorts.CommonChanges
 changeset = User.changeset(%User{}, user_params)
 
 # Handle the posts association
-changeset = CommonChanges.put_or_cast_assoc(changeset, :posts, opts \\ [])
+changeset = CommonChanges.put_or_cast_assoc(changeset, :posts)
 ```
 
 This function examines the data in the changeset and:
-- Uses `put_assoc` when the association data is already a struct or list of structs
-- Uses `cast_assoc` when the association data is a map or list of maps that needs to be cast
+- Uses `put_assoc/4` when the association data is already a struct or list of structs
+- Uses `cast_assoc/3` when the association data is a map or list of maps that needs to be cast
 
 ### Working with belongs_to Associations
 
@@ -86,12 +86,12 @@ user_changeset = User.changeset(%User{}, user_params)
 user_changeset = CommonChanges.put_or_cast_assoc(user_changeset, :roles)
 ```
 
-This will:
-1. Keep roles with IDs 1, 2, and 3 in the association
-2. Remove any other roles that were previously associated
-3. Add any new roles that weren't previously associated
+This performs a "sync" operation on the many-to-many relationship:
+1. Keeps roles with IDs 1, 2, and 3 in the association
+2. Removes any other roles that were previously associated
+3. Adds any new roles that weren't previously associated
 
-This is equivalent to doing a "sync" operation on the many-to-many relationship, ensuring that the association exactly matches what you provide.
+The function automatically detects when you're passing a list of IDs or maps with IDs and treats it as a member update operation, ensuring the association exactly matches what you provide.
 
 ### Nested Associations
 
@@ -177,8 +177,8 @@ defmodule MyApp.Accounts do
   def update_user_roles(user_id, role_ids) do
     with {:ok, user} <- Actions.get(User, user_id) do
       user
-      |> User.changeset(%{})  # Empty changeset to start
-      |> CommonChanges.put_or_cast_assoc(:roles, %{ids: role_ids})
+      |> User.changeset(%{"roles" => role_ids})  # Pass role_ids directly in params
+      |> CommonChanges.put_or_cast_assoc(:roles)
       |> Repo.update()
     end
   end
@@ -217,12 +217,48 @@ role_params = %{
 
 2. **Use IDs for existing records**: When referencing existing records in associations, use their IDs rather than trying to recreate the entire record.
 
-3. **Be careful with nested associations**: While ecto_shorts makes it easier to work with nested associations, be mindful of the potential performance impact of deeply nested structures.
+3. **Preload associations when needed**: Use `preload_change_assoc/3` when you need to both preload an association and handle it in the same operation.
 
-4. **Validate associations**: Add appropriate foreign key constraints and validations to ensure data integrity.
+4. **Be careful with nested associations**: While EctoShorts makes it easier to work with nested associations, be mindful of the potential performance impact of deeply nested structures.
+
+5. **Validate associations**: Add appropriate foreign key constraints and validations to ensure data integrity.
+
+6. **Use conditional functions**: Take advantage of `put_when/3` to apply changes only when specific conditions are met.
+
+## Additional Features
+
+### Conditional Changes
+
+The `put_when/3` function allows you to conditionally apply changes based on a predicate:
+
+```elixir
+def changeset(user, params) do
+  user
+  |> cast(params, [:name, :email])
+  |> validate_required([:name])
+  |> CommonChanges.put_when(
+    &CommonChanges.changeset_field_nil?(&1, :email),
+    &put_change(&1, :email, "default@example.com")
+  )
+end
+```
+
+This will set a default email only if the email field is nil.
+
+### Checking Field States
+
+CommonChanges provides helper functions to check field states:
+
+```elixir
+# Check if a field is nil
+CommonChanges.changeset_field_nil?(changeset, :address)
+
+# Check if a collection is empty
+CommonChanges.changeset_field_empty?(changeset, :posts)
+```
 
 ## Conclusion
 
-The `CommonChanges` module in ecto_shorts simplifies working with associations in Ecto by providing intelligent functions that determine the appropriate way to handle each association. This reduces boilerplate code and makes your application more maintainable.
+The `EctoShorts.CommonChanges` module simplifies working with associations in Ecto by providing intelligent functions that determine the appropriate way to handle each association. This reduces boilerplate code and makes your application more maintainable.
 
-For more information on available options, see the `EctoShorts.CommonChanges` module documentation.
+For more information on available options, see the [EctoShorts.CommonChanges module documentation](https://hexdocs.pm/ecto_shorts/EctoShorts.CommonChanges.html).

@@ -1,41 +1,63 @@
 defmodule EctoShorts.CommonChanges do
   @moduledoc """
-  `CommonChanges` is a collection of functions to help with managing
-  and creating our `&changeset/2` function in our schemas.
+  Simplifies working with associations in Ecto changesets.
 
-  ### Preloading associations on change
-  Often times we want to be able to change an association with
-  `(put/cast)_assoc`, but we have an awkwardness of having to use
-  a preload in a spot to do this. We can aleviate that by doing the following:
+  The `EctoShorts.CommonChanges` module provides functions that intelligently handle
+  associations in Ecto changesets, making it easier to work with relationships
+  between schemas. It automatically determines whether to use `put_assoc/4` or
+  `cast_assoc/3` based on the data provided.
 
-      defmodule MyApp.Accounts.User do
-        def changeset(changeset, params) do
-          changeset
-            |> cast([:name, :email])
-            |> validate_required([:name, :email])
-            |> EctoShorts.CommonChanges.preload_change_assoc(:address)
-        end
-      end
+  ## Key Features
 
-  Doing this allows us to then pass address in via a map, or even using
-  the struct from the database directly to add as a relation
+  * **Intelligent association handling** - Automatically chooses between `put_assoc/4` and `cast_assoc/3`
+  * **Many-to-many relationship support** - Easily update many-to-many relationships with just a list of IDs
+  * **Preloading associations** - Preload associations before applying changes
+  * **Conditional changeset functions** - Apply changes only when specific conditions are met
+  * **Association validation** - Ensure associations are properly provided
 
-  ### Validating relation is passed in somehow
-  We can validate for a relation being passed in via id or by using our
-  preload_change_assoc by doing the following:
+  ## Preloading Associations on Change
 
-      defmodule MyApp.Accounts.User do
-        def changeset(changeset, params) do
-          changeset
-            |> cast([:name, :email, :address_id])
-            |> validate_required([:name, :email])
-            |> EctoShorts.CommonChanges.preload_change_assoc(:address,
-              required_when_missing: :address_id
-            )
-        end
-      end
+  When working with associations in changesets, you often need to preload the
+  association before applying changes. The `preload_change_assoc/3` function
+  simplifies this process:
 
-  ### Conditional functions
+  ```elixir
+  defmodule MyApp.Accounts.User do
+    import Ecto.Changeset
+    alias EctoShorts.CommonChanges
+
+    def changeset(user, params) do
+      user
+      |> cast(params, [:name, :email])
+      |> validate_required([:name, :email])
+      |> CommonChanges.preload_change_assoc(:address)
+    end
+  end
+  ```
+
+  This allows you to pass an address as a map or as a struct directly in the params.
+
+  ## Validating Relations
+
+  You can ensure that a relation is provided either via an ID or as a nested map:
+
+  ```elixir
+  defmodule MyApp.Accounts.User do
+    import Ecto.Changeset
+    alias EctoShorts.CommonChanges
+
+    def changeset(user, params) do
+      user
+      |> cast(params, [:name, :email, :address_id])
+      |> validate_required([:name, :email])
+      |> CommonChanges.preload_change_assoc(:address,
+        required_when_missing: :address_id
+      )
+    end
+  end
+  ```
+
+  ## Conditional Functions
   We can also run functions when something happens by defining conditional functions like so:
 
       defmodule MyApp.Accounts.User do
@@ -65,7 +87,31 @@ defmodule EctoShorts.CommonChanges do
   alias Ecto.Changeset
   alias EctoShorts.{Actions, Config, SchemaHelpers}
 
-  @doc "Run's changeset function if when function returns true"
+  @doc """
+  Runs a changeset function only if the specified condition function returns true.
+
+  This function provides a clean way to conditionally apply changes to a changeset
+  based on a predicate function.
+
+  ## Parameters
+
+  * `changeset` - The Ecto changeset to potentially modify
+  * `when_func` - A function that takes a changeset and returns a boolean
+  * `change_func` - A function that takes a changeset and returns a modified changeset
+
+  ## Returns
+
+  * The modified changeset if the condition was true
+  * The original changeset if the condition was false
+
+  ## Examples
+
+      iex> CommonChanges.put_when(
+      ...>   changeset,
+      ...>   &CommonChanges.changeset_field_nil?(&1, :email),
+      ...>   &put_change(&1, :email, "default@example.com")
+      ...> )
+  """
   @spec put_when(
     Changeset.t,
     ((Changeset.t) -> boolean),
@@ -83,7 +129,19 @@ defmodule EctoShorts.CommonChanges do
   Returns true if the field on the changeset is an empty list in
   the data or changes.
 
-  ### Examples
+  Useful for conditional logic based on whether a collection association is empty.
+
+  ## Parameters
+
+  * `changeset` - The Ecto changeset to check
+  * `key` - The field name to check for emptiness
+
+  ## Returns
+
+  * `true` if the field is an empty list
+  * `false` otherwise
+
+  ## Examples
 
       iex> EctoShorts.CommonChanges.changeset_field_empty?(changeset, :comments)
   """
@@ -96,7 +154,19 @@ defmodule EctoShorts.CommonChanges do
   Returns true if the field on the changeset is nil in the data
   or changes.
 
-  ### Examples
+  Useful for conditional logic based on whether a field or association is nil.
+
+  ## Parameters
+
+  * `changeset` - The Ecto changeset to check
+  * `key` - The field name to check for nil value
+
+  ## Returns
+
+  * `true` if the field is nil
+  * `false` otherwise
+
+  ## Examples
 
       iex> EctoShorts.CommonChanges.changeset_field_nil?(changeset, :comments)
   """
@@ -106,25 +176,42 @@ defmodule EctoShorts.CommonChanges do
   end
 
   @doc """
-  This function is the primary use function
-  Preloads changeset assoc if change is made and then and put_or_cast's it
+  Preloads an association and then intelligently applies put_or_cast_assoc.
 
-  ### Options
+  This function is the primary entry point for association handling. It preloads
+  the association if a change is made to it, and then determines whether to use
+  `put_assoc/4` or `cast_assoc/3` based on the data.
 
-    * `required_when_missing` - Sets `:required` to true if the
-      field is `nil` in both changes and data. See the
-      `:required` option documentation for details.
+  ## Parameters
 
-    * `:required` - Indicates if the association is mandatory.
-      For one-to-one associations, a non-nil value satisfies
-      this validation. For many associations, a non-empty list
-      is sufficient. See [Ecto.Changeset.cast_assoc/3](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast_assoc/3)
-      for more information.
+  * `changeset` - The Ecto changeset to modify
+  * `key` - The association field name
+  * `opts` - Options for controlling the behavior
 
-  ## Example
+  ## Options
+
+  * `required_when_missing` - Sets `:required` to true if the
+    field is `nil` in both changes and data. This is useful when
+    you have both an association and a foreign key field, and you
+    want to ensure one of them is provided.
+
+  * `:required` - Indicates if the association is mandatory.
+    For one-to-one associations, a non-nil value satisfies
+    this validation. For many associations, a non-empty list
+    is sufficient. See [Ecto.Changeset.cast_assoc/3](https://hexdocs.pm/ecto/Ecto.Changeset.html#cast_assoc/3)
+    for more information.
+
+  * `:ids` - A list of IDs to preload for the association. Useful when
+    working with many-to-many relationships.
+
+  ## Returns
+
+  * The modified changeset with the association preloaded and properly cast or put
+
+  ## Examples
 
       iex> CommonChanges.preload_change_assoc(changeset, :my_relation)
-      iex> CommonChanges.preload_change_assoc(changeset, :my_relation, repo: MyApp.OtherRepo)
+      iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required_when_missing: :my_relation_id)
       iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required: true)
       iex> CommonChanges.preload_change_assoc(changeset, :my_relation, required_when_missing: :my_relation_id)
   """
@@ -159,7 +246,32 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  @doc "Preloads a changesets association"
+  @doc """
+  Preloads an association on a changeset's data.
+
+  This function preloads the specified association on the changeset's data,
+  making it available for further operations.
+
+  ## Parameters
+
+  * `changeset` - The Ecto changeset to modify
+  * `key` - The association field name
+  * `opts` - Options for controlling the preload behavior
+
+  ## Options
+
+  * `:ids` - A list of IDs to preload for the association. When provided,
+    only records with these IDs will be preloaded.
+
+  ## Returns
+
+  * The modified changeset with the association preloaded
+
+  ## Examples
+
+      iex> CommonChanges.preload_changeset_assoc(changeset, :posts)
+      iex> CommonChanges.preload_changeset_assoc(changeset, :roles, ids: [1, 2, 3])
+  """
   @spec preload_changeset_assoc(Changeset.t, atom) :: Changeset.t
   @spec preload_changeset_assoc(Changeset.t, atom, keyword()) :: Changeset.t
   def preload_changeset_assoc(changeset, key, opts \\ [])
@@ -189,16 +301,49 @@ defmodule EctoShorts.CommonChanges do
   end
 
   @doc """
-  Determines put or cast on association with some special magic
+  Intelligently determines whether to use put_assoc or cast_assoc based on the data.
 
-  If you pass a many to many relation only a list of id's it will count that as a `member_update` and remove or add members to the relations list
+  This function examines the data in the changeset and automatically chooses the
+  appropriate Ecto function to handle the association:
+  * Uses `put_assoc/4` when the association data is already a struct or list of structs
+  * Uses `cast_assoc/3` when the association data is a map or list of maps that needs to be cast
 
-  E.G. User many_to_many Fruit
+  ## Special Handling for Many-to-Many Relationships
 
-  This would update the user to have only fruits with id 1 and 3
-  ```elixir
-  CommonChanges.put_or_cast_assoc(change(user, fruits: [%{id: 1}, %{id: 3}]), :fruits)
-  ```
+  When working with many-to-many relationships, you can pass a list of IDs or maps with IDs,
+  and this function will update the association to match exactly what you provide:
+  1. Keep records with the specified IDs in the association
+  2. Remove any other records that were previously associated
+  3. Add any new records that weren't previously associated
+
+  ## Parameters
+
+  * `changeset` - The Ecto changeset to modify
+  * `key` - The association field name
+  * `opts` - Options to pass to the underlying put_assoc or cast_assoc function
+
+  ## Returns
+
+  * The modified changeset with the association properly handled
+
+  ## Examples
+
+  With a belongs_to association:
+
+      iex> EctoShorts.CommonChanges.put_or_cast_assoc(post_changeset, :user)
+
+  With a has_many association:
+
+      iex> EctoShorts.CommonChanges.put_or_cast_assoc(user_changeset, :posts)
+
+  With a many_to_many association using IDs:
+
+      iex> EctoShorts.CommonChanges.put_or_cast_assoc(user_changeset, :roles)
+      # When params contain: "roles" => [1, 2, 3]
+
+  With a many_to_many association using maps with IDs:
+
+      iex> EctoShorts.CommonChanges.put_or_cast_assoc(change(user, fruits: [%{id: 1}, %{id: 3}]), :fruits)
   """
   @spec put_or_cast_assoc(Changeset.t, atom) :: Changeset.t
   @spec put_or_cast_assoc(Changeset.t, atom, Keyword.t) :: Changeset.t

@@ -1,15 +1,27 @@
 defmodule EctoShorts.Config do
-  @moduledoc false
+  @moduledoc """
+  Configuration utilities for EctoShorts.
+  
+  This module provides functions to access and validate configuration settings
+  for the EctoShorts library, particularly for repository access.
+  """
 
   @app :ecto_shorts
 
   @doc """
-  Returns the value of `ecto_shorts` config key `:repo`.
-
-  ### Examples
-
+  Returns the configured repository module for EctoShorts.
+  
+  Retrieves the value set for the `:repo` key in the `:ecto_shorts` application
+  configuration. Returns `nil` if no repository is configured.
+  
+  ## Examples
+  
       iex> EctoShorts.Config.repo()
-      EctoShorts.Support.Repo
+      MyApp.Repo
+      
+      # When no repo is configured
+      iex> EctoShorts.Config.repo()
+      nil
   """
   @spec repo :: Ecto.Repo.t() | nil
   def repo do
@@ -17,10 +29,20 @@ defmodule EctoShorts.Config do
   end
 
   @doc """
-  Returns the value of `ecto_shorts` config key `:replica`.
-
-  ### Examples
-
+  Returns the configured read replica repository module for EctoShorts.
+  
+  Retrieves the value set for the `:replica` key in the `:ecto_shorts` application
+  configuration. Returns `nil` if no read replica is configured.
+  
+  Read replicas are used for read operations when specified, allowing you to
+  distribute database load between primary and replica databases.
+  
+  ## Examples
+  
+      iex> EctoShorts.Config.replica()
+      MyApp.ReplicaRepo
+      
+      # When no replica is configured
       iex> EctoShorts.Config.replica()
       nil
   """
@@ -31,18 +53,38 @@ defmodule EctoShorts.Config do
   end
 
   @doc """
-  Returns a `Ecto.Repo` module.
-
-  Raises if the key `:repo` is not specified in configuration
-  and the option `:repo` is not specified at runtime.
-
-  ### Examples
-
+  Returns a repository module, raising an error if none is available.
+  
+  This function attempts to retrieve a repository in the following order:
+  
+  1. From the `:repo` option in the provided keyword list
+  2. From the application configuration
+  
+  ## Parameters
+  
+  * `opts` - Optional keyword list containing configuration overrides
+  
+  ## Returns
+  
+  An `Ecto.Repo` module
+  
+  ## Raises
+  
+  `ArgumentError` if no repository is found in either the options or configuration
+  
+  ## Examples
+  
+      # Using the configured repo
       iex> EctoShorts.Config.repo!()
-      EctoShorts.Support.Repo
-
-      iex> EctoShorts.Config.repo!(repo: YourApp.Repo)
-      YourApp.Repo
+      MyApp.Repo
+  
+      # Overriding with a specific repo
+      iex> EctoShorts.Config.repo!(repo: MyApp.CustomRepo)
+      MyApp.CustomRepo
+  
+      # When no repo is configured or provided
+      iex> EctoShorts.Config.repo!()
+      ** (ArgumentError) EctoShorts repo not configured!
   """
   @doc since: "2.5.0"
   @spec repo!(opts :: keyword()) :: Ecto.Repo.t()
@@ -73,19 +115,40 @@ defmodule EctoShorts.Config do
   end
 
   @doc """
-  Returns a `Ecto.Repo` module.
-
-  Raises if the key `:replica` and `:repo` is not specified in
-  configuration and the option `:replica` and `:repo` is not
-  specified at runtime.
-
-  ### Examples
-
+  Returns a read replica repository module, falling back to primary repo if needed.
+  
+  This function attempts to retrieve a repository in the following order:
+  
+  1. From the `:replica` option in the provided keyword list
+  2. From the `:replica` in the application configuration
+  3. From the `:repo` option in the provided keyword list
+  4. From the `:repo` in the application configuration
+  
+  ## Parameters
+  
+  * `opts` - Optional keyword list containing configuration overrides
+  
+  ## Returns
+  
+  An `Ecto.Repo` module suitable for read operations
+  
+  ## Raises
+  
+  `ArgumentError` if no repository is found in any of the possible locations
+  
+  ## Examples
+  
+      # Using the configured replica
       iex> EctoShorts.Config.replica!()
-      EctoShorts.Support.Repo
-
-      iex> EctoShorts.Config.replica!(replica: YourApp.Repo.Replica)
-      YourApp.Repo.Replica
+      MyApp.ReplicaRepo
+  
+      # Overriding with a specific replica
+      iex> EctoShorts.Config.replica!(replica: MyApp.CustomReplicaRepo)
+      MyApp.CustomReplicaRepo
+      
+      # Falling back to primary repo when no replica is configured
+      iex> EctoShorts.Config.replica!()
+      MyApp.Repo
   """
   @doc since: "2.5.0"
   @spec replica!(opts :: keyword()) :: Ecto.Repo.t()

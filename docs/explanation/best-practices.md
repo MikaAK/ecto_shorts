@@ -77,7 +77,7 @@ end
 
 ### Define Appropriate Changeset Functions
 
-Define appropriate changeset functions in your schemas:
+ecto_shorts uses different changeset functions depending on the operation. Define these to take advantage of the library's behavior:
 
 ```elixir
 defmodule MyApp.User do
@@ -92,7 +92,8 @@ defmodule MyApp.User do
     timestamps()
   end
 
-  # For general updates
+  # Standard changeset function used by default for all operations
+  # Used by Actions.update/4 and as a fallback for other operations
   def changeset(user, attrs) do
     user
     |> cast(attrs, [:name, :email])
@@ -100,7 +101,8 @@ defmodule MyApp.User do
     |> unique_constraint(:email)
   end
 
-  # For creating new users
+  # Used by Actions.create/3 if it exists
+  # The Actions module specifically checks for this function
   def create_changeset(attrs) do
     %__MODULE__{}
     |> cast(attrs, [:name, :email, :password])
@@ -109,14 +111,17 @@ defmodule MyApp.User do
     |> hash_password()
   end
 
-  # For updating user profiles
-  def update_changeset(user, attrs) do
+  # Custom changeset for specific operations
+  # Can be used with the :changeset option
+  # Actions.update(User, id, attrs, changeset: &User.profile_changeset/2)
+  def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [:name, :bio])
     |> validate_required([:name])
   end
 
-  # For changing passwords
+  # Another custom changeset for specific operations
+  # Actions.update(User, id, attrs, changeset: &User.password_changeset/2)
   def password_changeset(user, attrs) do
     user
     |> cast(attrs, [:password])
@@ -138,8 +143,9 @@ end
 
 This approach:
 - Provides specialized changesets for different operations
+- Takes advantage of ecto_shorts' automatic detection of `create_changeset/1`
+- Allows for custom changesets via the `:changeset` option
 - Ensures proper validation for each operation
-- Works seamlessly with ecto_shorts' `Actions` module
 
 ### Implement `by_search/2` for Custom Search
 
@@ -168,9 +174,9 @@ MyApp.Accounts.list_users(%{search: "john"})
 
 ## Filtering Best Practices
 
-### Start with Simple Filters
+### Use the Declarative Filtering System
 
-Begin with simple filters and add complexity as needed:
+Take advantage of ecto_shorts' declarative filtering system to build complex queries:
 
 ```elixir
 # Start with basic filters
@@ -182,6 +188,30 @@ users = MyApp.Accounts.list_users(%{
   age: %{gte: 18},
   name: %{ilike: "john"}
 })
+
+# Filter on associations
+users = MyApp.Accounts.list_users(%{
+  roles: ["admin", "moderator"],
+  posts: %{published: true}
+})
+```
+
+### Use Comparison Operators
+
+Use comparison operators for more precise filtering:
+
+```elixir
+# Range filtering
+users = MyApp.Accounts.list_users(%{
+  age: %{gte: 18, lte: 65},
+  created_at: %{gte: ~N[2023-01-01 00:00:00]}
+})
+
+# Pattern matching
+posts = MyApp.Blog.list_posts(%{
+  title: %{ilike: "elixir"},  # Case-insensitive
+  content: %{like: "Ecto"}    # Case-sensitive
+})
 ```
 
 ### Use Preloading Wisely
@@ -190,29 +220,35 @@ Only preload associations that you actually need:
 
 ```elixir
 # Good: Only preload what you need
-user = MyApp.Accounts.get_user(1, preload: :posts)
+user = MyApp.Accounts.get_user(1, %{preload: :posts})
 
 # Better: Only preload specific associations when needed
 user = MyApp.Accounts.get_user(1)
 posts = MyApp.Blog.list_posts(%{user_id: user.id})
+
+# Preload nested associations
+user = MyApp.Accounts.get_user(1, %{preload: [posts: :comments]})
 ```
 
-### Consider Performance
+### Use Pagination and Limits
 
-Be mindful of the performance implications of complex filters:
+Implement pagination to improve performance with large datasets:
 
 ```elixir
-# This could be expensive if there are many users
-users = MyApp.Accounts.list_users(%{
-  preload: [:posts, :comments, :roles],
-  search: "john"
-})
-
-# Consider pagination
-users = MyApp.Accounts.list_users(%{
+# Get the first page of results
+page1 = MyApp.Accounts.list_users(%{
   preload: [:posts],
   search: "john",
   first: 10
+})
+
+# Get the next page using the last ID from the previous page
+last_id = List.last(page1).id
+page2 = MyApp.Accounts.list_users(%{
+  preload: [:posts],
+  search: "john",
+  first: 10,
+  after: last_id
 })
 ```
 
@@ -324,7 +360,7 @@ end
 
 ### Handle All Error Cases
 
-Always handle the error cases from `Actions` functions:
+One of the benefits of ecto_shorts is consistent error handling. Always handle all possible error cases from `Actions` functions:
 
 ```elixir
 def update_user(conn, %{"id" => id, "user" => user_params}) do
@@ -342,6 +378,39 @@ def update_user(conn, %{"id" => id, "user" => user_params}) do
     {:error, %Ecto.Changeset{} = changeset} ->
       render(conn, :edit, user_id: id, changeset: changeset)
   end
+end
+```
+
+### Common Error Types
+
+ecto_shorts returns different error types depending on the operation:
+
+- `{:error, :not_found}`: When a record cannot be found by ID or by filter criteria
+- `{:error, %Ecto.Changeset{}}`: When validation fails during create or update operations
+- `{:error, reason}`: For other types of errors (e.g., database constraints)
+
+### Using with Pattern Matching
+
+You can use pattern matching with the `with` special form for operations that depend on multiple successful steps:
+
+```elixir
+def transfer_post(post_id, from_user_id, to_user_id) do
+  with {:ok, post} <- MyApp.Blog.get_post(post_id),
+       {:ok, _from_user} <- MyApp.Accounts.get_user(from_user_id),
+       {:ok, to_user} <- MyApp.Accounts.get_user(to_user_id),
+       :ok <- authorize_transfer(post, from_user_id),
+       {:ok, updated_post} <- MyApp.Blog.update_post(post.id, %{user_id: to_user.id}) do
+    {:ok, updated_post}
+  else
+    {:error, :not_found} -> {:error, :resource_not_found}
+    {:error, :unauthorized} -> {:error, :permission_denied}
+    {:error, %Ecto.Changeset{} = changeset} -> {:error, changeset}
+    error -> error
+  end
+end
+
+defp authorize_transfer(post, user_id) do
+  if post.user_id == user_id, do: :ok, else: {:error, :unauthorized}
 end
 ```
 

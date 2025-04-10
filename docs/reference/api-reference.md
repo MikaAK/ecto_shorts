@@ -1,14 +1,16 @@
 # API Reference
 
-This reference document provides detailed information about all the modules, functions, and options available in ecto_shorts.
+This reference document provides detailed information about all the modules, functions, and options available in EctoShorts. It serves as a comprehensive technical reference for developers who need specific details about the library's components.
 
-## EctoShorts.Actions
+For practical guides on how to use these features, please refer to the [How-to Guides](/docs/how-to/) section.
 
-The `Actions` module provides a consistent interface for performing CRUD operations.
+## `EctoShorts.Actions`
+
+The `EctoShorts.Actions` module provides a consistent interface for performing CRUD operations on Ecto schemas.
 
 ### Functions
 
-#### create/3
+#### `EctoShorts.Actions.create/3`
 
 ```elixir
 create(schema, attrs, opts \\ [])
@@ -22,7 +24,7 @@ Creates a new record of the given schema with the provided attributes.
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - `:changeset_fun`: The changeset function to use (defaults to `create_changeset/1` or `changeset/2`)
 - Any other options are passed to the repo's `insert/2` function
 
@@ -35,7 +37,9 @@ Creates a new record of the given schema with the provided attributes.
 {:ok, user} = EctoShorts.Actions.create(User, %{name: "John", email: "john@example.com"})
 ```
 
-#### get/3
+See also: `EctoShorts.Actions.find_or_create/3`, `Ecto.Repo.insert/2`
+
+#### `EctoShorts.Actions.get/3`
 
 ```elixir
 get(schema, id, opts \\ [])
@@ -49,21 +53,23 @@ Gets a record of the given schema by its ID.
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - `:replica`: A read replica to use for the query
 - `:preload`: Fields to preload on the record
-- Any other options are passed to `CommonFilters.convert_params_to_filter/3`
+- Any other options are passed to `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
 **Returns:**
 - `{:ok, record}` if the record was found
-- `{:error, :not_found}` if the record was not found
+- `{:error, %ErrorMessage{code: :not_found, message: "Record not found", details: %{id: id}}}` if the record was not found
 
 **Example:**
 ```elixir
 {:ok, user} = EctoShorts.Actions.get(User, 1, preload: [:posts])
 ```
 
-#### get_by/3
+See also: `EctoShorts.Actions.get_by/3`, `EctoShorts.Actions.find/3`
+
+#### `EctoShorts.Actions.get_by/3`
 
 ```elixir
 get_by(schema, attrs, opts \\ [])
@@ -77,21 +83,23 @@ Gets a record of the given schema by the provided attributes.
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - `:replica`: A read replica to use for the query
 - `:preload`: Fields to preload on the record
-- Any other options are passed to `CommonFilters.convert_params_to_filter/3`
+- Any other options are passed to `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
 **Returns:**
 - `{:ok, record}` if the record was found
-- `{:error, :not_found}` if the record was not found
+- `{:error, %ErrorMessage{code: :not_found, message: "Record not found", details: %{id: id}}}` if the record was not found
 
 **Example:**
 ```elixir
 {:ok, user} = EctoShorts.Actions.get_by(User, %{email: "john@example.com"})
 ```
 
-#### all/3
+See also: `EctoShorts.Actions.get/3`, `EctoShorts.Actions.find/3`
+
+#### `EctoShorts.Actions.all/3`
 
 ```elixir
 all(schema, filters \\ %{}, opts \\ [])
@@ -101,13 +109,13 @@ Gets all records of the given schema that match the provided filters.
 
 **Parameters:**
 - `schema`: The schema module to get records for
-- `filters`: A map of filters to apply (see CommonFilters)
+- `filters`: A map of filters to apply (see `EctoShorts.CommonFilters`)
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - `:replica`: A read replica to use for the query
-- Any other options are passed to `CommonFilters.convert_params_to_filter/3`
+- Any other options are passed to `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
 **Returns:**
 - A list of records that match the filters
@@ -117,7 +125,9 @@ Gets all records of the given schema that match the provided filters.
 users = EctoShorts.Actions.all(User, %{age: %{gte: 18}})
 ```
 
-#### count/3
+See also: `EctoShorts.Actions.count/3`, `Ecto.Repo.all/2`
+
+#### `EctoShorts.Actions.count/3`
 
 ```elixir
 count(schema, filters \\ %{}, opts \\ [])
@@ -127,13 +137,13 @@ Counts the number of records of the given schema that match the provided filters
 
 **Parameters:**
 - `schema`: The schema module to count records for
-- `filters`: A map of filters to apply (see CommonFilters)
+- `filters`: A map of filters to apply (see `EctoShorts.CommonFilters`)
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - `:replica`: A read replica to use for the query
-- Any other options are passed to `CommonFilters.convert_params_to_filter/3`
+- Any other options are passed to `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
 **Returns:**
 - An integer representing the count of matching records
@@ -143,7 +153,9 @@ Counts the number of records of the given schema that match the provided filters
 count = EctoShorts.Actions.count(User, %{active: true})
 ```
 
-#### update/4
+See also: `EctoShorts.Actions.all/3`
+
+#### `EctoShorts.Actions.update/4`
 
 ```elixir
 update(schema, id, attrs, opts \\ [])
@@ -158,21 +170,23 @@ Updates a record of the given schema with the provided attributes.
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - `:changeset_fun`: The changeset function to use (defaults to `update_changeset/2` or `changeset/2`)
 - Any other options are passed to the repo's `update/2` function
 
 **Returns:**
 - `{:ok, record}` if the record was updated successfully
 - `{:error, changeset}` if there was an error
-- `{:error, :not_found}` if the record was not found
+- `{:error, %ErrorMessage{code: :not_found, message: "Record not found", details: %{id: id}}}` if the record was not found
 
 **Example:**
 ```elixir
 {:ok, user} = EctoShorts.Actions.update(User, 1, %{name: "Jane"})
 ```
 
-#### delete/3
+See also: `EctoShorts.Actions.find_and_update/4`, `Ecto.Repo.update/2`
+
+#### `EctoShorts.Actions.delete/3`
 
 ```elixir
 delete(schema, id, opts \\ [])
@@ -186,26 +200,28 @@ Deletes a record of the given schema.
 - `opts`: Options (see below)
 
 **Options:**
-- `:repo`: The Ecto.Repo to use (defaults to the configured repo)
+- `:repo`: The `Ecto.Repo` to use (defaults to the configured repo)
 - Any other options are passed to the repo's `delete/2` function
 
 **Returns:**
 - `{:ok, record}` if the record was deleted successfully
 - `{:error, changeset}` if there was an error
-- `{:error, :not_found}` if the record was not found
+- `{:error, %ErrorMessage{code: :not_found, message: "Record not found", details: %{id: id}}}` if the record was not found
 
 **Example:**
 ```elixir
 {:ok, user} = EctoShorts.Actions.delete(User, 1)
 ```
 
-## EctoShorts.CommonFilters
+See also: `Ecto.Repo.delete/2`
 
-The `CommonFilters` module provides functions to convert parameter maps into Ecto queries.
+## `EctoShorts.CommonFilters`
+
+The `EctoShorts.CommonFilters` module provides functions to convert parameter maps into Ecto queries. It implements a declarative way to build complex Ecto queries using parameter maps.
 
 ### Functions
 
-#### convert_params_to_filter/3
+#### `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
 ```elixir
 convert_params_to_filter(queryable, params, opts \\ [])
@@ -223,7 +239,7 @@ Converts a map of parameters into an Ecto query.
 - `:query_mode`: `:all` (default) or `:count` - determines whether to return all records or just a count
 
 **Returns:**
-- An Ecto query with the filters applied
+- An `Ecto.Query` with the filters applied
 
 **Example:**
 ```elixir
@@ -231,22 +247,24 @@ query = EctoShorts.CommonFilters.convert_params_to_filter(User, %{age: %{gte: 18
 users = MyApp.Repo.all(query)
 ```
 
-## EctoShorts.CommonChanges
+See also: `EctoShorts.QueryBuilder.Schema`, `EctoShorts.QueryBuilder.Common`
 
-The `CommonChanges` module provides functions to handle associations in Ecto changesets.
+## `EctoShorts.CommonChanges`
+
+The `EctoShorts.CommonChanges` module provides functions to handle associations in Ecto changesets. It simplifies working with associations by intelligently determining whether to use `put_assoc/4` or `cast_assoc/3` based on the data provided.
 
 ### Functions
 
-#### put_or_cast_assoc/3
+#### `EctoShorts.CommonChanges.put_or_cast_assoc/3`
 
 ```elixir
 put_or_cast_assoc(changeset, assoc_field, opts \\ [])
 ```
 
-Intelligently determines whether to use `put_assoc` or `cast_assoc` based on the data.
+Intelligently determines whether to use `put_assoc/4` or `cast_assoc/3` based on the data.
 
 **Parameters:**
-- `changeset`: The changeset to modify
+- `changeset`: The `Ecto.Changeset` to modify
 - `assoc_field`: The association field to handle
 - `opts`: Options (see below)
 
@@ -254,7 +272,7 @@ Intelligently determines whether to use `put_assoc` or `cast_assoc` based on the
 - `:ids`: A list of IDs to use for the association (for many-to-many relationships)
 - `:with`: A function to apply to each associated item before casting
 - `:required`: Whether the association is required
-- Any other options are passed to `cast_assoc/3` or `put_assoc/3`
+- Any other options are passed to `Ecto.Changeset.cast_assoc/3` or `Ecto.Changeset.put_assoc/4`
 
 **Returns:**
 - The modified changeset
@@ -264,7 +282,9 @@ Intelligently determines whether to use `put_assoc` or `cast_assoc` based on the
 changeset = EctoShorts.CommonChanges.put_or_cast_assoc(changeset, :posts)
 ```
 
-#### put_or_cast_assocs/3
+See also: `EctoShorts.CommonChanges.put_or_cast_assocs/3`, `Ecto.Changeset.cast_assoc/3`, `Ecto.Changeset.put_assoc/4`
+
+#### `EctoShorts.CommonChanges.put_or_cast_assocs/3`
 
 ```elixir
 put_or_cast_assocs(changeset, assoc_fields, opts \\ [])
@@ -273,9 +293,9 @@ put_or_cast_assocs(changeset, assoc_fields, opts \\ [])
 Applies `put_or_cast_assoc/3` to multiple association fields.
 
 **Parameters:**
-- `changeset`: The changeset to modify
+- `changeset`: The `Ecto.Changeset` to modify
 - `assoc_fields`: A list of association fields to handle
-- `opts`: Options (see put_or_cast_assoc/3)
+- `opts`: Options (see `EctoShorts.CommonChanges.put_or_cast_assoc/3`)
 
 **Returns:**
 - The modified changeset
@@ -285,13 +305,15 @@ Applies `put_or_cast_assoc/3` to multiple association fields.
 changeset = EctoShorts.CommonChanges.put_or_cast_assocs(changeset, [:posts, :comments])
 ```
 
-## EctoShorts.SchemaHelpers
+See also: `EctoShorts.CommonChanges.put_or_cast_assoc/3`
 
-The `SchemaHelpers` module provides helper functions for working with Ecto schemas.
+## `EctoShorts.SchemaHelpers`
+
+The `EctoShorts.SchemaHelpers` module provides helper functions for working with Ecto schemas. These utilities help with common schema-related operations such as checking for fields and associations.
 
 ### Functions
 
-#### has_field?/2
+#### `EctoShorts.SchemaHelpers.has_field?/2`
 
 ```elixir
 has_field?(schema, field)
@@ -313,7 +335,9 @@ if EctoShorts.SchemaHelpers.has_field?(User, :email) do
 end
 ```
 
-#### has_assoc?/2
+See also: `EctoShorts.SchemaHelpers.has_assoc?/2`
+
+#### `EctoShorts.SchemaHelpers.has_assoc?/2`
 
 ```elixir
 has_assoc?(schema, assoc)
@@ -335,7 +359,9 @@ if EctoShorts.SchemaHelpers.has_assoc?(User, :posts) do
 end
 ```
 
-#### get_assoc_type/2
+See also: `EctoShorts.SchemaHelpers.has_field?/2`, `EctoShorts.SchemaHelpers.get_assoc_type/2`
+
+#### `EctoShorts.SchemaHelpers.get_assoc_type/2`
 
 ```elixir
 get_assoc_type(schema, assoc)
@@ -360,9 +386,11 @@ case EctoShorts.SchemaHelpers.get_assoc_type(User, :posts) do
 end
 ```
 
+See also: `EctoShorts.SchemaHelpers.has_assoc?/2`, `Ecto.Schema`
+
 ## Common Filter Options
 
-The following filter options are available in the `params` map passed to `CommonFilters.convert_params_to_filter/3` and `Actions.all/3`:
+The following filter options are available in the `params` map passed to `EctoShorts.CommonFilters.convert_params_to_filter/3` and `EctoShorts.Actions.all/3`:
 
 ### Basic Filters
 
@@ -414,7 +442,7 @@ The following options are available in the `opts` keyword list passed to most fu
 
 ### Repository Options
 
-- `:repo` - The Ecto.Repo to use for the operation
+- `:repo` - The `Ecto.Repo` to use for the operation
 - `:replica` - A read replica to use for read operations
 
 ### Changeset Options
@@ -426,16 +454,31 @@ The following options are available in the `opts` keyword list passed to most fu
 - `:filter_mode` - `:and` (default) or `:or` - determines how multiple filters are combined
 - `:query_mode` - `:all` (default) or `:count` - determines whether to return all records or just a count
 
+For more detailed information about all available filter options, see the [Filter Options Reference](/docs/reference/filter-options.md).
+
 ## Error Handling
 
-Most functions in ecto_shorts return tagged tuples to indicate success or failure:
+Most functions in EctoShorts return tagged tuples to indicate success or failure:
 
 - `{:ok, result}` - The operation was successful
 - `{:error, reason}` - The operation failed
 
+EctoShorts uses the `ErrorMessage` struct from the [elixir_error_message](https://github.com/MikaAK/elixir_error_message) package for standardized error handling. This provides a consistent error format with error codes, messages, and additional details.
+
 Common error reasons include:
 
-- `:not_found` - The requested record was not found
-- A changeset with errors - The operation failed due to validation errors
+- `%ErrorMessage{code: :not_found, ...}` - The requested record was not found
+- `%Ecto.Changeset{}` - The operation failed due to validation errors
+- `%ErrorMessage{code: :bad_request, ...}` - Invalid parameters were provided
+- `%ErrorMessage{code: :internal_server_error, ...}` - An unexpected error occurred
 
-It's important to handle these errors appropriately in your application code.
+It's important to handle these errors appropriately in your application code. For example:
+
+```elixir
+case EctoShorts.Actions.get(User, id) do
+  {:ok, user} -> 
+    # Process the user
+  {:error, %ErrorMessage{code: :not_found}} -> 
+    # Handle not found error
+end
+```

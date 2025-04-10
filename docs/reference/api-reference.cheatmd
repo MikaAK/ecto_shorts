@@ -1,0 +1,277 @@
+# EctoShorts Cheatsheet
+
+## EctoShorts.Actions
+{: .col-2}
+
+### Create
+```elixir
+create(schema, attrs, opts \\ [])
+```
+
+```elixir
+{:ok, user} = EctoShorts.Actions.create(User, %{name: "John"})
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+- `:changeset_fun` - Custom changeset function
+
+### Get
+```elixir
+get(schema, id, opts \\ [])
+```
+
+```elixir
+{:ok, user} = EctoShorts.Actions.get(User, 1, preload: [:posts])
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+- `:replica` - Read replica to use
+- `:preload` - Fields to preload
+
+### Get By
+```elixir
+get_by(schema, attrs, opts \\ [])
+```
+
+```elixir
+{:ok, user} = EctoShorts.Actions.get_by(User, %{email: "john@example.com"})
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+- `:replica` - Read replica to use
+- `:preload` - Fields to preload
+
+### All
+```elixir
+all(schema, filters \\ %{}, opts \\ [])
+```
+
+```elixir
+users = EctoShorts.Actions.all(User, %{age: %{gte: 18}})
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+- `:replica` - Read replica to use
+
+### Count
+```elixir
+count(schema, filters \\ %{}, opts \\ [])
+```
+
+```elixir
+count = EctoShorts.Actions.count(User, %{active: true})
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+- `:replica` - Read replica to use
+
+### Update
+```elixir
+update(schema, id, attrs, opts \\ [])
+```
+
+```elixir
+{:ok, user} = EctoShorts.Actions.update(User, 1, %{name: "Jane"})
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+- `:changeset_fun` - Custom changeset function
+
+### Delete
+```elixir
+delete(schema, id, opts \\ [])
+```
+
+```elixir
+{:ok, user} = EctoShorts.Actions.delete(User, 1)
+```
+
+**Options:**
+- `:repo` - The Ecto.Repo to use
+
+## EctoShorts.CommonFilters
+{: .col-2}
+
+### Convert Params to Filter
+```elixir
+convert_params_to_filter(queryable, params, opts \\ [])
+```
+
+```elixir
+query = EctoShorts.CommonFilters.convert_params_to_filter(User, %{age: %{gte: 18}})
+users = MyApp.Repo.all(query)
+```
+
+**Options:**
+- `:filter_mode` - `:and` (default) or `:or`
+- `:query_mode` - `:all` (default) or `:count`
+
+## EctoShorts.CommonChanges
+{: .col-2}
+
+### Put or Cast Association
+```elixir
+put_or_cast_assoc(changeset, assoc_field, opts \\ [])
+```
+
+```elixir
+changeset = EctoShorts.CommonChanges.put_or_cast_assoc(changeset, :posts)
+```
+
+**Options:**
+- `:ids` - List of IDs for many-to-many
+- `:with` - Function to apply to each item
+- `:required` - Whether association is required
+
+### Put or Cast Multiple Associations
+```elixir
+put_or_cast_assocs(changeset, assoc_fields, opts \\ [])
+```
+
+```elixir
+changeset = EctoShorts.CommonChanges.put_or_cast_assocs(changeset, [:posts, :comments])
+```
+
+## EctoShorts.SchemaHelpers
+{: .col-2}
+
+### Has Field?
+```elixir
+has_field?(schema, field)
+```
+
+```elixir
+if EctoShorts.SchemaHelpers.has_field?(User, :email) do
+  # Do something with the email field
+end
+```
+
+### Has Association?
+```elixir
+has_assoc?(schema, assoc)
+```
+
+```elixir
+if EctoShorts.SchemaHelpers.has_assoc?(User, :posts) do
+  # Do something with the posts association
+end
+```
+
+### Get Association Type
+```elixir
+get_assoc_type(schema, assoc)
+```
+
+```elixir
+case EctoShorts.SchemaHelpers.get_assoc_type(User, :posts) do
+  :has_many -> # Handle has_many association
+  :belongs_to -> # Handle belongs_to association
+  _ -> # Handle other cases
+end
+```
+
+## Common Filter Options
+{: .col-2}
+
+### Basic Filters
+{: .list-4}
+
+* `field_name: value` - Equals
+* `field_name: [value1, value2]` - In list
+
+### Comparison Operators
+{: .list-4}
+
+* `field_name: %{gt: value}` - Greater than
+* `field_name: %{gte: value}` - Greater than or equal
+* `field_name: %{lt: value}` - Less than
+* `field_name: %{lte: value}` - Less than or equal
+
+### Text Search
+{: .list-4}
+
+* `field_name: %{like: value}` - Case-sensitive LIKE
+* `field_name: %{ilike: value}` - Case-insensitive LIKE
+
+### Date Filters
+{: .list-4}
+
+* `start_date: date` - On or after date
+* `end_date: date` - On or before date
+
+### Pagination
+{: .list-4}
+
+* `first: n` - First n records
+* `last: n` - Last n records
+* `before: id` - IDs before specified ID
+* `after: id` - IDs after specified ID
+
+### Association Filters
+{: .list-4}
+
+* `assoc_name: value` - Association equals
+* `assoc_name: [value1, value2]` - Association in list
+
+### Preloading
+{: .list-4}
+
+* `preload: field_name` - Single association
+* `preload: [field1, field2]` - Multiple associations
+* `preload: [field1: [nested]]` - Nested associations
+
+### Custom Search
+{: .list-4}
+
+* `search: term` - Uses schema's `by_search/2`
+
+## Common Options
+{: .col-2}
+
+### Repository Options
+{: .list-4}
+
+* `:repo` - Ecto.Repo to use
+* `:replica` - Read replica for read operations
+
+### Changeset Options
+{: .list-4}
+
+* `:changeset_fun` - Custom changeset function
+
+### Filter Options
+{: .list-4}
+
+* `:filter_mode` - `:and` (default) or `:or`
+* `:query_mode` - `:all` (default) or `:count`
+
+## Error Handling
+{: .col-2}
+
+### Return Values
+{: .list-4}
+
+* `{:ok, result}` - Operation successful
+* `{:error, reason}` - Operation failed
+
+### Common Errors
+{: .list-4}
+
+* `:not_found` - Record not found
+* Changeset with errors - Validation errors
+
+### Example
+```elixir
+case EctoShorts.Actions.get(User, id) do
+  {:ok, user} -> 
+    # Process the user
+  {:error, :not_found} -> 
+    # Handle not found error
+end
+```

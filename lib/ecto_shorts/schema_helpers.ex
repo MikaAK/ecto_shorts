@@ -1,7 +1,11 @@
 defmodule EctoShorts.SchemaHelpers do
   @moduledoc """
-  Module that has helpers that are globably useful on ecto schemas
-  """
+Provides helper functions for working with Ecto schemas.
+
+The `EctoShorts.SchemaHelpers` module offers utilities that help with common schema-related
+operations such as checking for fields and associations, determining association types,
+and working with schema metadata.
+"""
 
   @doc """
   Returns a struct for the given ecto schema.

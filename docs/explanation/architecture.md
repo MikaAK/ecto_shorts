@@ -47,14 +47,17 @@ The following diagram illustrates the relationships between the core components:
 The `Actions` module is the primary entry point for most users. It provides functions for common database operations:
 
 - `create/3`: Creates a new record
-- `get/3`: Gets a record by ID
-- `get_by/3`: Gets a record by attributes
+- `get/3`: Gets a record by ID with consistent `{:ok, record}` or `{:error, reason}` returns
+- `find/3`: Finds records matching filters with the first result
 - `all/3`: Gets all records matching filters
 - `count/3`: Counts records matching filters
 - `update/4`: Updates a record
 - `delete/3`: Deletes a record
+- `find_or_create/3`: Finds a record or creates it if not found
+- `find_and_update/4`: Finds a record and updates it
+- `find_and_upsert/4`: Finds a record and updates it or creates it if not found
 
-`Actions` uses `CommonFilters` to convert parameter maps into Ecto queries for read operations, and `CommonChanges` to handle associations for create and update operations.
+`Actions` uses `CommonFilters` to convert parameter maps into Ecto queries for read operations, and `CommonChanges` to handle associations for create and update operations. It also provides consistent error handling and return values across all operations.
 
 ### CommonFilters
 
@@ -80,7 +83,13 @@ from u in User,
   limit: 10
 ```
 
-`CommonFilters` uses `SchemaHelpers` to inspect schemas and determine the appropriate query to build.
+`CommonFilters` uses `SchemaHelpers` to inspect schemas and determine the appropriate query to build. It supports a wide range of filter types including:
+
+- Exact matches (`field: value`)
+- Comparison operators (`field: %{gte: value, lte: value}`)
+- Pattern matching (`field: %{ilike: pattern}`)
+- Association filtering (`association: [value1, value2]`)
+- Common query modifiers (`first`, `last`, `preload`, `order_by`)
 
 ### CommonChanges
 
@@ -94,7 +103,14 @@ changeset = User.changeset(%User{}, user_params)
 changeset = CommonChanges.put_or_cast_assoc(changeset, :posts)
 ```
 
-`CommonChanges` uses `SchemaHelpers` to inspect schemas and determine the type of association.
+`CommonChanges` uses `SchemaHelpers` to inspect schemas and determine the type of association. Key functions include:
+
+- `preload_change_assoc/3`: Preloads an association and prepares it for changes
+- `put_or_cast_assoc/3`: Intelligently chooses between `put_assoc` and `cast_assoc`
+- `put_when/3`: Conditionally applies a function to a changeset
+- `changeset_field_nil?/2` and `changeset_field_empty?/2`: Helper functions for checking field values
+
+These functions simplify common patterns when working with associations in Ecto changesets.
 
 ### SchemaHelpers
 
@@ -116,36 +132,52 @@ Let's trace the data flow through ecto_shorts for common operations:
 2. `Actions` looks for a `create_changeset/1` function on the `User` schema
 3. If not found, it falls back to `changeset/2`
 4. It applies the changeset to a new `User` struct
-5. For each association in the attributes, it calls `CommonChanges.put_or_cast_assoc/3`
-6. `CommonChanges` uses `SchemaHelpers` to determine the type of each association
-7. Based on the association type and data, it applies the appropriate Ecto function (`put_assoc` or `cast_assoc`)
-8. `Actions` inserts the changeset into the database using the specified repo
-9. It returns `{:ok, user}` or `{:error, changeset}`
+5. If a custom changeset function is provided via the `:changeset` option, it's applied
+6. The changeset is inserted into the database using the specified repo
+7. It returns `{:ok, user}` or `{:error, changeset}`
+
+When associations are involved:
+
+1. The changeset is built as described above
+2. For each association in the attributes, the schema's changeset function handles it
+3. If using `CommonChanges.preload_change_assoc/3` in the schema's changeset function:
+   - The association is preloaded if needed
+   - `CommonChanges.put_or_cast_assoc/3` is called
+   - `SchemaHelpers` determines the association type
+   - Based on the association type and data, the appropriate Ecto function (`put_assoc` or `cast_assoc`) is applied
 
 ### Read Operation
 
 1. User calls `Actions.all(User, filters)`
 2. `Actions` calls `CommonFilters.convert_params_to_filter(User, filters)`
-3. `CommonFilters` uses `SchemaHelpers` to inspect the `User` schema
-4. For each filter parameter, it builds the appropriate Ecto query
-5. For association filters, it joins the associated tables
-6. It returns the Ecto query to `Actions`
-7. `Actions` executes the query using the specified repo
-8. It returns the results to the user
+3. `CommonFilters` uses `CommonSchemas.get_schema_query` to get the base query
+4. For each filter parameter, it calls `create_schema_filter` to build the appropriate query
+5. For common filters (like `preload`, `first`, `last`), it delegates to `QueryBuilder.Common`
+6. For field filters, it delegates to `QueryBuilder.Schema`
+7. For association filters, it joins the associated tables with appropriate aliases
+8. It returns the complete Ecto query to `Actions`
+9. `Actions` executes the query using the specified repo (or replica if provided)
+10. It returns the results to the user
 
 ### Update Operation
 
 1. User calls `Actions.update(User, id, attrs)`
 2. `Actions` gets the user with the given ID
 3. If not found, it returns `{:error, :not_found}`
-4. It looks for an `update_changeset/2` function on the `User` schema
-5. If not found, it falls back to `changeset/2`
-6. It applies the changeset to the user
-7. For each association in the attributes, it calls `CommonChanges.put_or_cast_assoc/3`
-8. `CommonChanges` uses `SchemaHelpers` to determine the type of each association
-9. Based on the association type and data, it applies the appropriate Ecto function (`put_assoc` or `cast_assoc`)
-10. `Actions` updates the changeset in the database using the specified repo
-11. It returns `{:ok, user}` or `{:error, changeset}`
+4. It uses the standard `changeset/2` function on the `User` schema
+5. If a custom changeset function is provided via the `:changeset` option, it's applied instead
+6. The changeset is updated in the database using the specified repo
+7. It returns `{:ok, user}` or `{:error, changeset}`
+
+When associations are involved:
+
+1. The changeset is built as described above
+2. For each association in the attributes, the schema's changeset function handles it
+3. If using `CommonChanges.preload_change_assoc/3` in the schema's changeset function:
+   - The association is preloaded if needed
+   - `CommonChanges.put_or_cast_assoc/3` is called
+   - Based on the data structure (IDs, maps, or structs), it determines whether to use `put_assoc` or `cast_assoc`
+   - For many-to-many relationships with just IDs, it performs a member update
 
 ### Delete Operation
 

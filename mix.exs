@@ -112,7 +112,9 @@ defmodule EctoShorts.MixProject do
         "docs/reference/index.md",
         "docs/reference/actions.md",
         "docs/reference/api-reference.md",
-        "docs/reference/filter-options.md"
+        "docs/reference/filter-options.md",
+        "docs/reference/error-handling.md",
+        "docs/reference/api-reference.cheatmd"
       ],
       groups_for_extras: [
         "Tutorials": ~r{docs/tutorials/},

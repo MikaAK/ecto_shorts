@@ -113,7 +113,7 @@ defmodule MyApp.Accounts do
   end
   
   def get_user_by_email(email) do
-    Actions.get_by(User, %{email: email}, @actions_opts)
+    Actions.find(User, %{email: email}, @actions_opts)
   end
   
   def list_users(filters \\ %{}) do
@@ -151,8 +151,10 @@ MyApp.Accounts.list_users(%{
 
 1. **Less boilerplate**: ecto_shorts requires significantly less code to achieve the same functionality.
 2. **Declarative filtering**: The parameter-based filtering system is more readable and maintainable.
-3. **Consistent return values**: All functions return `{:ok, result}` or `{:error, reason}`.
-4. **Automatic association handling**: ecto_shorts intelligently handles associations.
+3. **Consistent return values**: All functions return `{:ok, result}` or `{:error, reason}`, making error handling more straightforward.
+4. **Intelligent association handling**: ecto_shorts automatically determines whether to use `put_assoc` or `cast_assoc` based on the data structure.
+5. **Advanced operations**: Built-in support for operations like `find_or_create`, `find_and_update`, and `find_and_upsert`.
+6. **Multiple repo support**: Easy configuration for primary and replica repositories.
 
 **Advantages of standard Ecto:**
 

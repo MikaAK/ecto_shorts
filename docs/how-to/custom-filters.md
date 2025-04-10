@@ -4,13 +4,13 @@ This guide shows you how to extend ecto_shorts' filtering capabilities by implem
 
 ## Understanding Custom Filters
 
-While ecto_shorts provides many built-in filters through the `CommonFilters` module, you may need to implement custom filtering logic for your application's specific requirements. This guide will show you how to do that.
+Ecto Shorts provides many built-in filters through the `EctoShorts.CommonFilters` module, but you may need to implement custom filtering logic for your application's specific requirements. This guide demonstrates how to create and use custom filters to extend the library's functionality.
 
 ## Custom Search Filters
 
 ### Implementing `by_search/2`
 
-The simplest way to add custom filtering is to implement the `by_search/2` function in your schema module. This function is called by ecto_shorts when you use the `search` filter parameter.
+The simplest way to add custom filtering is to implement the `by_search/2` function in your schema module. This function is called by the `EctoShorts.QueryBuilder.Common` module when you use the `:search` filter parameter in your queries.
 
 ```elixir
 defmodule MyApp.User do
@@ -37,16 +37,18 @@ defmodule MyApp.User do
 end
 ```
 
-With this implementation, you can now use the `search` filter:
+With this implementation, you can now use the `search` filter parameter:
 
 ```elixir
 # Search for users with "john" in their name, email, or bio
 EctoShorts.Actions.all(User, %{search: "john"})
 ```
 
+When the `search` parameter is provided, ecto_shorts will call your schema's `by_search/2` function, passing the current query and the search term.
+
 ### Advanced Search with Multiple Fields
 
-You can implement more complex search logic:
+You can implement more complex search logic by handling different types of search parameters. For example, you can accept either a string for simple searches or a map for more structured queries:
 
 ```elixir
 def by_search(query, search_params) when is_map(search_params) do
@@ -88,7 +90,7 @@ EctoShorts.Actions.all(User, %{
 
 ### Creating Schema-Specific Filter Functions
 
-You can add custom filter functions to your schema modules:
+Beyond the `by_search/2` function, you can add any custom filter functions to your schema modules to encapsulate common query patterns:
 
 ```elixir
 defmodule MyApp.Post do
@@ -146,7 +148,7 @@ end
 
 ### Extending CommonFilters
 
-You can create your own module that extends `CommonFilters` with custom functionality:
+For more advanced use cases, you can create your own module that extends `EctoShorts.CommonFilters` with custom functionality. This approach allows you to add completely new filtering capabilities while still leveraging the built-in filters:
 
 ```elixir
 defmodule MyApp.CustomFilters do
@@ -223,7 +225,7 @@ MyApp.Blog.list_posts(%{
 
 ## Creating a Custom Actions Module
 
-You can create your own version of the `Actions` module that uses your custom filters:
+Once you've defined your custom filters, you can create your own version of the `EctoShorts.Actions` module that uses your custom filters. This provides a consistent interface for your application's database operations:
 
 ```elixir
 defmodule MyApp.CustomActions do
@@ -244,7 +246,7 @@ end
 
 ## Integrating with Phoenix Controllers
 
-Custom filters work well with Phoenix controllers for handling query parameters:
+Custom filters integrate seamlessly with Phoenix controllers, making it easy to handle query parameters from web requests:
 
 ```elixir
 defmodule MyAppWeb.PostController do
@@ -272,20 +274,24 @@ end
 
 ## Best Practices
 
-1. **Keep it simple**: Start with simple custom filters and add complexity only as needed.
+1. **Keep it simple**: Start with simple custom filters and add complexity only as needed. Complex filters are harder to maintain and debug.
 
-2. **Reuse code**: Extract common filtering patterns into reusable functions.
+2. **Reuse code**: Extract common filtering patterns into reusable functions to avoid duplication across your codebase.
 
-3. **Document your filters**: Make sure to document your custom filters so other developers know how to use them.
+3. **Document your filters**: Add clear documentation to your custom filter functions, including examples of how to use them.
 
-4. **Test thoroughly**: Write tests for your custom filters to ensure they work as expected.
+4. **Test thoroughly**: Write comprehensive tests for your custom filters to ensure they generate the expected SQL queries.
 
-5. **Be careful with user input**: When converting user input to filter parameters, validate the input to prevent security issues.
+5. **Be careful with user input**: When converting user input to filter parameters, validate and sanitize the input to prevent SQL injection and other security issues.
 
-6. **Consider performance**: Complex filters can impact query performance, so monitor and optimize as necessary.
+6. **Consider performance**: Complex filters can impact query performance. Use Ecto's `explain` functionality to analyze query plans and optimize as necessary.
+
+7. **Use named bindings**: When working with complex joins, use named bindings to make your queries more readable and maintainable.
 
 ## Conclusion
 
-Custom filters allow you to extend ecto_shorts' capabilities to meet your specific requirements. By implementing custom search functions, creating schema-specific filters, or extending the `CommonFilters` module, you can build a powerful and flexible querying system for your application.
+Custom filters allow you to extend Ecto Shorts' capabilities to meet your specific requirements. By implementing the `by_search/2` function, creating schema-specific filters, or extending the `CommonFilters` module, you can build a powerful and flexible querying system tailored to your application's needs.
 
-For more information on the built-in filters, see the Filter Options Reference section in the documentation.
+The flexibility of Ecto Shorts' design makes it easy to add custom filtering logic while still benefiting from the library's standardized interface and built-in functionality.
+
+For more information on the built-in filters, see the [CommonFilters module documentation](https://hexdocs.pm/ecto_shorts/EctoShorts.CommonFilters.html) and the [Filtering Data](filtering-data.md) guide.
