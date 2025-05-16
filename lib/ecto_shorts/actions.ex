@@ -125,6 +125,7 @@ defmodule EctoShorts.Actions do
     Utils
   }
 
+  @type multi :: Ecto.Multi.t()
   @type query :: Ecto.Query.t()
   @type schema_module :: Ecto.Queryable.t()
   @type schema_source :: binary()
@@ -135,27 +136,52 @@ defmodule EctoShorts.Actions do
   @type schema_struct :: Ecto.Schema.t()
   @type schema_or_changeset :: schema_or_changeset()
   @type schema_struct_or_structs :: schema_struct() | list(schema_struct())
-
-  @type multi :: Ecto.Multi.t()
-
-  @type aggregate_options :: :avg | :count | :max | :min | :sum
+  @type schema_or_map :: schema_struct() | map()
+  @type data :: map() | Keyword.t() | {list(), list()}
+  @type insert_all_response :: {non_neg_integer(), nil | [term()]}
+  @type update_all_response :: {non_neg_integer(), nil | [term()]}
+  @type delete_all_response :: {non_neg_integer(), nil | [term()]}
 
   @type preloads :: atom() | keyword() | list()
+  @type aggregate_options :: :avg | :count | :max | :min | :sum
 
   @type match_keys :: atom() | list(atom())
   @type batch_id :: map()
   @type batch_params :: list(params() | {params(), params()} | {schema_struct(), params()})
-  @type batch_results :: %{batch_id() => schema_struct()}
+  @type batch_results :: %{optional(batch_id()) => schema_struct()}
 
-  @type stream :: Enumerable.t()
   @type id :: integer() | binary()
   @type key :: atom()
   @type params :: map()
+  @type stream :: Enumerable.t()
   @type opts :: keyword()
 
-  @type insert_all_response :: {non_neg_integer(), nil | [term()]}
-  @type update_all_response :: {non_neg_integer(), nil | [term()]}
-  @type delete_all_response :: {non_neg_integer(), nil | [term()]}
+  @doc group: "Schema API"
+  @doc since: "2.5.0"
+  @doc """
+  Loads data into a schema or a map.
+  """
+  @spec load(schema_or_map(), data()) :: schema_struct() | map()
+  @spec load(schema_or_map(), data(), opts()) :: schema_struct() | map()
+  def load(schema_or_map, data, opts \\ []) do
+    Config.repo!(opts).load(schema_or_map, data)
+  end
+
+  @doc group: "Query API"
+  @doc since: "2.5.0"
+  @doc """
+  Returns `true` if there exists an entry that matches the given queryable
+  otherwise `false`.
+
+  ## Examples
+
+      iex> EctoShorts.Actions.exists?(EctoShorts.Schema.Post)
+  """
+  @spec exists?(schema_module()) :: schema_struct_or_structs()
+  @spec exists?(schema_module(), opts()) :: schema_struct_or_structs()
+  def exists?(schema_module, opts \\ []) do
+    Config.replica!(opts).exists?(schema_module, opts)
+  end
 
   @doc group: "Schema API"
   @doc since: "2.5.0"
@@ -177,10 +203,58 @@ defmodule EctoShorts.Actions do
       iex> EctoShorts.Actions.preload(%EctoShorts.Schema.Post{}, [comments: :authors])
   """
   @spec preload(schema_struct_or_structs(), preloads(), opts()) :: schema_struct_or_structs()
-  def preload(schema_struct, preloads, opts \\ []) do
+  def preload(schema_struct_or_structs, preloads, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    Config.replica!(opts).preload(schema_struct, preloads, opts)
+    Config.replica!(opts).preload(schema_struct_or_structs, preloads, opts)
+  end
+
+  @doc group: "Schema API"
+  @doc since: "2.5.0"
+  @doc """
+  Reloads a given schema or schema list from the database.
+
+  When using with lists, it is expected that all of the structs in the
+  list belong to the same schema. Ordering is guaranteed to be kept.
+  Results not found in the database will be returned as `nil`.
+
+  ## Examples
+
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      ...> EctoShorts.Actions.reload(post)
+
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      ...> EctoShorts.Actions.reload([post])
+  """
+  @spec reload(schema_struct_or_structs()) :: schema_struct_or_structs()
+  @spec reload(schema_struct_or_structs(), opts()) :: schema_struct_or_structs()
+  def reload(schema_struct_or_structs, opts \\ []) do
+    opts = Keyword.merge(default_opts(), opts)
+
+    Config.replica!(opts).reload(schema_struct_or_structs, opts)
+  end
+
+  @doc group: "Schema API"
+  @doc since: "2.5.0"
+  @doc """
+  Similar to `reload/2`, but raises when something is not found.
+
+  When using with lists, ordering is guaranteed to be kept.
+
+  ## Examples
+
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      ...> EctoShorts.Actions.reload!(post)
+
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      ...> EctoShorts.Actions.reload!([post])
+  """
+  @spec reload!(schema_struct_or_structs()) :: schema_struct_or_structs()
+  @spec reload!(schema_struct_or_structs(), opts()) :: schema_struct_or_structs()
+  def reload!(schema_struct_or_structs, opts \\ []) do
+    opts = Keyword.merge(default_opts(), opts)
+
+    Config.replica!(opts).reload!(schema_struct_or_structs, opts)
   end
 
   @doc group: "Batch API"
@@ -642,7 +716,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-    iex> EctoShorts.Actions.find_or_create_many(EctoShorts.Schema.Post, [%{title: "title_one", body: "example"}])
+      iex> EctoShorts.Actions.find_or_create_many(EctoShorts.Schema.Post, [%{title: "title_one", body: "example"}])
   """
   @spec find_or_create_many(query_source(), list(params())) ::
           {:ok, list(schema_struct())} | {:error, any()}

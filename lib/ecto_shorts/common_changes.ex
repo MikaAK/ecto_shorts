@@ -44,6 +44,7 @@ defmodule EctoShorts.CommonChanges do
 
   alias EctoShorts.{
     Actions,
+    Config,
     SchemaHelpers
   }
 
@@ -355,10 +356,23 @@ defmodule EctoShorts.CommonChanges do
             if opts[:force] === true do
               Map.put(schema_struct, key, records)
             else
-              EctoShorts.Utils.Logger.warning(
-                __MODULE__,
-                "association key '#{inspect(key)}' for the schema '#{inspect(schema_module)}' already has loaded data."
-              )
+              if Config.mix_env() in [:dev, :test] do
+                EctoShorts.Utils.Logger.warning(
+                  __MODULE__,
+                  """
+                  association key '#{inspect(key)}' for the schema '#{inspect(schema_module)}' already has loaded data.
+
+                  changeset:
+
+                  #{inspect(changeset, pretty: true, structs: false)}
+                  """
+                )
+              else
+                EctoShorts.Utils.Logger.warning(
+                  __MODULE__,
+                  "association key '#{inspect(key)}' for the schema '#{inspect(schema_module)}' already has loaded data."
+                )
+              end
 
               schema_struct
             end
@@ -412,7 +426,8 @@ defmodule EctoShorts.CommonChanges do
         |> SchemaHelpers.filter_primary_keys(params_data)
         |> flatten_query_params()
 
-      _ -> %{or_where: SchemaHelpers.filter_primary_keys(schema_module, params_data)}
+      _ ->
+        %{or_where: SchemaHelpers.filter_primary_keys(schema_module, params_data)}
     end
   end
 

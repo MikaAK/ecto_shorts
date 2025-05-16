@@ -4,6 +4,20 @@ defmodule EctoShorts.Config do
   @app :ecto_shorts
 
   @doc """
+  Returns the configured `:mix_env` value from the `:ecto_shorts` application environment.
+
+  Defaults to `nil` if not set.
+
+  ## Examples
+
+      iex> EctoShorts.Config.mix_env()
+  """
+  @spec mix_env :: atom() | nil
+  def mix_env do
+    Application.get_env(@app, :mix_env)
+  end
+
+  @doc """
   Returns the configured `:error_module` value from the `:ecto_shorts` application environment.
 
   Defaults to `nil` if not set.
