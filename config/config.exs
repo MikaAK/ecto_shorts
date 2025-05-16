@@ -4,7 +4,6 @@ import Config
 
 config :ecto_shorts,
   mix_env: Mix.env(),
-  show_sensitive_data: Mix.env() in [:dev, :test],
   repo: nil,
   replica: nil,
   error_module: EctoShorts.Actions.Error
