@@ -2,429 +2,149 @@ defmodule EctoShorts.CommonFiltersTest do
   use ExUnit.Case, async: true
   doctest EctoShorts.CommonFilters
 
-  alias EctoShorts.CommonFilters
-  alias EctoShorts.Support.Schemas.Post
+  alias EctoShorts.{
+    CommonFilters,
+    Schema.Post
+  }
 
-  require Ecto.Query
+  import Ecto.Query, only: [from: 2]
+  import EctoShorts.Testing, only: [assert_query: 2]
 
-  describe "convert_params_to_filter: " do
-    test "returns query with expected defaults" do
-      expected_title = "title"
+  describe "&convert_params_to_filter/3" do
+    #
+    # Base cases
+    #
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{title: expected_title})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          as: nil,
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        prefix: nil,
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            params: [
-              {^expected_title, {0, :title}}
-            ]
-          }
-        ]
-      } = query
+    test "returns the base query when params are empty" do
+      expected_query = Post
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns query with preloads" do
-      assert query = CommonFilters.convert_params_to_filter(Post, %{preload: :comments})
+    #
+    # Equality tests
+    #
 
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        preloads: [:comments]
-      } = query
+    test "builds a query with == on integer field using direct value" do
+      expected_query = from p in Post, where: p.id == ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: 1}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where inserted_at is on or after start_date" do
-      expected_start_date = ~U[2024-09-05 16:13:21Z]
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{start_date: expected_start_date})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:>=, [], [{{:., [], [{:&, [], [0]}, :inserted_at]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_start_date, {0, :inserted_at}}
-            ]
-          }
-        ]
-      } = query
+    test "builds a query with == on integer field using explicit :== operator" do
+      expected_query = from p in Post, where: p.id == ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: %{==: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where inserted_at is on or before end_date" do
-      expected_end_date = ~U[2024-09-05 16:13:21Z]
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{end_date: expected_end_date})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:<=, [], [{{:., [], [{:&, [], [0]}, :inserted_at]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_end_date, {0, :inserted_at}}
-            ]
-          }
-        ]
-      } = query
+    test "builds a query with != on integer field" do
+      expected_query = from p in Post, where: p.id != ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: %{!=: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where ID is less than integer value" do
-      expected_id = 1
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{before: expected_id})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:<, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_id, {0, :id}}
-            ]
-          }
-        ]
-      } = query
+    test "builds a query with > on integer field" do
+      expected_query = from p in Post, where: p.id > ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: %{>: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where ID is greater than integer value" do
-      expected_id = 1
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{after: expected_id})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:>, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_id, {0, :id}}
-            ]
-          }
-        ]
-      } = query
+    test "builds a query with < on integer field" do
+      expected_query = from p in Post, where: p.id < ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: %{<: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where ID is less than string value" do
-      expected_id = "binary_id"
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{before: expected_id})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:<, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_id, {0, :id}}
-            ]
-          }
-        ]
-      } = query
+    test "builds a query with >= on integer field" do
+      expected_query = from p in Post, where: p.id >= ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: %{>=: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where ID is greater than string value" do
-      expected_id = "binary_id"
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{after: expected_id})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:>, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_id, {0, :id}}
-            ]
-          }
-        ]
-      } = query
+    test "builds a query with <= on integer field" do
+      expected_query = from p in Post, where: p.id <= ^1
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{id: %{<=: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where ID is in a member of a list of integer values" do
-      expected_ids = [1, 2]
+    #
+    # String matching
+    #
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{ids: expected_ids})
+    test "builds a query with like on string field" do
+      expected_query = from p in Post, where: like(p.title, ^"%example%")
 
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:in, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_ids, {:in, {0, :id}}}
-            ]
-          }
-        ]
-      } = query
+      actual_query =
+        CommonFilters.convert_params_to_filter(Post, %{title: %{like: "example"}}, [])
+
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query where ID is in a member of a list of string values" do
-      expected_ids = ["binary_id_1", "binary_id_2"]
+    test "builds a query with ilike on string field" do
+      expected_query = from p in Post, where: ilike(p.title, ^"%example%")
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{ids: expected_ids})
+      actual_query =
+        CommonFilters.convert_params_to_filter(Post, %{title: %{ilike: "example"}}, [])
 
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:in, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            params: [
-              {^expected_ids, {:in, {0, :id}}}
-            ]
-          }
-        ]
-      } = query
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query with limit when first is specified" do
-      expected_first = 5
+    #
+    # Array field
+    #
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{first: expected_first})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        limit: %Ecto.Query.LimitExpr{
-          expr: {:^, [], [0]},
-          params: [
-            {^expected_first, :integer}
-          ]
-        },
-        order_bys: []
-      } = query
+    test "builds a query where string is checked as 'in' against array field" do
+      expected_query = from p in Post, where: ^"example" in p.tags
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{tags: "example"}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query with limit by last" do
-      expected_last = 5
-
-      assert query = CommonFilters.convert_params_to_filter(Post, %{last: expected_last})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          source: %Ecto.SubQuery{
-            query: %Ecto.Query{
-              limit: %Ecto.Query.LimitExpr{
-                expr: {:^, [], [0]},
-                params: [
-                  {^expected_last, :integer}
-                ]
-              }
-            }
-          }
-        },
-        limit: nil,
-        order_bys: [
-          %Ecto.Query.QueryExpr{
-            expr: [asc: {{:., [], [{:&, [], [0]}, :id]}, [], []}],
-            params: []
-          }
-        ]
-      } = query
+    test "builds a query where list matches exactly against array field" do
+      expected_query = from p in Post, where: p.tags == ^["example"]
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{tags: ["example"]}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query with limit when limit is specified" do
-      expected_limit = 5
+    #
+    # Association join
+    #
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{limit: expected_limit})
+    test "builds a query that joins association and filters nested value" do
+      expected_query =
+        from p in Post,
+          join: c in assoc(p, :comments),
+          as: :ecto_shorts_comments,
+          where: c.id == ^1
 
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        limit: %Ecto.Query.LimitExpr{
-          expr: {:^, [], [0]},
-          params: [
-            {^expected_limit, :integer}
-          ]
-        },
-        order_bys: []
-      } = query
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{comments: %{id: 1}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query with offset when offset is specified" do
-      expected_offset = 5
+    #
+    # Query Shaping
+    #
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{offset: expected_offset})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        offset: %Ecto.Query.QueryExpr{
-          params: [{^expected_offset, :integer}]
-        }
-      } = query
+    test "builds a query with preload" do
+      expected_query = from p in Post, preload: [:comments]
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{preload: [:comments]}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query with items in ascending order" do
-      assert query = CommonFilters.convert_params_to_filter(Post, %{order_by: {:asc, :id}})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        order_bys: [
-          %Ecto.Query.QueryExpr{
-            expr: [asc: {{:., [], [{:&, [], [0]}, :id]}, [], []}],
-            params: []
-          }
-        ]
-      } = query
+    test "builds a query with select using map syntax" do
+      expected_query = from p in Post, select: map(p, [:id])
+      actual_query = CommonFilters.convert_params_to_filter(Post, %{select: %{map: [:id]}}, [])
+      assert_query actual_query, expected_query
     end
 
-    test "returns a query with items in descending order" do
-      assert query = CommonFilters.convert_params_to_filter(Post, %{order_by: {:desc, :id}})
+    test "builds a query with select_merge on an existing select" do
+      expected_query = from p in Post, select: map(p, [:id, :title])
 
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        order_bys: [
-          %Ecto.Query.QueryExpr{
-            expr: [desc: {{:., [], [{:&, [], [0]}, :id]}, [], []}],
-            params: []
-          }
-        ]
-      } = query
-    end
+      base_query = from p in Post, select: map(p, [:id])
 
-    test "returns a query that is built from the search parameter" do
-      expected_id = 1
+      actual_query =
+        CommonFilters.convert_params_to_filter(base_query, %{select_merge: [:title]}, [])
 
-      assert query = CommonFilters.convert_params_to_filter(Post, %{search: %{id: expected_id}})
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:==, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]},
-            op: :and,
-            params: [{1, {0, :id}}],
-            subqueries: []
-          }
-        ]
-      } = query
-    end
-  end
-
-  describe "create_schema_filter: " do
-    test "returns expected query given a common filter" do
-      assert query =
-        Post
-        |> Ecto.Query.from()
-        |> CommonFilters.create_schema_filter(:first, 100)
-
-      assert %Ecto.Query{
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        limit: %Ecto.Query.LimitExpr{
-          expr: {:^, [], [0]},
-          params: [{100, :integer}],
-          with_ties: false
-        },
-        wheres: []
-      } = query
-    end
-
-    test "returns expected query given a schema filter" do
-      assert query =
-        Post
-        |> Ecto.Query.from()
-        |> CommonFilters.create_schema_filter(:comments, %{id: 1})
-
-      assert %Ecto.Query{
-        aliases: %{
-          ecto_shorts_comments: 1
-        },
-        from: %Ecto.Query.FromExpr{
-          params: [],
-          prefix: nil,
-          source: {"posts", EctoShorts.Support.Schemas.Post}
-        },
-        joins: [
-          %Ecto.Query.JoinExpr{
-            as: :ecto_shorts_comments,
-            assoc: {0, :comments},
-            on: %Ecto.Query.QueryExpr{
-              params: []
-            },
-            params: [],
-            prefix: nil,
-            qual: :inner,
-            source: nil
-          }
-        ],
-        wheres: [
-          %Ecto.Query.BooleanExpr{
-            expr: {:==, [], [{{:., [], [{:&, [], [1]}, :id]}, [], []}, {:^, [], [0]}]},
-            op: :and,
-            params: [{1, {1, :id}}],
-            subqueries: []
-          }
-        ]
-      } = query
+      assert_query actual_query, expected_query
     end
   end
 end

@@ -9,7 +9,7 @@ defmodule EctoShorts.Support.TestRepo do
 
   def with_shared_connection(func) do
     with :ok <- Sandbox.checkout(TestRepo),
-      :ok <- Sandbox.mode(TestRepo, {:shared, self()}) do
+         :ok <- Sandbox.mode(TestRepo, {:shared, self()}) do
       func.()
     end
   end

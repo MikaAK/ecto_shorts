@@ -3,62 +3,60 @@ defmodule EctoShorts.Utils.Logger do
   require Logger
 
   @doc false
-  @spec debug(
-    identifier :: binary(),
-    message :: binary(),
-    options :: keyword()
-  ) :: :ok
-  def debug(identifier, message, options \\ []) do
+  @spec debug(identifier :: atom() | binary(), message :: binary()) :: :ok
+  @spec debug(identifier :: atom() | binary(), message :: binary(), opts :: keyword()) :: :ok
+  def debug(identifier, message, opts \\ []) do
     identifier
     |> format_message(message)
-    |> Logger.debug(options)
+    |> Logger.debug(opts)
   end
 
   @doc false
-  @spec info(
-    identifier :: binary(),
-    message :: binary(),
-    options :: keyword()
-  ) :: :ok
-  def info(identifier, message, options \\ []) do
+  @spec info(identifier :: atom() | binary(), message :: binary()) :: :ok
+  @spec info(identifier :: atom() | binary(), message :: binary(), opts :: keyword()) :: :ok
+  def info(identifier, message, opts \\ []) do
     identifier
     |> format_message(message)
-    |> Logger.info(options)
+    |> Logger.info(opts)
   end
 
   @doc false
-  @spec warning(
-    identifier :: binary(),
-    message :: binary(),
-    options :: keyword()
-  ) :: :ok
+  @spec warning(identifier :: atom() | binary(), message :: binary()) :: :ok
+  @spec warning(identifier :: atom() | binary(), message :: binary(), opts :: keyword()) :: :ok
   if Code.ensure_loaded?(:logger) and function_exported?(:logger, :warning, 2) do
-    def warning(identifier, message, options \\ []) do
+    def warning(identifier, message, opts \\ []) do
       identifier
       |> format_message(message)
-      |> Logger.warning(options)
+      |> Logger.warning(opts)
     end
   else
-    def warning(identifier, message, options \\ []) do
+    def warning(identifier, message, opts \\ []) do
       identifier
       |> format_message(message)
-      |> Logger.warn(options)
+      |> Logger.warn(opts)
     end
   end
 
   @doc false
-  @spec error(
-    identifier :: binary(),
-    message :: binary(),
-    options :: keyword()
-  ) :: :ok
-  def error(identifier, message, options \\ []) do
+  @spec error(identifier :: atom() | binary(), message :: binary()) :: :ok
+  @spec error(identifier :: atom() | binary(), message :: binary(), opts :: keyword()) :: :ok
+  def error(identifier, message, opts \\ []) do
     identifier
     |> format_message(message)
-    |> Logger.error(options)
+    |> Logger.error(opts)
   end
 
   defp format_message(identifier, message) do
-    "[#{identifier}] #{message}"
+    "[#{normalize_identifier(identifier)}] #{message}"
+  end
+
+  defp normalize_identifier(identifier) do
+    identifier = to_string(identifier)
+
+    if String.contains?(identifier, "Elixir.") do
+      String.replace(identifier, "Elixir.", "")
+    else
+      identifier
+    end
   end
 end

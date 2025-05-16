@@ -1,4 +1,4 @@
 defmodule EctoShorts.SchemaHelpersTest do
-  use EctoShorts.DataCase, async: true
+  use ExUnit.Case, async: true
   doctest EctoShorts.SchemaHelpers
 end

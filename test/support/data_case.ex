@@ -18,22 +18,20 @@ defmodule EctoShorts.DataCase do
 
   using do
     quote do
-      alias EctoShorts.Support.Repo
+      alias EctoShorts.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-
-      # credo:disable-for-next-line
       import EctoShorts.DataCase
     end
   end
 
   setup tags do
-    :ok = Sandbox.checkout(EctoShorts.Support.Repo)
+    :ok = Sandbox.checkout(EctoShorts.Repo)
 
     unless tags[:async] do
-      Sandbox.mode(EctoShorts.Support.Repo, {:shared, self()})
+      Sandbox.mode(EctoShorts.Repo, {:shared, self()})
     end
 
     :ok

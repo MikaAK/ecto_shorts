@@ -2,151 +2,113 @@ defmodule EctoShorts.CommonSchemasTest do
   use ExUnit.Case, async: true
   doctest EctoShorts.CommonSchemas
 
+  alias Ecto.Schema.Metadata
   alias EctoShorts.CommonSchemas
-  alias EctoShorts.Support.MockSchemas.{
-    BasicSchema,
-    AbstractSchema,
-    PrefixSchema
+
+  alias EctoShorts.Schema.{
+    Post,
+    PostHasSchemaPrefix,
+    PostAbstract,
+    PostAbstractHasSchemaPrefix
   }
 
-  require Ecto.Query
+  import Ecto.Query, only: [from: 2]
 
-  describe "get_schema_reflection/1: " do
-    test "returns expected value given schema" do
-      assert [:id, :body, :inserted_at, :updated_at] =
-        EctoShorts.CommonSchemas.get_schema_reflection(BasicSchema, :fields)
+  describe "get_reflection/2" do
+    test "when given a schema module, returns the expected value" do
+      assert [:id] = CommonSchemas.get_reflection(Post, :primary_key)
     end
 
-    test "returns expected value given {source, queryable}" do
-      assert [:id, :body, :inserted_at, :updated_at] =
-        EctoShorts.CommonSchemas.get_schema_reflection({"concrete_table", AbstractSchema}, :fields)
+    test "when given an {source, schema} tuple, returns the expected value" do
+      assert [:id] = CommonSchemas.get_reflection({"posts", PostAbstract}, :primary_key)
     end
   end
 
-  describe "get_schema_reflection/2: " do
-    test "returns expected value given schema" do
-      assert :string =
-        EctoShorts.CommonSchemas.get_schema_reflection(BasicSchema, :type, :body)
+  describe "get_reflection/3" do
+    test "when given a schema module, returns the expected type" do
+      assert :id = CommonSchemas.get_reflection(Post, :type, :id)
     end
 
-    test "returns expected value given {source, queryable}" do
-      assert :string =
-        EctoShorts.CommonSchemas.get_schema_reflection(
-          {"concrete_table", AbstractSchema},
-          :type,
-          :body
-        )
+    test "when given an {source, schema} tuple, returns the expected type" do
+      assert :id = CommonSchemas.get_reflection({"posts", PostAbstract}, :type, :id)
     end
   end
 
-  describe "get_loaded_struct/2: " do
-    test "returns struct with loaded state and source when given a queryable" do
-      assert %EctoShorts.Support.MockSchemas.BasicSchema{
-        __meta__: %Ecto.Schema.Metadata{
-          state: :loaded,
-          source: "basic_schemas",
-          prefix: nil,
-          context: nil
-        }
-      } = EctoShorts.CommonSchemas.get_loaded_struct(BasicSchema)
+  describe "get_schema_prefix/1" do
+    test "when given a schema module, returns the @schema_prefix value" do
+      assert "custom_schema_prefix" = CommonSchemas.get_schema_prefix(PostHasSchemaPrefix)
     end
 
-    test "returns struct with loaded state and source given {source, queryable}" do
-      assert %EctoShorts.Support.MockSchemas.AbstractSchema{
-        __meta__: %Ecto.Schema.Metadata{
-          state: :loaded,
-          source: "concrete_table",
-          prefix: nil,
-          context: nil
-        }
-      } = EctoShorts.CommonSchemas.get_loaded_struct({"concrete_table", AbstractSchema})
-    end
-
-    test "returns struct with loaded state, source, and prefix if @schema_prefix module attribute is set" do
-      assert %EctoShorts.Support.MockSchemas.PrefixSchema{
-        __meta__: %Ecto.Schema.Metadata{
-          state: :loaded,
-          source: "prefix_schemas",
-          prefix: "mock_schema_prefix",
-          context: nil
-        }
-      } = EctoShorts.CommonSchemas.get_loaded_struct(PrefixSchema)
-    end
-
-    test "returns struct with loaded state, source, and prefix given {source, queryable} if @schema_prefix module attribute is set" do
-      assert %EctoShorts.Support.MockSchemas.PrefixSchema{
-        __meta__: %Ecto.Schema.Metadata{
-          state: :loaded,
-          source: "concrete_table",
-          prefix: "mock_schema_prefix",
-          context: nil
-        }
-      } = EctoShorts.CommonSchemas.get_loaded_struct({"concrete_table", PrefixSchema})
+    test "when given an {source, schema} tuple, returns the @schema_prefix value" do
+      assert "custom_schema_prefix" =
+               CommonSchemas.get_schema_prefix({"posts", PostAbstractHasSchemaPrefix})
     end
   end
 
-  describe "get_schema_prefix/2: " do
-    test "returns @schema_prefix module attribute value if set in schema" do
-      assert "mock_schema_prefix" = CommonSchemas.get_schema_prefix(PrefixSchema)
+  describe "get_source_and_schema/1" do
+    test "when given a schema module, returns database table name" do
+      assert {"posts", PostHasSchemaPrefix} =
+               CommonSchemas.get_source_and_schema(PostHasSchemaPrefix)
     end
 
-    test "returns nil if schema does not have @schema_prefix module attribute set" do
-      assert nil === CommonSchemas.get_schema_prefix(AbstractSchema)
+    test "when given an {source, schema} tuple, returns database table name" do
+      assert {"posts", PostAbstractHasSchemaPrefix} =
+               CommonSchemas.get_source_and_schema({"posts", PostAbstractHasSchemaPrefix})
     end
 
-    test "returns @schema_prefix module attribute value if set in schema and {source, queryable} tuple is given" do
-      assert "mock_schema_prefix" = CommonSchemas.get_schema_prefix({"concrete_table", PrefixSchema})
-    end
+    test "when given an ecto query, returns {binary, queryable}" do
+      query = from p in PostHasSchemaPrefix, as: :posts
 
-    test "returns nil if schema does not have @schema_prefix module attribute set and {source, queryable} tuple is given" do
-      assert nil === CommonSchemas.get_schema_prefix({"concrete_table", AbstractSchema})
-    end
-  end
-
-  describe "get_schema_source/2: " do
-    test "returns source defined in schema" do
-      assert "basic_schemas" = CommonSchemas.get_schema_source(BasicSchema)
-    end
-
-    test "returns source given {source, queryable}" do
-      assert "concrete_table" = CommonSchemas.get_schema_source({"concrete_table", PrefixSchema})
+      assert {"posts", PostHasSchemaPrefix} = CommonSchemas.get_source_and_schema(query)
     end
   end
 
-  describe "get_schema_queryable/2: " do
-    test "returns queryable module" do
-      assert EctoShorts.Support.MockSchemas.BasicSchema =
-        CommonSchemas.get_schema_queryable(BasicSchema)
+  describe "get_source_and_schema/2" do
+    test "when given a schema module, returns schema module" do
+      assert Post = CommonSchemas.get_source_and_schema(Post, :schema)
     end
 
-    test "returns queryable module given {source, queryable}" do
-      assert EctoShorts.Support.MockSchemas.AbstractSchema =
-        CommonSchemas.get_schema_queryable({"concrete_table", AbstractSchema})
+    test "when given an {source, schema} tuple, returns schema module" do
+      assert PostAbstract = CommonSchemas.get_source_and_schema({"posts", PostAbstract}, :schema)
+    end
+
+    test "when given an ecto query, returns schema module" do
+      query = from p in Post, as: :posts
+
+      assert Post = CommonSchemas.get_source_and_schema(query, :schema)
     end
   end
 
-  describe "get_schema_query/1: " do
-    test "returns query struct" do
-      query = Ecto.Query.from(AbstractSchema)
+  describe "get_metadata/1" do
+    test "returns the schema's full metadata struct" do
+      assert %Metadata{prefix: "custom_schema_prefix"} =
+               CommonSchemas.get_metadata(%PostHasSchemaPrefix{})
+    end
+  end
 
-      assert ^query = CommonSchemas.get_schema_query(query)
+  describe "get_metadata/2" do
+    test "returns the value for the specified metadata key" do
+      assert "custom_schema_prefix" = CommonSchemas.get_metadata(%PostHasSchemaPrefix{}, :prefix)
+    end
+  end
+
+  describe "put_metadata/2" do
+    test "updates the schema's metadata" do
+      assert %EctoShorts.Schema.Post{
+               __meta__: %Metadata{prefix: "test_prefix"}
+             } = CommonSchemas.put_metadata(%Post{}, prefix: "test_prefix")
+    end
+  end
+
+  describe "create_struct/1" do
+    test "when given a schema module, returns a struct" do
+      assert %Post{__meta__: %Metadata{source: "posts"}} =
+               CommonSchemas.create_struct(Post)
     end
 
-    test "returns queryable" do
-      queryable = EctoShorts.CommonSchemasTest.MockSchema
-
-      assert ^queryable = CommonSchemas.get_schema_query(queryable)
-    end
-
-    test "returns query where the from prefix is the value set by the @schema_prefix module attribute" do
-      query = CommonSchemas.get_schema_query({"concrete_table", PrefixSchema})
-
-      assert %Ecto.Query{
-        from: %{
-          prefix: "mock_schema_prefix",
-          source: {"concrete_table", PrefixSchema}
-        }
-      } = query
+    test "when given a {source, schema} tuple, returns a struct" do
+      assert %PostAbstract{__meta__: %Metadata{source: "custom_source"}} =
+               CommonSchemas.create_struct({"custom_source", PostAbstract})
     end
   end
 end

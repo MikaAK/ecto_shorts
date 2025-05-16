@@ -1,0 +1,24 @@
+defmodule EctoShorts.Schema.User do
+  @moduledoc false
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  schema "users" do
+    field :first_name, :string
+
+    many_to_many :posts, EctoShorts.Schema.Post,
+      join_through: EctoShorts.Schema.PostAuthor,
+      join_keys: [author_id: :id, post_id: :id],
+      unique: true
+
+    has_many :comments, EctoShorts.Schema.Comment, foreign_key: :author_id
+
+    timestamps()
+  end
+
+  @available_fields [:first_name]
+
+  def changeset(model_or_changeset, attrs \\ %{}) do
+    cast(model_or_changeset, attrs, @available_fields)
+  end
+end

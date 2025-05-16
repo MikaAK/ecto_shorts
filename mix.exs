@@ -4,26 +4,20 @@ defmodule EctoShorts.MixProject do
   def project do
     [
       app: :ecto_shorts,
-      version: "2.4.0",
+      version: "2.5.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Helper tools for making ecto interactions more pleasant and shorter",
       docs: docs(),
       package: package(),
-      aliases: aliases(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
-        credo: :test,
         doctor: :test,
         coverage: :test,
         dialyzer: :test,
-        "ecto.drop": :test,
-        "ecto.migrate": :test,
-        "ecto.create": :test,
-        "ecto.setup": :test,
         "coveralls.lcov": :test,
         "coveralls.json": :test,
         "coveralls.html": :test
@@ -53,32 +47,23 @@ defmodule EctoShorts.MixProject do
       {:ecto, "~> 3.0"},
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0", optional: true},
-
       {:error_message, "~> 0.1"},
-
-      {:excoveralls, ">= 0.0.0", only: [:dev, :test], runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.1", only: :test, runtime: false},
-      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
-      {:blitz_credo_checks, "~> 0.1", only: [:dev, :test], runtime: false}
+      {:credo, ">= 0.0.0", only: [:dev, :test]},
+      {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
+      {:ex_doc, ">= 0.0.0", only: :dev},
+      {:dialyxir, "~> 1.1", only: :test, runtime: false}
     ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  def aliases do
-    [
-      "ecto.setup": ["ecto.drop", "ecto.create", "ecto.migrate"]
-    ]
-  end
-
   defp package do
     [
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/MikaAK/ecto_shorts"},
-      files: ~w(mix.exs README.md CHANGELOG.md lib config docs)
+      files: ~w(mix.exs README.md CHANGELOG.md lib config)
     ]
   end
 
@@ -86,63 +71,54 @@ defmodule EctoShorts.MixProject do
     [
       main: "EctoShorts",
       source_url: "https://github.com/MikaAK/ecto_shorts",
-      extras: [
-        "README.md",
-        "CHANGELOG.md",
-        # Tutorials (Learning-oriented)
-        "docs/tutorials/index.md",
-        "docs/tutorials/getting-started.md",
-        "docs/tutorials/complete-application.md",
-        # How-to guides (Problem-oriented)
-        "docs/how-to/index.md",
-        "docs/how-to/filtering-data.md",
-        "docs/how-to/managing-associations.md",
-        "docs/how-to/crud-operations.md",
-        "docs/how-to/custom-filters.md",
-        "docs/how-to/configuration.md",
-        "docs/how-to/graphql-integration.md",
-        # Explanation (Understanding-oriented)
-        "docs/explanation/index.md",
-        "docs/explanation/why-ecto-shorts.md",
-        "docs/explanation/architecture.md",
-        "docs/explanation/comparison.md",
-        "docs/explanation/best-practices.md",
-
-        # Reference (Technical-oriented)
-        "docs/reference/index.md",
-        "docs/reference/actions.md",
-        "docs/reference/api-reference.md",
-        "docs/reference/filter-options.md",
-        "docs/reference/error-handling.md",
-        "docs/reference/api-reference.cheatmd"
-      ],
-      groups_for_extras: [
-        "Tutorials": ~r{docs/tutorials/},
-        "How-to Guides": ~r{docs/how-to/},
-        "Reference": ~r{docs/reference/},
-        "Explanation": ~r{docs/explanation/}
+      groups_for_docs: [
+        group_for_function("Batch API"),
+        group_for_function("Changeset API"),
+        group_for_function("Filter API"),
+        group_for_function("Multi API"),
+        group_for_function("Schema API"),
+        group_for_function("Query API"),
+        group_for_function("Query Builder API"),
+        group_for_function("Transaction API")
       ],
       groups_for_modules: [
-        "Main Modules": [
-          EctoShorts.Actions,
-          EctoShorts.CommonChanges
-        ],
-
-        "Support Modules": [
-          EctoShorts.CommonFilters,
-          EctoShorts.SchemaHelpers
-        ],
-
-        "Misc Modules": [
+        "Actions API": [
           EctoShorts.Actions.Error
         ],
-
-        "Query Builder Modules": [
+        "Changeset API": [
+          EctoShorts.CommonChanges
+        ],
+        "Dynamic Expression API": [
+          EctoShorts.DynamicExpression,
+          EctoShorts.DynamicExpressions,
+          EctoShorts.DynamicExpressions.Postgres,
+          EctoShorts.DynamicExpressions.Postgres.Array,
+          EctoShorts.DynamicExpressions.Postgres.Field
+        ],
+        "Query API": [
+          EctoShorts.CommonQuery,
+          EctoShorts.CommonQueries,
+          EctoShorts.CommonQueryAPI
+        ],
+        "Query Builder API": [
           EctoShorts.QueryBuilder,
-          EctoShorts.QueryBuilder.Schema,
-          EctoShorts.QueryBuilder.Common
+          EctoShorts.QueryBuilders.Common,
+          EctoShorts.QueryBuilders.Schema
+        ],
+        "Schema API": [
+          EctoShorts.CommonParams,
+          EctoShorts.CommonSchemas,
+          EctoShorts.SchemaHelpers
+        ],
+        "Testing API": [
+          EctoShorts.Testing
+        ],
+        "Utility API": [
+          EctoShorts.Utils
         ]
       ]
     ]
   end
+
+  defp group_for_function(group), do: {String.to_atom(group), &(&1[:group] == group)}
 end
