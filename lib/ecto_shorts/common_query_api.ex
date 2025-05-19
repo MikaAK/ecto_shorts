@@ -15,7 +15,7 @@ defmodule EctoShorts.CommonQueryAPI do
 
       alias EctoShorts.CommonQueryAPI
 
-      EctoShorts.Schema.Post
+      EctoShorts.Schemas.Post
       |> CommonQueryAPI.from(as: :post)
       |> CommonQueryAPI.where(:post, %{published: true})
       |> CommonQueryAPI.order_by(:post, [asc: :inserted_at])
@@ -114,7 +114,7 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.dynamic(EctoShorts.Schema.Post, nil, %{id: 1}, [])
+      iex> EctoShorts.CommonQueryAPI.dynamic(EctoShorts.Schemas.Post, nil, %{id: 1}, [])
   """
   @spec dynamic(
           schema_module(),
@@ -182,8 +182,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Example
 
-      iex> EctoShorts.CommonQueryAPI.from(EctoShorts.Schema.Post, :post)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, as: :post>
+      iex> EctoShorts.CommonQueryAPI.from(EctoShorts.Schemas.Post, :post)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, as: :post>
   """
   @spec from(query_source(), binding_alias()) :: query()
   @spec from(query_source(), binding_alias() | nil, params()) :: query()
@@ -216,7 +216,7 @@ defmodule EctoShorts.CommonQueryAPI do
   ## Example
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post
+      ...> query = from p in EctoShorts.Schemas.Post
       ...> query = EctoShorts.CommonQueryAPI.put_query_prefix(query, "tenant_123")
       ...> query.prefix
       "tenant_123"
@@ -231,7 +231,7 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.subquery(EctoShorts.Schema.Post)
+      iex> EctoShorts.CommonQueryAPI.subquery(EctoShorts.Schemas.Post)
   """
   @spec subquery(query_source() | subquery()) :: subquery()
   @spec subquery(query_source() | subquery(), opts()) :: subquery()
@@ -245,9 +245,9 @@ defmodule EctoShorts.CommonQueryAPI do
   ## Examples
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, order_by: p.inserted_at
+      ...> query = from p in EctoShorts.Schemas.Post, order_by: p.inserted_at
       ...> EctoShorts.CommonQueryAPI.exclude(query, :order_by)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post>
   """
   @spec exclude(query_source(), key()) :: query()
   def exclude(query, key) do
@@ -259,7 +259,7 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.limit(EctoShorts.Schema.Post, nil, 10)
+      iex> EctoShorts.CommonQueryAPI.limit(EctoShorts.Schemas.Post, nil, 10)
   """
   @spec limit(query_source(), binding_alias() | nil, value()) :: query()
   def limit(query, binding_alias, value) do
@@ -275,8 +275,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.offset(EctoShorts.Schema.Post, nil, 20)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, offset: ^20>
+      iex> EctoShorts.CommonQueryAPI.offset(EctoShorts.Schemas.Post, nil, 20)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, offset: ^20>
   """
   @spec offset(query_source(), binding_alias() | nil, value()) :: query()
   def offset(query, binding_alias, value) do
@@ -292,8 +292,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.group_by(EctoShorts.Schema.Post, nil, :id)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, group_by: [p0.id]>
+      iex> EctoShorts.CommonQueryAPI.group_by(EctoShorts.Schemas.Post, nil, :id)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, group_by: [p0.id]>
   """
   @spec group_by(query_source(), binding_alias() | nil, value()) :: query()
   def group_by(query, binding_alias, value) do
@@ -309,8 +309,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.order_by(EctoShorts.Schema.Post, nil, [asc: :inserted_at])
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, order_by: [asc: p0.inserted_at]>
+      iex> EctoShorts.CommonQueryAPI.order_by(EctoShorts.Schemas.Post, nil, [asc: :inserted_at])
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, order_by: [asc: p0.inserted_at]>
   """
   @spec order_by(query_source(), binding_alias() | nil, value()) :: query()
   def order_by(query, binding_alias, value) do
@@ -326,8 +326,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.preload(EctoShorts.Schema.Post, nil, :comments)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, preload: [:comments]>
+      iex> EctoShorts.CommonQueryAPI.preload(EctoShorts.Schemas.Post, nil, :comments)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, preload: [:comments]>
   """
   @spec preload(query_source(), binding_alias() | nil, value()) :: query()
   def preload(query, binding_alias, value) do
@@ -343,23 +343,23 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schema.Post, nil, true)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: p0>
+      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, true)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: p0>
 
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schema.Post, nil, [:title])
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: map(p0, [:title])>
+      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, [:title])
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:title])>
 
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schema.Post, nil, %{map: [:title]})
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: map(p0, [:title])>
+      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, %{map: [:title]})
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:title])>
 
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schema.Post, nil, %{struct: [:title]})
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: struct(p0, [:title])>
+      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, %{struct: [:title]})
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: struct(p0, [:title])>
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post
+      ...> query = from p in EctoShorts.Schemas.Post
       ...> expr = quote do: [:id, :title]
       ...> EctoShorts.CommonQueryAPI.select(query, nil, %{expression: expr})
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: [:id, :title]>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: [:id, :title]>
   """
   @spec select(query_source(), binding_alias() | nil, params() | true, opts()) :: query()
   def select(query, binding_alias, value, opts \\ [])
@@ -428,20 +428,20 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.select_merge(EctoShorts.Schema.Post, nil, true)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: p0>
+      iex> EctoShorts.CommonQueryAPI.select_merge(EctoShorts.Schemas.Post, nil, true)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: p0>
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, select: map(p, [:id])
+      ...> query = from p in EctoShorts.Schemas.Post, select: map(p, [:id])
       ...> EctoShorts.CommonQueryAPI.select_merge(query, nil, [:title])
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: map(p0, [:id, :title])>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:id, :title])>
 
       # select using a quoted expression
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, select: map(p, [:id])
+      ...> query = from p in EctoShorts.Schemas.Post, select: map(p, [:id])
       ...> expr = quote do: [:title]
       ...> EctoShorts.CommonQueryAPI.select_merge(query, nil, %{expression: expr})
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, select: map(p0, [:id, :title])>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:id, :title])>
   """
   @spec select_merge(query_source(), binding_alias() | nil, params() | true, opts()) :: query()
   def select_merge(query, binding_alias, value, opts \\ [])
@@ -494,20 +494,20 @@ defmodule EctoShorts.CommonQueryAPI do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schema.Post, nil, nil, :association, :comments)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, join: c1 in assoc(p0, :comments)>
+      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schemas.Post, nil, nil, :association, :comments)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in assoc(p0, :comments)>
 
-      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schema.Post, nil, :comments, :association, :comments)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, join: c1 in assoc(p0, :comments), as: :comments>
+      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schemas.Post, nil, :comments, :association, :comments)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in assoc(p0, :comments), as: :comments>
 
-      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schema.Post, nil, nil, :association, :comments)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, join: c1 in assoc(p0, :comments)>
+      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schemas.Post, nil, nil, :association, :comments)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in assoc(p0, :comments)>
 
-      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schema.Post, nil, :comments, :association, :comments, %{on: %{id: 2}})
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, join: c1 in assoc(p0, :comments), as: :comments, on: c1.id == ^2>
+      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schemas.Post, nil, :comments, :association, :comments, %{on: %{id: 2}})
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in assoc(p0, :comments), as: :comments, on: c1.id == ^2>
 
-      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schema.Post, nil, :comments, :association, :comments, %{on: %{id: %{>=: 2}}})
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, join: c1 in assoc(p0, :comments), as: :comments, on: c1.id >= ^2>
+      iex> EctoShorts.CommonQueryAPI.join(EctoShorts.Schemas.Post, nil, :comments, :association, :comments, %{on: %{id: %{>=: 2}}})
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in assoc(p0, :comments), as: :comments, on: c1.id >= ^2>
   """
   def join(query, binding_alias, join_as, join_kind, key, params \\ %{}, opts \\ [])
 

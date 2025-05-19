@@ -312,7 +312,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert {:ok, post} = Actions.create(Post, %{title: "title"})
 
       assert_raise ArgumentError,
-                   "schema EctoShorts.Schema.Post does not have association or embed :non_existent_association",
+                   "schema EctoShorts.Schemas.Post does not have association or embed :non_existent_association",
                    fn ->
                      post
                      |> Post.changeset(%{})
@@ -387,7 +387,7 @@ defmodule EctoShorts.CommonChangesTest do
 
     test "raises an error if the key is not a type of ecto changeset queryable" do
       assert_raise ArgumentError,
-                   "key not found in schema EctoShorts.Schema.Comment associations, got: :invalid_association",
+                   "key not found in schema EctoShorts.Schemas.Comment associations, got: :invalid_association",
                    fn ->
                      %Comment{}
                      |> Comment.changeset(%{invalid_association: [%{id: 1}]})

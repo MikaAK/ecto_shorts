@@ -15,8 +15,8 @@ defmodule EctoShorts.QueryBuilders.Common do
       iex> EctoShorts.QueryBuilders.Common.filters()
       [:after, :before, :end_date, :first, :ids, :last, :limit, :offset, :order_by, :preload, :search, :since, :start_date, :until]
 
-      iex> EctoShorts.QueryBuilders.Common.build_query(EctoShorts.Schema.Post, nil, EctoShorts.Schema.Post, :limit, 10)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, limit: ^10>
+      iex> EctoShorts.QueryBuilders.Common.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :limit, 10)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, limit: ^10>
   """
 
   alias EctoShorts.CommonQueryAPI
@@ -101,11 +101,11 @@ defmodule EctoShorts.QueryBuilders.Common do
 
   ## Examples
 
-      iex> EctoShorts.QueryBuilders.Common.build_query(EctoShorts.Schema.Post, nil, EctoShorts.Schema.Post, :ids, [1, 2, 3])
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, where: p0.id in ^[1, 2, 3]>
+      iex> EctoShorts.QueryBuilders.Common.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :ids, [1, 2, 3])
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, where: p0.id in ^[1, 2, 3]>
 
-      iex> EctoShorts.QueryBuilders.Common.build_query(EctoShorts.Schema.Post, nil, EctoShorts.Schema.Post, :limit, 5)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, limit: ^5>
+      iex> EctoShorts.QueryBuilders.Common.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :limit, 5)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, limit: ^5>
   """
   @spec build_query(
           query_source(),

@@ -1,10 +1,10 @@
-defmodule EctoShorts.Schema.PostAbstract do
+defmodule EctoShorts.Schemas.PostAbstract do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
   schema "abstract table: posts" do
-    belongs_to :author, EctoShorts.Schema.User
+    belongs_to :author, EctoShorts.Schemas.User
 
     field :title, :string
     field :body, :string
@@ -15,7 +15,7 @@ defmodule EctoShorts.Schema.PostAbstract do
 
     field :notes, :string, source: :custom_string_field
 
-    has_many :comments, EctoShorts.Schema.Comment, foreign_key: :post_id
+    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :post_id
 
     timestamps()
   end

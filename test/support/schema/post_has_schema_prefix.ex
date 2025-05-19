@@ -1,4 +1,4 @@
-defmodule EctoShorts.Schema.PostHasSchemaPrefix do
+defmodule EctoShorts.Schemas.PostHasSchemaPrefix do
   use Ecto.Schema
   import Ecto.Changeset
 

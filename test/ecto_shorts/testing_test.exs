@@ -3,7 +3,7 @@ defmodule EctoShorts.TestingTest do
   doctest EctoShorts.Testing
 
   alias EctoShorts.Testing
-  alias EctoShorts.Schema.{Comment, Post}
+  alias EctoShorts.Schemas.{Comment, Post}
   alias EctoShorts.Repo
 
   import Ecto.Query, only: [dynamic: 2, from: 1]

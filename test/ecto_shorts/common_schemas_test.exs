@@ -5,7 +5,7 @@ defmodule EctoShorts.CommonSchemasTest do
   alias Ecto.Schema.Metadata
   alias EctoShorts.CommonSchemas
 
-  alias EctoShorts.Schema.{
+  alias EctoShorts.Schemas.{
     Post,
     PostHasSchemaPrefix,
     PostAbstract,
@@ -94,7 +94,7 @@ defmodule EctoShorts.CommonSchemasTest do
 
   describe "put_metadata/2" do
     test "updates the schema's metadata" do
-      assert %EctoShorts.Schema.Post{
+      assert %EctoShorts.Schemas.Post{
                __meta__: %Metadata{prefix: "test_prefix"}
              } = CommonSchemas.put_metadata(%Post{}, prefix: "test_prefix")
     end

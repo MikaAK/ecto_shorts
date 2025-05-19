@@ -1,4 +1,4 @@
-defmodule EctoShorts.Schema.CompositePrimaryKey do
+defmodule EctoShorts.Schemas.CompositePrimaryKey do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset

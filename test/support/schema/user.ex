@@ -1,4 +1,4 @@
-defmodule EctoShorts.Schema.User do
+defmodule EctoShorts.Schemas.User do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
@@ -6,12 +6,12 @@ defmodule EctoShorts.Schema.User do
   schema "users" do
     field :first_name, :string
 
-    many_to_many :posts, EctoShorts.Schema.Post,
-      join_through: EctoShorts.Schema.PostAuthor,
+    many_to_many :posts, EctoShorts.Schemas.Post,
+      join_through: EctoShorts.Schemas.PostAuthor,
       join_keys: [author_id: :id, post_id: :id],
       unique: true
 
-    has_many :comments, EctoShorts.Schema.Comment, foreign_key: :author_id
+    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :author_id
 
     timestamps()
   end

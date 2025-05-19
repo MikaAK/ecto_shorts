@@ -107,7 +107,7 @@ defmodule EctoShorts.DynamicExpression do
 
       iex> EctoShorts.DynamicExpression.create_dynamic(
       ...>   EctoShorts.DynamicExpressions.Postgres,
-      ...>   EctoShorts.Schema.Post,
+      ...>   EctoShorts.Schemas.Post,
       ...>   nil,
       ...>   :post,
       ...>   :and,
@@ -117,7 +117,7 @@ defmodule EctoShorts.DynamicExpression do
 
       iex> EctoShorts.DynamicExpression.create_dynamic(
       ...>   EctoShorts.DynamicExpressions.Postgres,
-      ...>   EctoShorts.Schema.Post,
+      ...>   EctoShorts.Schemas.Post,
       ...>   nil,
       ...>   :post,
       ...>   :and,

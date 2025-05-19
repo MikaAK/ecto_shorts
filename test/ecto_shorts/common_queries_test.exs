@@ -12,12 +12,12 @@ defmodule EctoShorts.CommonQueriesTest do
 
   describe "&get_from_expr" do
     test "returns FromExpr for a simple schema module" do
-      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}} =
+      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}} =
                CommonQueries.get_from_expr(Post)
     end
 
     test "returns FromExpr for a schema source and module tuple" do
-      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}} =
+      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}} =
                CommonQueries.get_from_expr({"posts", Post})
     end
 
@@ -25,7 +25,7 @@ defmodule EctoShorts.CommonQueriesTest do
       inner_query = from p in Post, where: p.published == true
       outer_query = from p in inner_query, as: :post
 
-      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}} =
+      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}} =
                CommonQueries.get_from_expr(outer_query)
     end
 
@@ -33,7 +33,7 @@ defmodule EctoShorts.CommonQueriesTest do
       inner_query = from p in Post, where: p.published == true
       outer_query = from p in subquery(inner_query), as: :post
 
-      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}} =
+      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}} =
                CommonQueries.get_from_expr(outer_query)
     end
 
@@ -42,7 +42,7 @@ defmodule EctoShorts.CommonQueriesTest do
       second_query = from p in subquery(first_query), as: :post
       third_query = from p in second_query, where: p.id in [1, 2, 3]
 
-      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}} =
+      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}} =
                CommonQueries.get_from_expr(third_query)
     end
 
@@ -51,7 +51,7 @@ defmodule EctoShorts.CommonQueriesTest do
       second_query = from p in subquery(first_query), as: :post
       third_query = from p in subquery(second_query), where: p.id in [1, 2, 3]
 
-      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}} =
+      assert %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}} =
                CommonQueries.get_from_expr(third_query)
     end
   end
@@ -120,15 +120,15 @@ defmodule EctoShorts.CommonQueriesTest do
 
   describe "&find_binding_expr/2" do
     test "returns from expression when binding is nil" do
-      query = from p in EctoShorts.Schema.Post, where: p.published == true
+      query = from p in EctoShorts.Schemas.Post, where: p.published == true
 
       assert %Ecto.Query.FromExpr{
-               source: {"posts", EctoShorts.Schema.Post}
+               source: {"posts", EctoShorts.Schemas.Post}
              } = CommonQueries.find_binding_expr(query, nil)
     end
 
     test "returns from expression for named binding on a subquery (binding assigned in outer query)" do
-      base_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      base_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       final_query = from p in subquery(base_query), as: :post, where: p.id == 1
 
       assert %Ecto.Query.FromExpr{
@@ -137,20 +137,20 @@ defmodule EctoShorts.CommonQueriesTest do
     end
 
     test "returns from expression for named binding from inner query (binding assigned in subquery)" do
-      base_query = from p in EctoShorts.Schema.Post, as: :post, where: p.published == true
+      base_query = from p in EctoShorts.Schemas.Post, as: :post, where: p.published == true
       final_query = from p in subquery(base_query), where: p.id == 1
 
       assert %Ecto.Query.FromExpr{
-               source: {"posts", EctoShorts.Schema.Post},
+               source: {"posts", EctoShorts.Schemas.Post},
                as: :post
              } = CommonQueries.find_binding_expr(final_query, :post)
     end
 
     test "returns join and from expressions for named binding with subquery join" do
-      posts_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      posts_query = from p in EctoShorts.Schemas.Post, where: p.published == true
 
       comments_query =
-        from c in EctoShorts.Schema.Comment,
+        from c in EctoShorts.Schemas.Comment,
           join: p in subquery(posts_query),
           as: :comments,
           on: c.post_id == p.id
@@ -162,7 +162,7 @@ defmodule EctoShorts.CommonQueriesTest do
                  assoc: nil
                },
                %Ecto.Query.FromExpr{
-                 source: {"comments", EctoShorts.Schema.Comment}
+                 source: {"comments", EctoShorts.Schemas.Comment}
                }
              } = CommonQueries.find_binding_expr(comments_query, :comments)
     end
@@ -179,11 +179,11 @@ defmodule EctoShorts.CommonQueriesTest do
                %Ecto.Query.JoinExpr{
                  qual: :inner,
                  as: :comments,
-                 source: {nil, EctoShorts.Schema.Comment},
+                 source: {nil, EctoShorts.Schemas.Comment},
                  assoc: nil
                },
                %Ecto.Query.FromExpr{
-                 source: {"posts", EctoShorts.Schema.Post},
+                 source: {"posts", EctoShorts.Schemas.Post},
                  as: :post
                }
              } = CommonQueries.find_binding_expr(query, :comments)
@@ -205,23 +205,23 @@ defmodule EctoShorts.CommonQueriesTest do
                  assoc: {0, :comments}
                },
                %Ecto.Query.FromExpr{
-                 source: {"posts", EctoShorts.Schema.Post},
+                 source: {"posts", EctoShorts.Schemas.Post},
                  as: :post
                }
              } = CommonQueries.find_binding_expr(query, :comments)
     end
 
     test "returns from expression for inner subquery binding" do
-      posts_query = from p in EctoShorts.Schema.Post, as: :post, where: p.published == true
+      posts_query = from p in EctoShorts.Schemas.Post, as: :post, where: p.published == true
 
       comments_query =
-        from c in EctoShorts.Schema.Comment,
+        from c in EctoShorts.Schemas.Comment,
           join: p in subquery(posts_query),
           as: :comments,
           on: c.post_id == p.id
 
       assert %Ecto.Query.FromExpr{
-               source: {"posts", EctoShorts.Schema.Post},
+               source: {"posts", EctoShorts.Schemas.Post},
                as: :post
              } = CommonQueries.find_binding_expr(comments_query, :post)
     end
@@ -229,15 +229,15 @@ defmodule EctoShorts.CommonQueriesTest do
 
   describe "&find_binding_expr_source_and_schema/2" do
     test "returns source for a direct schema module" do
-      assert {"posts", EctoShorts.Schema.Post} =
+      assert {"posts", EctoShorts.Schemas.Post} =
                CommonQueries.find_binding_expr_source_and_schema(Post, nil)
     end
 
     test "resolves source from a named binding inside a subquery" do
-      base_query = from p in EctoShorts.Schema.Post, as: :post, where: p.published == true
+      base_query = from p in EctoShorts.Schemas.Post, as: :post, where: p.published == true
       final_query = from p in subquery(base_query), where: p.id == 1
 
-      assert {"posts", EctoShorts.Schema.Post} =
+      assert {"posts", EctoShorts.Schemas.Post} =
                CommonQueries.find_binding_expr_source_and_schema(final_query, :post)
     end
 
@@ -249,20 +249,20 @@ defmodule EctoShorts.CommonQueriesTest do
           as: :comments,
           on: true
 
-      assert {"comments", EctoShorts.Schema.Comment} =
+      assert {"comments", EctoShorts.Schemas.Comment} =
                CommonQueries.find_binding_expr_source_and_schema(query, :comments)
     end
 
     test "resolves source from a join into a subquery with a named binding" do
-      posts_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      posts_query = from p in EctoShorts.Schemas.Post, where: p.published == true
 
       comments_query =
-        from c in EctoShorts.Schema.Comment,
+        from c in EctoShorts.Schemas.Comment,
           join: p in subquery(posts_query),
           as: :comments,
           on: c.post_id == p.id
 
-      assert {"posts", EctoShorts.Schema.Post} =
+      assert {"posts", EctoShorts.Schemas.Post} =
                CommonQueries.find_binding_expr_source_and_schema(comments_query, :comments)
     end
 
@@ -274,7 +274,7 @@ defmodule EctoShorts.CommonQueriesTest do
           as: :comments,
           on: c.post_id == p.id
 
-      assert {"comments", EctoShorts.Schema.Comment} =
+      assert {"comments", EctoShorts.Schemas.Comment} =
                CommonQueries.find_binding_expr_source_and_schema(query, :comments)
     end
   end

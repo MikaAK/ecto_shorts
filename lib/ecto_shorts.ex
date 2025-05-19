@@ -15,7 +15,7 @@ defmodule EctoShorts do
     interactions with the `Ecto.Changeset` API and provides
     helper functions that make managing your schemas easier.
 
-    * `EctoShorts.QueryBuilders` - QueryBuilders allows you to
+    * `EctoShorts.CommonFilters` - CommonFilters allows you to
     build Ecto queries with parameters. In other words, you
     can turn data into a query without having to write one.
 

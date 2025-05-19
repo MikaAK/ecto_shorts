@@ -1,4 +1,4 @@
-defmodule EctoShorts.Schema.PostNoPrimaryKey do
+defmodule EctoShorts.Schemas.PostNoPrimaryKey do
   use Ecto.Schema
   import Ecto.Changeset
 

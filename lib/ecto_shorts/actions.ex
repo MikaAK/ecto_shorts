@@ -12,16 +12,16 @@ defmodule EctoShorts.Actions do
 
   Instead of manually writing queries like this:
 
-      EctoShorts.Schema.Post |> where([u], u.body == "example") |> Repo.all()
+      EctoShorts.Schemas.Post |> where([u], u.body == "example") |> Repo.all()
 
   You can write:
 
-      EctoShorts.Actions.all(EctoShorts.Schema.Post, %{body: "example"})
+      EctoShorts.Actions.all(EctoShorts.Schemas.Post, %{body: "example"})
 
   Similarly, data inserts and updates are simplified:
 
-      EctoShorts.Actions.create(EctoShorts.Schema.Post, %{title: "Hello", body: "World"})
-      EctoShorts.Actions.update(EctoShorts.Schema.Post, 1, %{title: "Updated Title"})
+      EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{title: "Hello", body: "World"})
+      EctoShorts.Actions.update(EctoShorts.Schemas.Post, 1, %{title: "Updated Title"})
 
   Each function in this module works with maps. You define what you
   want using simple parameters, and the module handles building
@@ -71,7 +71,7 @@ defmodule EctoShorts.Actions do
 
   For example:
 
-      EctoShorts.Actions.batch_find(EctoShorts.Schema.Post, [
+      EctoShorts.Actions.batch_find(EctoShorts.Schemas.Post, [
         %{author_id: 1, status: "published"},
         %{author_id: 2, status: "draft"}
       ])
@@ -97,7 +97,7 @@ defmodule EctoShorts.Actions do
 
   For example:
 
-      EctoShorts.Actions.create_many(EctoShorts.Schema.Post, [%{title: "example"}])
+      EctoShorts.Actions.create_many(EctoShorts.Schemas.Post, [%{title: "example"}])
 
   Each entry is processed in order, and all changes are wrapped in a transaction.
   You stay focused on describing what changes need to happen, and the underlying
@@ -175,7 +175,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.exists?(EctoShorts.Schema.Post)
+      iex> EctoShorts.Actions.exists?(EctoShorts.Schemas.Post)
   """
   @spec exists?(schema_module()) :: schema_struct_or_structs()
   @spec exists?(schema_module(), opts()) :: schema_struct_or_structs()
@@ -197,10 +197,10 @@ defmodule EctoShorts.Actions do
   ## Examples
 
       # Preload a single association on one record
-      iex> EctoShorts.Actions.preload(%EctoShorts.Schema.Post{}, [:comments])
+      iex> EctoShorts.Actions.preload(%EctoShorts.Schemas.Post{}, [:comments])
 
       # Preload multiple associations on a list of records
-      iex> EctoShorts.Actions.preload(%EctoShorts.Schema.Post{}, [comments: :authors])
+      iex> EctoShorts.Actions.preload(%EctoShorts.Schemas.Post{}, [comments: :authors])
   """
   @spec preload(schema_struct_or_structs(), preloads(), opts()) :: schema_struct_or_structs()
   def preload(schema_struct_or_structs, preloads, opts \\ []) do
@@ -220,10 +220,10 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.reload(post)
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.reload([post])
   """
   @spec reload(schema_struct_or_structs()) :: schema_struct_or_structs()
@@ -243,10 +243,10 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.reload!(post)
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.reload!([post])
   """
   @spec reload!(schema_struct_or_structs()) :: schema_struct_or_structs()
@@ -280,10 +280,10 @@ defmodule EctoShorts.Actions do
   ## Examples
 
       # Find posts for a list of lookup maps
-      iex> EctoShorts.Actions.batch_load(EctoShorts.Schema.Post, [%{author_id: 1}, %{author_id: 2}])
+      iex> EctoShorts.Actions.batch_load(EctoShorts.Schemas.Post, [%{author_id: 1}, %{author_id: 2}])
 
       # Load users and preserve the original input
-      iex> EctoShorts.Actions.batch_load(EctoShorts.Schema.Post, [%{body: "example"}])
+      iex> EctoShorts.Actions.batch_load(EctoShorts.Schemas.Post, [%{body: "example"}])
   """
   @spec batch_load(query_source(), match_keys(), batch_params()) :: batch_params()
   @spec batch_load(query_source(), match_keys(), batch_params(), opts()) :: batch_params()
@@ -370,7 +370,7 @@ defmodule EctoShorts.Actions do
   ## Examples
 
       # Find all users matching any of the filter criteria
-      iex> EctoShorts.Actions.batch_find(EctoShorts.Schema.Post, [:title], [%{title: "finds_record_by_title_one"}, %{title: "or_title_two"}])
+      iex> EctoShorts.Actions.batch_find(EctoShorts.Schemas.Post, [:title], [%{title: "finds_record_by_title_one"}, %{title: "or_title_two"}])
   """
   @spec batch_find(query_source(), match_keys(), list(params())) ::
           {:ok, list(schema_struct())} | {:error, any()}
@@ -413,7 +413,7 @@ defmodule EctoShorts.Actions do
   and the fetched records.
 
       EctoShorts.Actions.batch(
-        EctoShorts.Schema.Post,
+        EctoShorts.Schemas.Post,
         [:title],
         [
           %{title: "First Post"},
@@ -424,8 +424,8 @@ defmodule EctoShorts.Actions do
   Returns:
 
       %{
-        %{title: "First Post"} => %EctoShorts.Schema.Post{title: "First Post"},
-        %{title: "Second Post"} => %EctoShorts.Schema.Post{title: "Second Post"}
+        %{title: "First Post"} => %EctoShorts.Schemas.Post{title: "First Post"},
+        %{title: "Second Post"} => %EctoShorts.Schemas.Post{title: "Second Post"}
       }
 
   ## Composite keys
@@ -433,7 +433,7 @@ defmodule EctoShorts.Actions do
   You can specify a list of keys to match on using the `keys` argument:
 
       EctoShorts.Actions.batch(
-        EctoShorts.Schema.Post,
+        EctoShorts.Schemas.Post,
         [:org_id, :email],
         [
           %{org_id: 1, title: "admin@example.com"},
@@ -450,7 +450,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.batch(EctoShorts.Schema.Post, [:title], [%{title: "post_title"}])
+      iex> EctoShorts.Actions.batch(EctoShorts.Schemas.Post, [:title], [%{title: "post_title"}])
   """
   @spec batch(query_source(), match_keys(), list(params())) :: batch_results()
   @spec batch(query_source(), match_keys(), list(params()), opts()) :: batch_results()
@@ -578,7 +578,7 @@ defmodule EctoShorts.Actions do
 
   You can enable this behavior with the `:batch_load` option:
 
-      EctoShorts.Actions.insert_all(EctoShorts.Schema.Post, list_of_params, batch_load: :primary_key)
+      EctoShorts.Actions.insert_all(EctoShorts.Schemas.Post, list_of_params, batch_load: :primary_key)
 
   This will call `batch_load/4` and transform each param into
   `{existing_record, new_params}` tuples when a match is found.
@@ -591,7 +591,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.insert_all(EctoShorts.Schema.Post, [%{id: 1, body: "Jane"}], batch_load: :primary_key)
+      iex> EctoShorts.Actions.insert_all(EctoShorts.Schemas.Post, [%{id: 1, body: "Jane"}], batch_load: :primary_key)
   """
   @spec insert_all(query_source(), list(params())) ::
           {:ok, insert_all_response()} | {:error, any()}
@@ -648,9 +648,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.update_all(EctoShorts.Schema.Post, %{published: false}, %{published: true})
+      iex> EctoShorts.Actions.update_all(EctoShorts.Schemas.Post, %{published: false}, %{published: true})
 
-      iex> EctoShorts.Actions.update_all(EctoShorts.Schema.Post, %{title: "hello"}, %{title: "world"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.update_all(EctoShorts.Schemas.Post, %{title: "hello"}, %{title: "world"}, repo: EctoShorts.Repo)
   """
   @spec update_all(query_source(), params(), params()) :: update_all_response()
   @spec update_all(query_source(), params(), params(), opts()) :: update_all_response()
@@ -688,9 +688,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.delete_all(EctoShorts.Schema.Post, %{published: false})
+      iex> EctoShorts.Actions.delete_all(EctoShorts.Schemas.Post, %{published: false})
 
-      iex> EctoShorts.Actions.delete_all(EctoShorts.Schema.Post, %{published: true}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.delete_all(EctoShorts.Schemas.Post, %{published: true}, repo: EctoShorts.Repo)
   """
   @spec delete_all(query_source()) :: delete_all_response()
   @spec delete_all(query_source(), params()) :: delete_all_response()
@@ -716,7 +716,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_or_create_many(EctoShorts.Schema.Post, [%{title: "title_one", body: "example"}])
+      iex> EctoShorts.Actions.find_or_create_many(EctoShorts.Schemas.Post, [%{title: "title_one", body: "example"}])
   """
   @spec find_or_create_many(query_source(), list(params())) ::
           {:ok, list(schema_struct())} | {:error, any()}
@@ -778,9 +778,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_update_many(EctoShorts.Schema.Post, [%{id: 1, body: "updated_body"}])
+      iex> EctoShorts.Actions.find_and_update_many(EctoShorts.Schemas.Post, [%{id: 1, body: "updated_body"}])
 
-      iex> EctoShorts.Actions.find_and_update_many(EctoShorts.Schema.Post, [{%{id: 2}, %{body: "Another Update"}}])
+      iex> EctoShorts.Actions.find_and_update_many(EctoShorts.Schemas.Post, [{%{id: 2}, %{body: "Another Update"}}])
   """
   @spec find_and_update_many(query_source(), list(params() | {params(), params()})) ::
           {:ok, list(schema_struct())} | {:error, any()}
@@ -854,9 +854,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_upsert_many(EctoShorts.Schema.Post, [%{title: "title_one", body: "example"}])
+      iex> EctoShorts.Actions.find_and_upsert_many(EctoShorts.Schemas.Post, [%{title: "title_one", body: "example"}])
 
-      iex> EctoShorts.Actions.find_and_upsert_many(EctoShorts.Schema.Post, [{%{title: "title_two"}, %{body: "example"}}])
+      iex> EctoShorts.Actions.find_and_upsert_many(EctoShorts.Schemas.Post, [{%{title: "title_two"}, %{body: "example"}}])
   """
   @spec find_and_upsert_many(query_source(), list(params() | {params(), params()})) ::
           {:ok, list(schema_struct())} | {:error, any()}
@@ -934,7 +934,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.create_many(EctoShorts.Schema.Post, [%{title: "title_two", body: "example"}])
+      iex> EctoShorts.Actions.create_many(EctoShorts.Schemas.Post, [%{title: "title_two", body: "example"}])
   """
   @spec create_many(sourceable(), list(params())) ::
           {:ok, list(schema_struct())} | {:error, any()}
@@ -982,7 +982,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_many(EctoShorts.Schema.Post, [%{title: "title_one"}, %{title: "title_two"}])
+      iex> EctoShorts.Actions.find_many(EctoShorts.Schemas.Post, [%{title: "title_one"}, %{title: "title_two"}])
   """
   @spec find_many(query_source(), list(params())) ::
           {:ok, list(schema_struct())} | {:error, any()}
@@ -1033,7 +1033,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> {:ok, posts} = EctoShorts.Actions.create_many(EctoShorts.Schema.Post, [%{title: "post_title_one"}, %{title: "post_title_two"}])
+      iex> {:ok, posts} = EctoShorts.Actions.create_many(EctoShorts.Schemas.Post, [%{title: "post_title_one"}, %{title: "post_title_two"}])
       ...> EctoShorts.Actions.delete_many(posts)
   """
   @spec delete_many(list(schema_or_changeset())) ::
@@ -1087,7 +1087,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_create(EctoShorts.Schema.Post, %{title: "title_one"}, %{title: "title_one", body: "new_post"})
+      iex> EctoShorts.Actions.find_and_create(EctoShorts.Schemas.Post, %{title: "title_one"}, %{title: "title_one", body: "new_post"})
   """
   @spec find_and_create(query_source(), params(), params()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1112,7 +1112,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_update(EctoShorts.Schema.Post, %{id: 1}, %{body: "updated_body"})
+      iex> EctoShorts.Actions.find_and_update(EctoShorts.Schemas.Post, %{id: 1}, %{body: "updated_body"})
   """
   @spec find_and_update(query_source(), params(), params()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1139,7 +1139,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_upsert(EctoShorts.Schema.Post, %{title: "fira@example.com"}, %{body: "post_body"})
+      iex> EctoShorts.Actions.find_and_upsert(EctoShorts.Schemas.Post, %{title: "fira@example.com"}, %{body: "post_body"})
   """
   @spec find_and_upsert(query_source(), params(), params()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1172,9 +1172,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_delete(EctoShorts.Schema.Post, %{id: 1})
+      iex> EctoShorts.Actions.find_and_delete(EctoShorts.Schemas.Post, %{id: 1})
 
-      iex> EctoShorts.Actions.find_and_delete({"posts", EctoShorts.Schema.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.find_and_delete({"posts", EctoShorts.Schemas.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
   """
   @spec find_and_delete(query_source(), params()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1206,9 +1206,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_or_create(EctoShorts.Schema.Post, %{title: "example"})
+      iex> EctoShorts.Actions.find_or_create(EctoShorts.Schemas.Post, %{title: "example"})
 
-      iex> EctoShorts.Actions.find_or_create({"posts", EctoShorts.Schema.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.find_or_create({"posts", EctoShorts.Schemas.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
   """
   @spec find_or_create(query_source(), params()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1240,11 +1240,11 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.get(EctoShorts.Schema.Post, 1)
+      iex> EctoShorts.Actions.get(EctoShorts.Schemas.Post, 1)
 
-      iex> EctoShorts.Actions.get(EctoShorts.Schema.Post, 1, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.get(EctoShorts.Schemas.Post, 1, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.get({"posts", EctoShorts.Schema.Post}, 1, replica: EctoShorts.Repo)
+      iex> EctoShorts.Actions.get({"posts", EctoShorts.Schemas.Post}, 1, replica: EctoShorts.Repo)
   """
   @spec get(query_source(), id()) :: schema_struct() | nil
   @spec get(query_source(), id(), opts()) :: schema_struct() | nil
@@ -1272,11 +1272,11 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.all(EctoShorts.Schema.Post, %{id: 1})
+      iex> EctoShorts.Actions.all(EctoShorts.Schemas.Post, %{id: 1})
 
-      iex> EctoShorts.Actions.all(EctoShorts.Schema.Post, id: 1, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.all(EctoShorts.Schemas.Post, id: 1, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.all(EctoShorts.Schema.Post, id: 1, replica: EctoShorts.Repo)
+      iex> EctoShorts.Actions.all(EctoShorts.Schemas.Post, id: 1, replica: EctoShorts.Repo)
   """
   @spec all(query_source()) :: list(schema_struct())
   @spec all(query_source(), params()) :: list(schema_struct())
@@ -1313,11 +1313,11 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.all(EctoShorts.Schema.Post, %{published: true})
+      iex> EctoShorts.Actions.all(EctoShorts.Schemas.Post, %{published: true})
 
-      iex> EctoShorts.Actions.all(EctoShorts.Schema.Post, published: true, order_by: :inserted_at, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.all(EctoShorts.Schemas.Post, published: true, order_by: :inserted_at, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.all({"posts", EctoShorts.Schema.Post}, %{published: true}, replica: EctoShorts.Repo)
+      iex> EctoShorts.Actions.all({"posts", EctoShorts.Schemas.Post}, %{published: true}, replica: EctoShorts.Repo)
   """
   @spec all(query_source(), params(), opts()) :: list(schema_struct())
   def all(query_source, params, opts) do
@@ -1353,9 +1353,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "post_body"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "post_body"}, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.create({"posts", EctoShorts.Schema.Post}, %{body: "post_body"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.create({"posts", EctoShorts.Schemas.Post}, %{body: "post_body"}, repo: EctoShorts.Repo)
   """
   @spec create(sourceable(), params()) :: {:ok, schema_struct()} | {:error, changeset() | any()}
   @spec create(sourceable(), params(), opts()) ::
@@ -1381,11 +1381,11 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find(EctoShorts.Schema.Post, %{id: 1}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.find(EctoShorts.Schemas.Post, %{id: 1}, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.find(EctoShorts.Schema.Post, %{title: "notfound@example.com"})
+      iex> EctoShorts.Actions.find(EctoShorts.Schemas.Post, %{title: "notfound@example.com"})
 
-      iex> EctoShorts.Actions.find({"posts", EctoShorts.Schema.Post}, %{id: 1})
+      iex> EctoShorts.Actions.find({"posts", EctoShorts.Schemas.Post}, %{id: 1})
   """
   @spec find(query_source(), params()) :: {:ok, schema_struct()} | {:error, any()}
   @spec find(query_source(), params(), opts()) :: {:ok, schema_struct()} | {:error, any()}
@@ -1457,17 +1457,17 @@ defmodule EctoShorts.Actions do
 
       # Using a primary key:
 
-      iex> EctoShorts.Actions.update(EctoShorts.Schema.Post, 1, %{body: "New Name"})
+      iex> EctoShorts.Actions.update(EctoShorts.Schemas.Post, 1, %{body: "New Name"})
 
       # Using a struct:
 
-      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schema.PostAbstract}, %{body: "example"})
-      ...> EctoShorts.Actions.update(EctoShorts.Schema.Post, post, %{body: "updated_body"})
+      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schemas.PostAbstract}, %{body: "example"})
+      ...> EctoShorts.Actions.update(EctoShorts.Schemas.Post, post, %{body: "updated_body"})
 
       # Using a tuple source:
 
-      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schema.PostAbstract}, %{body: "example"})
-      ...> EctoShorts.Actions.update({"posts", EctoShorts.Schema.PostAbstract}, post, %{body: "updated_body"})
+      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schemas.PostAbstract}, %{body: "example"})
+      ...> EctoShorts.Actions.update({"posts", EctoShorts.Schemas.PostAbstract}, post, %{body: "updated_body"})
   """
   @spec update(query_source(), id() | schema_struct(), params()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1518,17 +1518,17 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
-      ...> EctoShorts.Actions.delete(EctoShorts.Schema.Post, post.id)
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
+      ...> EctoShorts.Actions.delete(EctoShorts.Schemas.Post, post.id)
 
-      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schema.PostAbstract}, %{body: "example"})
-      ...> EctoShorts.Actions.delete({"posts", EctoShorts.Schema.PostAbstract}, post.id)
+      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schemas.PostAbstract}, %{body: "example"})
+      ...> EctoShorts.Actions.delete({"posts", EctoShorts.Schemas.PostAbstract}, post.id)
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.delete([post])
 
-      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "example"})
-      ...> post |> EctoShorts.Schema.Post.changeset(%{}) |> EctoShorts.Actions.delete()
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
+      ...> post |> EctoShorts.Schemas.Post.changeset(%{}) |> EctoShorts.Actions.delete()
   """
   @spec delete(schema_or_changeset() | list(schema_or_changeset())) ::
           {:ok, list(schema_struct())} | {:error, list(changeset())} | {:error, any()}
@@ -1603,11 +1603,11 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.delete(EctoShorts.Schema.Post, 1, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.delete(EctoShorts.Schemas.Post, 1, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.delete(EctoShorts.Schema.Post, 1, replica: EctoShorts.Repo)
+      iex> EctoShorts.Actions.delete(EctoShorts.Schemas.Post, 1, replica: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.delete({"posts", EctoShorts.Schema.Post}, 1, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.delete({"posts", EctoShorts.Schemas.Post}, 1, repo: EctoShorts.Repo)
   """
   @spec delete(query_source(), id(), opts()) ::
           {:ok, schema_struct()} | {:error, changeset() | any()}
@@ -1633,9 +1633,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.stream(EctoShorts.Schema.Post, %{published: true}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.stream(EctoShorts.Schemas.Post, %{published: true}, repo: EctoShorts.Repo)
 
-      iex> EctoShorts.Actions.stream({"posts", EctoShorts.Schema.Post}, %{published: true}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.stream({"posts", EctoShorts.Schemas.Post}, %{published: true}, repo: EctoShorts.Repo)
   """
   @spec stream(query_source()) :: stream()
   @spec stream(query_source(), params()) :: stream()
@@ -1672,9 +1672,9 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{published: true}, :count, :id)
+      iex> EctoShorts.Actions.aggregate(EctoShorts.Schemas.Post, %{published: true}, :count, :id)
 
-      iex> EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{published: true}, :avg, :views, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.aggregate(EctoShorts.Schemas.Post, %{published: true}, :avg, :views, repo: EctoShorts.Repo)
   """
   @spec aggregate(query_source()) :: any() | nil
   @spec aggregate(query_source(), params()) :: any() | nil
@@ -1722,19 +1722,19 @@ defmodule EctoShorts.Actions do
       # Run a transactional function:
 
       iex> EctoShorts.Actions.transaction(fn ->
-      ...>   EctoShorts.Actions.create(EctoShorts.Schema.Post, %{body: "Jane"})
+      ...>   EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "Jane"})
       ...> end)
 
       # Use a one-arity function:
 
       iex> EctoShorts.Actions.transaction(fn repo ->
-      ...>   repo.insert!(%EctoShorts.Schema.Post{body: "Jane"})
+      ...>   repo.insert!(%EctoShorts.Schemas.Post{body: "Jane"})
       ...> end)
 
       # Run a pre-built Ecto.Multi:
 
       iex> multi = Ecto.Multi.new()
-      ...> Ecto.Multi.insert(multi, :user, EctoShorts.Schema.Post.changeset(%EctoShorts.Schema.Post{}, %{body: "Jane"}))
+      ...> Ecto.Multi.insert(multi, :user, EctoShorts.Schemas.Post.changeset(%EctoShorts.Schemas.Post{}, %{body: "Jane"}))
       ...> EctoShorts.Actions.transaction(multi)
   """
   @spec transaction(function() | multi()) :: {:ok, any()} | {:error, any()}

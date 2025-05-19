@@ -1,4 +1,4 @@
-defmodule EctoShorts.Schema.Post do
+defmodule EctoShorts.Schemas.Post do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
@@ -6,14 +6,14 @@ defmodule EctoShorts.Schema.Post do
   require Ecto.Query
 
   schema "posts" do
-    belongs_to :author, EctoShorts.Schema.User
+    belongs_to :author, EctoShorts.Schemas.User
 
-    many_to_many :authors, EctoShorts.Schema.User,
-      join_through: EctoShorts.Schema.PostAuthor,
+    many_to_many :authors, EctoShorts.Schemas.User,
+      join_through: EctoShorts.Schemas.PostAuthor,
       join_keys: [post_id: :id, author_id: :id],
       unique: true
 
-    has_many :comments, EctoShorts.Schema.Comment
+    has_many :comments, EctoShorts.Schemas.Comment
 
     has_many :comments_authors, through: [:comments, :author]
 

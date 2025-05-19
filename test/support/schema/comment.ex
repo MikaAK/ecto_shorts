@@ -1,11 +1,11 @@
-defmodule EctoShorts.Schema.Comment do
+defmodule EctoShorts.Schemas.Comment do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
   schema "comments" do
-    belongs_to :author, EctoShorts.Schema.User
-    belongs_to :post, EctoShorts.Schema.Post
+    belongs_to :author, EctoShorts.Schemas.User
+    belongs_to :post, EctoShorts.Schemas.Post
 
     field :body, :string
     field :replies, :integer

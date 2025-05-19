@@ -63,9 +63,9 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
 
   ## Examples
 
-      iex> EctoShorts.DynamicExpressions.Postgres.create_dynamic(EctoShorts.Schema.Post, nil, :binding_name, :and, :title, {:==, "Hello"})
+      iex> EctoShorts.DynamicExpressions.Postgres.create_dynamic(EctoShorts.Schemas.Post, nil, :binding_name, :and, :title, {:==, "Hello"})
 
-      iex> EctoShorts.DynamicExpressions.Postgres.create_dynamic(EctoShorts.Schema.Post, nil, :binding_name, :or, :tags, {:==, ["elixir", "ecto"]})
+      iex> EctoShorts.DynamicExpressions.Postgres.create_dynamic(EctoShorts.Schemas.Post, nil, :binding_name, :or, :tags, {:==, ["elixir", "ecto"]})
 
   """
   @spec create_dynamic(

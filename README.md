@@ -32,7 +32,7 @@ Learning-oriented content to help you get started with ecto_shorts:
 
 Problem-oriented guides to help you accomplish specific tasks:
 
-- [How to Filter Data with QueryBuilders](./docs/how-to/filtering-data.md)
+- [How to Filter Data with CommonFilters](./docs/how-to/filtering-data.md)
 - [How to Manage Associations with CommonChanges](./docs/how-to/managing-associations.md)
 - [How to Use Actions for CRUD Operations](./docs/how-to/crud-operations.md)
 - [How to Implement Custom Filters](./docs/how-to/custom-filters.md)
@@ -84,7 +84,7 @@ users = EctoShorts.Actions.all(User, %{age: %{gte: 18}, preload: :posts})
 {:ok, user} = EctoShorts.Actions.delete(User, 1)
 ```
 
-### QueryBuilders
+### CommonFilters
 
 Converts parameter maps into Ecto queries:
 

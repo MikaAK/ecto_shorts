@@ -14,18 +14,18 @@ defmodule EctoShorts.CommonQueries do
 
   Let’s say you’re starting with a schema:
 
-      EctoShorts.CommonQueries.to_query(EctoShorts.Schema.Post)
-      #Ecto.Query<from p in EctoShorts.Schema.Post>
+      EctoShorts.CommonQueries.to_query(EctoShorts.Schemas.Post)
+      #Ecto.Query<from p in EctoShorts.Schemas.Post>
 
   Or maybe you’re using a custom source:
 
-      EctoShorts.CommonQueries.to_query({"custom_source", EctoShorts.Schema.Post})
-      #Ecto.Query<from p in {"custom_source", EctoShorts.Schema.Post}>
+      EctoShorts.CommonQueries.to_query({"custom_source", EctoShorts.Schemas.Post})
+      #Ecto.Query<from p in {"custom_source", EctoShorts.Schemas.Post}>
 
   Or maybe you already have a query:
 
       import Ecto.Query
-      query = from p in EctoShorts.Schema.Post
+      query = from p in EctoShorts.Schemas.Post
       EctoShorts.CommonQueries.to_query(query)
 
   The input can be a schema, query, or source tuple and this will give
@@ -36,10 +36,10 @@ defmodule EctoShorts.CommonQueries do
   Want to figure out what table or schema a query is targeting?
 
       import Ecto.Query
-      query = from p in EctoShorts.Schema.Post, as: :post
+      query = from p in EctoShorts.Schemas.Post, as: :post
 
       EctoShorts.CommonQueries.get_from_expr(query)
-      %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schema.Post}, ...}
+      %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}, ...}
 
   You can use the `get_from_expr/1` function that walks through the
   query and gives you the underlying `from` expression.
@@ -67,7 +67,7 @@ defmodule EctoShorts.CommonQueries do
   To get the schema module:
 
       EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :post, :schema)
-      EctoShorts.Schema.Post
+      EctoShorts.Schemas.Post
 
   To get the source name (the table name):
 
@@ -121,16 +121,16 @@ defmodule EctoShorts.CommonQueries do
 
   ## Examples
 
-      iex> EctoShorts.CommonQueries.to_query(EctoShorts.Schema.Post)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post>
+      iex> EctoShorts.CommonQueries.to_query(EctoShorts.Schemas.Post)
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post>
 
-      iex> EctoShorts.CommonQueries.to_query({"custom_source", EctoShorts.Schema.Post})
-      #Ecto.Query<from p0 in {"custom_source", EctoShorts.Schema.Post}>
+      iex> EctoShorts.CommonQueries.to_query({"custom_source", EctoShorts.Schemas.Post})
+      #Ecto.Query<from p0 in {"custom_source", EctoShorts.Schemas.Post}>
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post
+      ...> query = from p in EctoShorts.Schemas.Post
       ...> EctoShorts.CommonQueries.to_query(query)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post>
   """
   @spec to_query(query_source()) :: query()
   def to_query(query) when is_struct(query, Ecto.Query), do: query
@@ -151,7 +151,7 @@ defmodule EctoShorts.CommonQueries do
 
     This is the most common form:
 
-        {"posts", EctoShorts.Schema.Post}
+        {"posts", EctoShorts.Schemas.Post}
 
     The `schema_source` represents the database table name (e.g. "posts")
     and can be `nil`.
@@ -201,13 +201,13 @@ defmodule EctoShorts.CommonQueries do
 
       iex> import Ecto.Query
       ...> query =
-      ...>   from p in EctoShorts.Schema.Post,
+      ...>   from p in EctoShorts.Schemas.Post,
       ...>     as: :post,
       ...>     join: assoc(p, :comments),
       ...>     as: :comments,
       ...>     on: true
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema!(query, :comments)
-      {"comments", EctoShorts.Schema.Comment}
+      {"comments", EctoShorts.Schemas.Comment}
   """
   @spec get_from_expr(query_input(), key()) :: any() | nil
   def get_from_expr(query, key) do
@@ -232,14 +232,14 @@ defmodule EctoShorts.CommonQueries do
       # When using a schema directly
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post
+      ...> query = from p in EctoShorts.Schemas.Post
       ...> EctoShorts.CommonQueries.has_source_subquery?(query)
       false
 
       # When using a subquery as the base
 
       iex> import Ecto.Query
-      ...> base = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> base = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> query = from p in subquery(base), as: :post
       ...> EctoShorts.CommonQueries.has_source_subquery?(query)
       true
@@ -247,7 +247,7 @@ defmodule EctoShorts.CommonQueries do
       ## When wrapping a subquery multiple times
 
       iex> import Ecto.Query
-      ...> first_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> first_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> second_query = from p in subquery(first_query), as: :post
       ...> third_query = from p in second_query, where: p.id in [1, 2, 3]
       ...> EctoShorts.CommonQueries.has_source_subquery?(third_query)
@@ -256,7 +256,7 @@ defmodule EctoShorts.CommonQueries do
       # When nesting queries without using `subquery/1`
 
       iex> import Ecto.Query
-      ...> base = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> base = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> query = from p in base, where: p.id in [1, 2, 3]
       ...> EctoShorts.CommonQueries.has_source_subquery?(query)
       false
@@ -282,10 +282,10 @@ defmodule EctoShorts.CommonQueries do
 
       # Access the original `:from` clause of the subquery
       iex> import Ecto.Query
-      ...> inner_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> inner_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> outer_query = from p in subquery(inner_query), as: :post
       ...> EctoShorts.CommonQueries.get_source_subquery(outer_query, :query)
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, where: p0.published == true>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, where: p0.published == true>
   """
   @spec get_source_subquery(query_node(), key()) :: any() | nil
   def get_source_subquery(query, key) do
@@ -308,19 +308,19 @@ defmodule EctoShorts.CommonQueries do
 
       # When the source is a schema (not a subquery)
       iex> import Ecto.Query
-      ...> EctoShorts.CommonQueries.get_source_subquery(EctoShorts.Schema.Post)
+      ...> EctoShorts.CommonQueries.get_source_subquery(EctoShorts.Schemas.Post)
       nil
 
       # A query that directly wraps a subquery
       iex> import Ecto.Query
-      ...> source_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> source_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> outer_query = from p in subquery(source_query), as: :post
       ...> EctoShorts.CommonQueries.get_source_subquery(outer_query)
       subquery(source_query)
 
       # A query that wraps a subquery inside another query
       iex> import Ecto.Query
-      ...> source_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> source_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> outer_query = from p in subquery(source_query), as: :post
       ...> final_query = from p in outer_query, where: p.id in [1, 2, 3]
       ...> EctoShorts.CommonQueries.get_source_subquery(final_query)
@@ -328,7 +328,7 @@ defmodule EctoShorts.CommonQueries do
 
       # A deeply nested query containing a subquery
       iex> import Ecto.Query
-      ...> base_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> base_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> source_query = from p in subquery(base_query), as: :post
       ...> outer_query = from p in subquery(source_query), where: p.id in [1, 2, 3]
       ...> final_query = from p in outer_query, where: p.id in [1, 2, 3]
@@ -355,9 +355,9 @@ defmodule EctoShorts.CommonQueries do
   ## Examples
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post, join: assoc(p, :comments), as: :comments, on: true
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post, join: assoc(p, :comments), as: :comments, on: true
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema!(query, :comments)
-      {"comments", EctoShorts.Schema.Comment}
+      {"comments", EctoShorts.Schemas.Comment}
   """
   @spec fetch_binding_expr_source_and_schema(
           query_input(),
@@ -382,14 +382,14 @@ defmodule EctoShorts.CommonQueries do
       # To get the schema module:
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :post, :schema)
-      EctoShorts.Schema.Post
+      EctoShorts.Schemas.Post
 
       # To get the source string (like `"comments"`):
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :post, :source)
       "posts"
   """
@@ -414,12 +414,12 @@ defmodule EctoShorts.CommonQueries do
   ## Examples
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :post)
-      {"posts", EctoShorts.Schema.Post}
+      {"posts", EctoShorts.Schemas.Post}
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :unknown)
       :error
   """
@@ -451,14 +451,14 @@ defmodule EctoShorts.CommonQueries do
       # Returns the schema module
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :post, :schema)
-      EctoShorts.Schema.Post
+      EctoShorts.Schemas.Post
 
       # Returns the database table name string
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post
       ...> EctoShorts.CommonQueries.fetch_binding_expr_source_and_schema(query, :post, :source)
       "posts"
   """
@@ -498,28 +498,28 @@ defmodule EctoShorts.CommonQueries do
 
       iex> import Ecto.Query
       ...> query =
-      ...>   from p in EctoShorts.Schema.Post,
+      ...>   from p in EctoShorts.Schemas.Post,
       ...>     as: :post,
       ...>     join: assoc(p, :comments),
       ...>     as: :comments,
       ...>     on: true
       ...> EctoShorts.CommonQueries.find_binding_expr_source_and_schema(query, :comments)
-      {"comments", EctoShorts.Schema.Comment}
+      {"comments", EctoShorts.Schemas.Comment}
 
       # You can also use it to find top-level bindings:
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, as: :post, where: p.published == true
+      ...> query = from p in EctoShorts.Schemas.Post, as: :post, where: p.published == true
       ...> EctoShorts.CommonQueries.find_binding_expr_source_and_schema(query, :post)
-      {"posts", EctoShorts.Schema.Post}
+      {"posts", EctoShorts.Schemas.Post}
 
       # It works even if the binding is nested inside a subquery:
 
       iex> import Ecto.Query
-      ...> base_query = from p in EctoShorts.Schema.Post, as: :post, where: p.published == true
+      ...> base_query = from p in EctoShorts.Schemas.Post, as: :post, where: p.published == true
       ...> wrapped_query = from p in subquery(base_query), where: p.id == 1
       ...> EctoShorts.CommonQueries.find_binding_expr_source_and_schema(wrapped_query, :post)
-      {"posts", EctoShorts.Schema.Post}
+      {"posts", EctoShorts.Schemas.Post}
   """
   @spec find_binding_expr_source_and_schema(
           query_input(),
@@ -617,22 +617,22 @@ defmodule EctoShorts.CommonQueries do
       # From a schema module
 
       iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> EctoShorts.CommonQueries.find_binding_expr(query, nil)
 
       # From a subquery with a named binding
 
       iex> import Ecto.Query
-      ...> base_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> base_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> query = from p in subquery(base_query), as: :post, where: p.id == 1
       ...> EctoShorts.CommonQueries.find_binding_expr(query, :post)
 
       # Subquery join
 
       iex> import Ecto.Query
-      ...> posts_query = from p in EctoShorts.Schema.Post, where: p.published == true
+      ...> posts_query = from p in EctoShorts.Schemas.Post, where: p.published == true
       ...> comments_query =
-      ...>   from c in EctoShorts.Schema.Comment,
+      ...>   from c in EctoShorts.Schemas.Comment,
       ...>     join: p in subquery(posts_query),
       ...>     as: :comments,
       ...>     on: c.post_id == p.id
@@ -642,7 +642,7 @@ defmodule EctoShorts.CommonQueries do
 
       iex> import Ecto.Query
       ...> query =
-      ...>   from p in EctoShorts.Schema.Post,
+      ...>   from p in EctoShorts.Schemas.Post,
       ...>     as: :post,
       ...>     join: assoc(p, :comments),
       ...>     as: :comments,

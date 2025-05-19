@@ -1,4 +1,4 @@
-defmodule EctoShorts.Schema.PostAbstractHasSchemaPrefix do
+defmodule EctoShorts.Schemas.PostAbstractHasSchemaPrefix do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset

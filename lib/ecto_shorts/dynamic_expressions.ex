@@ -68,7 +68,7 @@ defmodule EctoShorts.DynamicExpressions do
 
   ## Examples
 
-        iex> EctoShorts.DynamicExpressions.create_dynamic(EctoShorts.Schema.Post, nil, nil, :and, :tags, {:==, "blog"}, [])
+        iex> EctoShorts.DynamicExpressions.create_dynamic(EctoShorts.Schemas.Post, nil, nil, :and, :tags, {:==, "blog"}, [])
   """
   @spec create_dynamic(
           schema_module(),

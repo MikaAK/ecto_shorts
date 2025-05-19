@@ -49,23 +49,23 @@ defmodule EctoShorts.Utils do
 
       iex> import Ecto.Query
       ...> EctoShorts.Utils.apply_expressions(
-      ...>    EctoShorts.Schema.Post,
+      ...>    EctoShorts.Schemas.Post,
       ...>    %{id: 1, title: "hello_world"},
       ...>    fn {key, val}, query ->
       ...>      from p in query, where: field(p, ^key) == ^val
       ...>    end
       ...> )
-      #Ecto.Query<from p0 in EctoShorts.Schema.Post, where: p0.title == ^"hello_world", where: p0.id == ^1>
+      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, where: p0.title == ^"hello_world", where: p0.id == ^1>
 
       # Structs are preserved as-is.
 
       iex> EctoShorts.Utils.apply_expressions(
       ...>   [],
-      ...>   %{post: %EctoShorts.Schema.Post{id: 1}},
+      ...>   %{post: %EctoShorts.Schemas.Post{id: 1}},
       ...>   fn pair, acc -> [pair | acc] end
       ...> )
       [
-        {:post, %EctoShorts.Schema.Post{id: 1}}
+        {:post, %EctoShorts.Schemas.Post{id: 1}}
       ]
 
       # Keyword lists are flattened.
@@ -180,7 +180,7 @@ defmodule EctoShorts.Utils do
 
   ## Example
 
-      iex> EctoShorts.Utils.to_jsonable_map(%EctoShorts.Schema.Post{id: 1, title: "example"})
+      iex> EctoShorts.Utils.to_jsonable_map(%EctoShorts.Schemas.Post{id: 1, title: "example"})
       %{
         id: 1,
         title: "example",

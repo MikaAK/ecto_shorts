@@ -1,10 +1,10 @@
-defmodule EctoShorts.Schema.PostAuthor do
+defmodule EctoShorts.Schemas.PostAuthor do
   use Ecto.Schema
   import Ecto.Changeset
 
   schema "posts_authors" do
-    belongs_to :author, EctoShorts.Schema.User
-    belongs_to :post, EctoShorts.Schema.Post
+    belongs_to :author, EctoShorts.Schemas.User
+    belongs_to :post, EctoShorts.Schemas.Post
 
     timestamps()
   end

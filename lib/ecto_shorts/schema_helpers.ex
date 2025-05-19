@@ -19,14 +19,14 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schema.Post, :comments)
-      EctoShorts.Schema.Comment
+      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schemas.Post, :comments)
+      EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schema.Post, :comments_authors)
-      EctoShorts.Schema.User
+      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schemas.Post, :comments_authors)
+      EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schema.Post, :does_not_exist)
-      ** (ArgumentError) association key not found for the schema EctoShorts.Schema.Post, got: :does_not_exist
+      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schemas.Post, :does_not_exist)
+      ** (ArgumentError) association key not found for the schema EctoShorts.Schemas.Post, got: :does_not_exist
   """
   @spec fetch_association_schema_module!(schema_module(), key()) :: schema_module()
   def fetch_association_schema_module!(schema_module, key) do
@@ -43,13 +43,13 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schema.Post, :comments)
-      EctoShorts.Schema.Comment
+      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schemas.Post, :comments)
+      EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schema.Post, :comments_authors)
-      EctoShorts.Schema.User
+      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schemas.Post, :comments_authors)
+      EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schema.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schemas.Post, :does_not_exist)
       :error
   """
   @spec fetch_association_schema_module(schema_module(), key()) :: schema_module() | :error
@@ -69,13 +69,13 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schema.Post, :comments)
-      EctoShorts.Schema.Comment
+      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schemas.Post, :comments)
+      EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schema.Post, :comments_authors)
-      EctoShorts.Schema.User
+      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schemas.Post, :comments_authors)
+      EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schema.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schemas.Post, :does_not_exist)
       nil
   """
   @spec get_association_schema_module(schema_module(), key()) :: schema_module() | nil
@@ -103,10 +103,10 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.field_type_of_array?(EctoShorts.Schema.Post, :tags)
+      iex> EctoShorts.SchemaHelpers.field_type_of_array?(EctoShorts.Schemas.Post, :tags)
       true
 
-      iex> EctoShorts.SchemaHelpers.field_type_of_array?(EctoShorts.Schema.Post, :title)
+      iex> EctoShorts.SchemaHelpers.field_type_of_array?(EctoShorts.Schemas.Post, :title)
       false
 
   """
@@ -128,10 +128,10 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.field_type(EctoShorts.Schema.Post, :title)
+      iex> EctoShorts.SchemaHelpers.field_type(EctoShorts.Schemas.Post, :title)
       :string
 
-      iex> EctoShorts.SchemaHelpers.field_type(EctoShorts.Schema.Post, :tags)
+      iex> EctoShorts.SchemaHelpers.field_type(EctoShorts.Schemas.Post, :tags)
       {:array, :string}
 
   """
@@ -147,12 +147,12 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # Given a Post struct with a not preloaded :comments association
-      iex> post = %EctoShorts.Schema.Post{comments: %Ecto.Association.NotLoaded{}}
+      iex> post = %EctoShorts.Schemas.Post{comments: %Ecto.Association.NotLoaded{}}
       ...> EctoShorts.SchemaHelpers.association_loaded?(post, :comments)
       false
 
       # If the association is preloaded (even as an empty list), it returns true
-      iex> post_with_comments = %EctoShorts.Schema.Post{comments: []}
+      iex> post_with_comments = %EctoShorts.Schemas.Post{comments: []}
       ...> EctoShorts.SchemaHelpers.association_loaded?(post_with_comments, :comments)
       true
   """
@@ -168,7 +168,7 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # Suppose we have a User struct whose :profile association hasn't been preloaded
-      iex> post = %EctoShorts.Schema.Post{comments: %Ecto.Association.NotLoaded{}}
+      iex> post = %EctoShorts.Schemas.Post{comments: %Ecto.Association.NotLoaded{}}
       ...> EctoShorts.SchemaHelpers.association_not_loaded?(post, :comments)
       true
   """
@@ -195,13 +195,13 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # List where one user has not been saved (id is nil)
-      iex> posts = [%EctoShorts.Schema.Post{id: 1}, %EctoShorts.Schema.Post{id: 2}, %EctoShorts.Schema.Post{id: nil}]
-      ...> EctoShorts.SchemaHelpers.all_created?(EctoShorts.Schema.Post, posts)
+      iex> posts = [%EctoShorts.Schemas.Post{id: 1}, %EctoShorts.Schemas.Post{id: 2}, %EctoShorts.Schemas.Post{id: nil}]
+      ...> EctoShorts.SchemaHelpers.all_created?(EctoShorts.Schemas.Post, posts)
       false
 
       # List where all posts have an id (all are persisted)
-      iex> posts_all_saved = [%EctoShorts.Schema.Post{id: 10}, %EctoShorts.Schema.Post{id: 11}]
-      ...> EctoShorts.SchemaHelpers.all_created?(EctoShorts.Schema.Post, posts_all_saved)
+      iex> posts_all_saved = [%EctoShorts.Schemas.Post{id: 10}, %EctoShorts.Schemas.Post{id: 11}]
+      ...> EctoShorts.SchemaHelpers.all_created?(EctoShorts.Schemas.Post, posts_all_saved)
       true
   """
   @spec all_created?(schema_module(), list(schema_struct() | params() | any())) :: boolean()
@@ -223,13 +223,13 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # List with a mix of persisted and non-persisted items
-      iex> data = [%EctoShorts.Schema.Post{id: nil}, %EctoShorts.Schema.Post{id: 5}, %{title: "Charlie"}]
-      ...> EctoShorts.SchemaHelpers.any_created?(EctoShorts.Schema.Post, data)
+      iex> data = [%EctoShorts.Schemas.Post{id: nil}, %EctoShorts.Schemas.Post{id: 5}, %{title: "Charlie"}]
+      ...> EctoShorts.SchemaHelpers.any_created?(EctoShorts.Schemas.Post, data)
       true
 
       # List where no item has been persisted yet (no ids present)
-      iex> new_data = [%EctoShorts.Schema.Post{id: nil}, %{title: "Dana"}]
-      ...> EctoShorts.SchemaHelpers.any_created?(EctoShorts.Schema.Post, new_data)
+      iex> new_data = [%EctoShorts.Schemas.Post{id: nil}, %{title: "Dana"}]
+      ...> EctoShorts.SchemaHelpers.any_created?(EctoShorts.Schemas.Post, new_data)
       false
   """
   @spec any_created?(schema_module(), list(schema_struct() | params() | any())) :: boolean()
@@ -258,17 +258,17 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # An Ecto schema struct with an id (persisted record)
-      iex> schema_struct = %EctoShorts.Schema.Post{id: 42}
-      ...> EctoShorts.SchemaHelpers.created?(EctoShorts.Schema.Post, schema_struct)
+      iex> schema_struct = %EctoShorts.Schemas.Post{id: 42}
+      ...> EctoShorts.SchemaHelpers.created?(EctoShorts.Schemas.Post, schema_struct)
       true
 
       # A changeset for an existing record (id present in data)
-      iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{id: 42})
-      ...> EctoShorts.SchemaHelpers.created?(EctoShorts.Schema.Post, changeset)
+      iex> changeset = Ecto.Changeset.change(%EctoShorts.Schemas.Post{id: 42})
+      ...> EctoShorts.SchemaHelpers.created?(EctoShorts.Schemas.Post, changeset)
       true
 
       # A map representing a new record (no id yet)
-      iex> EctoShorts.SchemaHelpers.created?(EctoShorts.Schema.Post, %{title: "example"})
+      iex> EctoShorts.SchemaHelpers.created?(EctoShorts.Schemas.Post, %{title: "example"})
       false
   """
   @spec created?(schema_module(), schema_struct() | params() | any()) :: boolean()
@@ -282,12 +282,12 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # A list where every element is an Ecto schema struct
-      iex> list = [%EctoShorts.Schema.Post{}, %EctoShorts.Schema.Comment{}]
+      iex> list = [%EctoShorts.Schemas.Post{}, %EctoShorts.Schemas.Comment{}]
       ...> EctoShorts.SchemaHelpers.all_schema?(list)
       true
 
       # A list with mixed types (one struct, one map)
-      iex> mixed_list = [%EctoShorts.Schema.Post{}, %{title: "Not a schema"}]
+      iex> mixed_list = [%EctoShorts.Schemas.Post{}, %{title: "Not a schema"}]
       ...> EctoShorts.SchemaHelpers.all_schema?(mixed_list)
       false
   """
@@ -301,7 +301,7 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # A list containing at least one Ecto struct
-      iex> items = [%EctoShorts.Schema.Post{}, %{id: 1, title: "Frank"}]
+      iex> items = [%EctoShorts.Schemas.Post{}, %{id: 1, title: "Frank"}]
       ...> EctoShorts.SchemaHelpers.any_schema?(items)
       true
 
@@ -319,7 +319,7 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.schema?(%EctoShorts.Schema.Post{})
+      iex> EctoShorts.SchemaHelpers.schema?(%EctoShorts.Schemas.Post{})
       true
 
       iex> EctoShorts.SchemaHelpers.schema?(%{title: "Not a schema"})
@@ -358,12 +358,12 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # Filtering primary key from a single params map
-      iex> EctoShorts.SchemaHelpers.filter_primary_keys(EctoShorts.Schema.Post, %{id: 10, title: "Fira", age: 30})
+      iex> EctoShorts.SchemaHelpers.filter_primary_keys(EctoShorts.Schemas.Post, %{id: 10, title: "Fira", age: 30})
       %{id: 10}
 
       # Filtering primary keys from a list of maps
       iex> list = [%{id: 1, title: "A"}, %{id: 2, title: "B"}, %{title: "C"}]
-      ...> EctoShorts.SchemaHelpers.filter_primary_keys(EctoShorts.Schema.Post, list)
+      ...> EctoShorts.SchemaHelpers.filter_primary_keys(EctoShorts.Schemas.Post, list)
       [%{id: 1}, %{id: 2}, %{}]
   """
   @spec filter_primary_keys(schema_module(), params() | list(params())) ::
@@ -402,13 +402,13 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # A list where one struct is missing its primary key
-      iex> records = [%EctoShorts.Schema.Post{id: 5}, %EctoShorts.Schema.Post{id: nil}, %{id: 8}]
-      ...> EctoShorts.SchemaHelpers.all_primary_key?(EctoShorts.Schema.Post, records)
+      iex> records = [%EctoShorts.Schemas.Post{id: 5}, %EctoShorts.Schemas.Post{id: nil}, %{id: 8}]
+      ...> EctoShorts.SchemaHelpers.all_primary_key?(EctoShorts.Schemas.Post, records)
       false
 
       # A list where every item has the primary key set (structs or maps)
-      iex> records = [%EctoShorts.Schema.Post{id: 5}, %{id: 6}]
-      ...> EctoShorts.SchemaHelpers.all_primary_key?(EctoShorts.Schema.Post, records)
+      iex> records = [%EctoShorts.Schemas.Post{id: 5}, %{id: 6}]
+      ...> EctoShorts.SchemaHelpers.all_primary_key?(EctoShorts.Schemas.Post, records)
       true
   """
   @spec all_primary_key?(schema_module(), list(params() | schema_struct())) :: boolean()
@@ -431,12 +431,12 @@ defmodule EctoShorts.SchemaHelpers do
 
       # List has one map with a full primary key (id present)
       iex> list = [%{id: nil}, %{id: 100}, %{title: "New"}]
-      ...> EctoShorts.SchemaHelpers.any_primary_key?(EctoShorts.Schema.Post, list)
+      ...> EctoShorts.SchemaHelpers.any_primary_key?(EctoShorts.Schemas.Post, list)
       true
 
       # No item in the list has a primary key
       iex> list2 = [%{id: nil}, %{title: "No ID"}]
-      ...> EctoShorts.SchemaHelpers.any_primary_key?(EctoShorts.Schema.Post, list2)
+      ...> EctoShorts.SchemaHelpers.any_primary_key?(EctoShorts.Schemas.Post, list2)
       false
   """
   @spec any_primary_key?(schema_module(), list(params() | schema_struct())) :: boolean()
@@ -453,7 +453,7 @@ defmodule EctoShorts.SchemaHelpers do
 
   It's flexible in terms of what `data` can be:
 
-  - If `data` is an Ecto schema struct (e.g., a `%EctoShorts.Schema.Post{}` struct), it
+  - If `data` is an Ecto schema struct (e.g., a `%EctoShorts.Schemas.Post{}` struct), it
     will go through each primary key field of that schema and ensure
     none of those fields are `nil` in the struct.
 
@@ -479,23 +479,23 @@ defmodule EctoShorts.SchemaHelpers do
   ## Examples
 
       # Ecto schema struct with primary key set
-      iex> post = %EctoShorts.Schema.Post{id: 7, title: "Helen"}
-      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schema.Post, post)
+      iex> post = %EctoShorts.Schemas.Post{id: 7, title: "Helen"}
+      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schemas.Post, post)
       true
 
       # Ecto changeset for a struct with primary key set
-      iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{id: 8, title: "Ian"})
-      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schema.Post, changeset)
+      iex> changeset = Ecto.Changeset.change(%EctoShorts.Schemas.Post{id: 8, title: "Ian"})
+      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schemas.Post, changeset)
       true
 
       # Map with all primary key fields present
       iex> attrs = %{"id" => 9, "name" => "Jill"}
-      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schema.Post, attrs)
+      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schemas.Post, attrs)
       true
 
       # Map missing the primary key
       iex> incomplete_attrs = %{title: "Kelly"}
-      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schema.Post, incomplete_attrs)
+      ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schemas.Post, incomplete_attrs)
       false
   """
   @spec primary_key?(Ecto.Queryable.t(), Ecto.Changeset.t() | Ecto.Schema.t() | map()) ::
@@ -539,11 +539,11 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schema.Post)
+      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.Post)
       [:id]
 
       # Example for a schema with composite primary keys (for illustration)
-      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schema.CompositePrimaryKey)
+      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.CompositePrimaryKey)
       [:comment_id, :post_id]
   """
   def primary_key(schema_module) do

@@ -3,7 +3,7 @@ defmodule EctoShorts.DynamicExpressions.PostgresTest do
   doctest EctoShorts.DynamicExpressions.Postgres
 
   alias EctoShorts.DynamicExpressions.Postgres
-  alias EctoShorts.Schema.Post
+  alias EctoShorts.Schemas.Post
 
   import Ecto.Query, only: [dynamic: 2]
   import EctoShorts.Testing, only: [assert_dynamic: 2]
