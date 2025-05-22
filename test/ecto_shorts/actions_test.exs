@@ -547,7 +547,7 @@ defmodule EctoShorts.ActionsTest do
                  details: %{
                    query: EctoShorts.Schemas.Post,
                    params: [%{title: "does_not_exist"}],
-                   failing_value: %{title: "does_not_exist"},
+                   failed_value: %{title: "does_not_exist"},
                    position: 0,
                    changes_so_far: []
                  }
@@ -564,7 +564,7 @@ defmodule EctoShorts.ActionsTest do
                  details: %{
                    query: {"posts", PostAbstract},
                    params: [%{title: "does_not_exist"}],
-                   failing_value: %{title: "does_not_exist"},
+                   failed_value: %{title: "does_not_exist"},
                    position: 0,
                    changes_so_far: []
                  }

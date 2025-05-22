@@ -38,7 +38,7 @@ defmodule EctoShorts.CommonQueries do
       import Ecto.Query
       query = from p in EctoShorts.Schemas.Post, as: :post
 
-      EctoShorts.CommonQueries.get_from_expr(query)
+      EctoShorts.CommonQueries.get_from_expression(query)
       %Ecto.Query.FromExpr{source: {"posts", EctoShorts.Schemas.Post}, ...}
 
   You can use the `get_from_expr/1` function that walks through the
@@ -81,8 +81,8 @@ defmodule EctoShorts.CommonQueries do
   alias Ecto.Queryable
   alias EctoShorts.SchemaHelpers
 
-  @type from_expr :: %Ecto.Query.FromExpr{} | map()
-  @type join_expr :: %Ecto.Query.JoinExpr{} | map()
+  @type from_expr :: %Ecto.Query.FromExpr{}
+  @type join_expr :: %Ecto.Query.JoinExpr{}
   @type subquery :: Ecto.SubQuery.t()
   @type query :: Ecto.Query.t()
   @type schema_module :: Ecto.Queryable.t()
@@ -139,8 +139,12 @@ defmodule EctoShorts.CommonQueries do
   def get_source(%{from: from_expr}), do: get_source(from_expr)
   def get_source(%{source: {_, _} = source}), do: source
   def get_source(%{source: source}), do: get_source(source)
-  def get_source({schema_source, schema_module}), do: {schema_source, schema_module} |> to_query() |> get_source()
-  def get_source(schema_module) when is_atom(schema_module), do: schema_module |> to_query() |> get_source()
+
+  def get_source({schema_source, schema_module}),
+    do: {schema_source, schema_module} |> to_query() |> get_source()
+
+  def get_source(schema_module) when is_atom(schema_module),
+    do: schema_module |> to_query() |> get_source()
 
   # ---
 
@@ -169,14 +173,14 @@ defmodule EctoShorts.CommonQueries do
         nil
 
       {%{assoc: _, on: _} = join_expr, _binding_position} ->
-        normalize_join_expression_source(join_expr, query)
+        resolve_join_expression_source(join_expr, query)
 
       {%{source: {_, _} = source} = _from_expr, _binding_position} ->
         source
     end
   end
 
-  defp normalize_join_expression_source(
+  defp resolve_join_expression_source(
          %{assoc: {parent_binding_position, assoc_key}} = _join_expr,
          %{from: from_expr, joins: joins} = query
        ) do
@@ -204,13 +208,13 @@ defmodule EctoShorts.CommonQueries do
             {nil, fetch_association_schema_module!(schema_module, assoc_key)}
           end
 
-        %{source: {_, parent_schema_module}} = _ref_join_expr ->
+        %{source: {_, parent_schema_module}} = _parent_join_expr ->
           assoc = parent_schema_module.__schema__(:association, assoc_key)
 
           {nil, assoc.queryable}
 
-        ref_join_expr ->
-          {_, parent_schema_module} = normalize_join_expression_source(ref_join_expr, query)
+        parent_join_expr ->
+          {_, parent_schema_module} = resolve_join_expression_source(parent_join_expr, query)
 
           assoc = parent_schema_module.__schema__(:association, assoc_key)
 
@@ -219,11 +223,11 @@ defmodule EctoShorts.CommonQueries do
     end
   end
 
-  defp normalize_join_expression_source(%{source: {_, _} = source} = _join_expr, _query) do
+  defp resolve_join_expression_source(%{source: {_, _} = source} = _join_expr, _query) do
     source
   end
 
-  defp normalize_join_expression_source(%{source: source} = _join_expr, _query) do
+  defp resolve_join_expression_source(%{source: source} = _join_expr, _query) do
     get_source(source)
   end
 
@@ -245,85 +249,89 @@ defmodule EctoShorts.CommonQueries do
   end
 
   def get_expression(query, binding_alias) when is_struct(query, Ecto.Query) do
-    extract_binding(query, 0, binding_alias)
+    extract_expression(query, 0, binding_alias)
   end
 
   def get_expression(query_source, binding_alias) do
     query_source
     |> to_query()
-    |> extract_binding(0, binding_alias)
+    |> extract_expression(0, binding_alias)
   end
 
-  defp extract_binding(nil, _pos, _binding_alias), do: nil
+  defp extract_expression(nil, _pos, _binding_alias), do: nil
 
-  defp extract_binding({_, _} = _source, _pos, _binding_alias), do: nil
+  defp extract_expression({_, _} = _source, _pos, _binding_alias), do: nil
 
-  defp extract_binding(%{from: from_expr, joins: join_exprs} = query, pos, binding_alias) when is_struct(query, Ecto.Query) do
-    with nil <- extract_binding(from_expr, pos, binding_alias) do
-      extract_binding(join_exprs, pos, binding_alias)
+  defp extract_expression(%{from: from_expr, joins: join_exprs} = query, pos, binding_alias)
+       when is_struct(query, Ecto.Query) do
+    with nil <- extract_expression(from_expr, pos, binding_alias) do
+      extract_expression(join_exprs, pos, binding_alias)
     end
   end
 
-  defp extract_binding(%{query: query} = subquery, pos, binding_alias)
+  defp extract_expression(%{query: query} = subquery, pos, binding_alias)
        when is_struct(subquery, Ecto.SubQuery) do
-    extract_binding(query, pos, binding_alias)
+    extract_expression(query, pos, binding_alias)
   end
 
-  defp extract_binding(%{as: as, source: {_, _}} = join_expr, pos, binding_alias) when is_struct(join_expr, Ecto.Query.JoinExpr)  do
+  defp extract_expression(%{as: as, source: {_, _}} = join_expr, pos, binding_alias)
+       when is_struct(join_expr, Ecto.Query.JoinExpr) do
     if as === binding_alias do
       {join_expr, pos}
     end
   end
 
-  defp extract_binding(%{as: as, source: source} = join_expr, pos, binding_alias) when is_struct(join_expr, Ecto.Query.JoinExpr) do
+  defp extract_expression(%{as: as, source: source} = join_expr, pos, binding_alias)
+       when is_struct(join_expr, Ecto.Query.JoinExpr) do
     if as === binding_alias do
       {join_expr, pos}
     else
-      extract_binding(source, pos, binding_alias)
+      extract_expression(source, pos, binding_alias)
     end
   end
 
-  defp extract_binding(%{as: as, source: {_, _}} = from_expr, _pos, binding_alias)
+  defp extract_expression(%{as: as, source: {_, _}} = from_expr, _pos, binding_alias)
        when is_struct(from_expr, Ecto.Query.FromExpr) do
     if as === binding_alias do
       {from_expr, 0}
     end
   end
 
-  defp extract_binding(%{as: as, source: source} = from_expr, _pos, binding_alias)
+  defp extract_expression(%{as: as, source: source} = from_expr, _pos, binding_alias)
        when is_struct(from_expr, Ecto.Query.FromExpr) do
     if as === binding_alias do
-      {resolve_schema_expression(from_expr), 0}
+      {resolve_root_expression(from_expr), 0}
     else
-      extract_binding(source, 0, binding_alias)
+      extract_expression(source, 0, binding_alias)
     end
   end
 
-  defp extract_binding([], _pos, _binding_alias), do: nil
+  defp extract_expression([], _pos, _binding_alias), do: nil
 
-  defp extract_binding([join_expr | join_exprs], pos, binding_alias) do
-    with nil <- extract_binding(join_expr, pos + 1, binding_alias) do
-      extract_binding(join_exprs, pos + 1, binding_alias)
+  defp extract_expression([join_expr | join_exprs], pos, binding_alias) do
+    with nil <- extract_expression(join_expr, pos + 1, binding_alias) do
+      extract_expression(join_exprs, pos + 1, binding_alias)
     end
   end
 
-  defp extract_binding(_, _, _), do: nil
+  defp extract_expression(_, _, _), do: nil
 
-  defp resolve_schema_expression(%{source: {_, _}} = expr) do
+  defp resolve_root_expression(%{source: {_, _}} = expr) do
     expr
   end
 
-  defp resolve_schema_expression(%{source: %{query: query}} = _expr) do
-    resolve_schema_expression(query)
+  defp resolve_root_expression(%{source: %{query: query}} = _expr) do
+    resolve_root_expression(query)
   end
 
-  defp resolve_schema_expression(%{source: _} = expr) do
+  defp resolve_root_expression(%{source: _} = expr) do
     expr
   end
 
   defp fetch_association_schema_module!(schema_module, key) do
     with nil <- SchemaHelpers.get_schema_association_module(schema_module, key) do
-      raise KeyError, "association not found on schema '#{inspect(schema_module)}', got: #{inspect(key)}"
+      raise KeyError,
+            "association not found on schema '#{inspect(schema_module)}', got: #{inspect(key)}"
     end
   end
 end

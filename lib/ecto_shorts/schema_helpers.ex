@@ -89,10 +89,10 @@ defmodule EctoShorts.SchemaHelpers do
       %{queryable: queryable} ->
         queryable
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
-
 
   @doc """
   Checks if the type of a given field on a schema is an array type.

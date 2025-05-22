@@ -751,6 +751,7 @@ defmodule EctoShorts.Actions do
                   query: query_source,
                   params: list_of_params,
                   changeset: changeset,
+                  failed_value: params,
                   position: idx
                 }}}
             end
@@ -812,7 +813,7 @@ defmodule EctoShorts.Actions do
               %{
                 query: query_source,
                 params: list_of_params,
-                failing_value: find_params,
+                failed_value: find_params,
                 position: idx
               }}}
 
@@ -827,6 +828,7 @@ defmodule EctoShorts.Actions do
                   query: query_source,
                   params: list_of_params,
                   changeset: changeset,
+                  failed_value: update_params,
                   position: idx
                 }}}
             end
@@ -908,6 +910,7 @@ defmodule EctoShorts.Actions do
                   query: query_source,
                   params: list_of_params,
                   changeset: changeset,
+                  failed_value: upsert_params,
                   position: idx
                 }}}
             end
@@ -965,6 +968,7 @@ defmodule EctoShorts.Actions do
               query: query_source,
               params: list_of_params,
               changeset: changeset,
+              failed_value: params,
               position: idx
             }}}
         end
@@ -1008,11 +1012,10 @@ defmodule EctoShorts.Actions do
              |> repo.one(opts) do
           nil ->
             {:error,
-             {:not_found, "Record not found.",
-              %{
+             {:not_found, "Record not found.", %{
                 query: query_source,
                 params: list_of_params,
-                failing_value: params,
+                failed_value: params,
                 position: idx
               }}}
 
@@ -1065,6 +1068,7 @@ defmodule EctoShorts.Actions do
               query: CommonSchemas.get_metadata(entry),
               params: entries,
               changeset: changeset,
+              failed_value: entry,
               position: idx
             }}}
         end
