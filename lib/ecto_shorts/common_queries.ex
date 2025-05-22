@@ -258,10 +258,6 @@ defmodule EctoShorts.CommonQueries do
     |> extract_expression(0, binding_alias)
   end
 
-  defp extract_expression(nil, _pos, _binding_alias), do: nil
-
-  defp extract_expression({_, _} = _source, _pos, _binding_alias), do: nil
-
   defp extract_expression(%{from: from_expr, joins: join_exprs} = query, pos, binding_alias)
        when is_struct(query, Ecto.Query) do
     with nil <- extract_expression(from_expr, pos, binding_alias) do
@@ -274,26 +270,12 @@ defmodule EctoShorts.CommonQueries do
     extract_expression(query, pos, binding_alias)
   end
 
-  defp extract_expression(%{as: as, source: {_, _}} = join_expr, pos, binding_alias)
-       when is_struct(join_expr, Ecto.Query.JoinExpr) do
-    if as === binding_alias do
-      {join_expr, pos}
-    end
-  end
-
   defp extract_expression(%{as: as, source: source} = join_expr, pos, binding_alias)
        when is_struct(join_expr, Ecto.Query.JoinExpr) do
     if as === binding_alias do
       {join_expr, pos}
     else
       extract_expression(source, pos, binding_alias)
-    end
-  end
-
-  defp extract_expression(%{as: as, source: {_, _}} = from_expr, _pos, binding_alias)
-       when is_struct(from_expr, Ecto.Query.FromExpr) do
-    if as === binding_alias do
-      {from_expr, 0}
     end
   end
 
