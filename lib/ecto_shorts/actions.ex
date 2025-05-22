@@ -1012,7 +1012,8 @@ defmodule EctoShorts.Actions do
              |> repo.one(opts) do
           nil ->
             {:error,
-             {:not_found, "Record not found.", %{
+             {:not_found, "Record not found.",
+              %{
                 query: query_source,
                 params: list_of_params,
                 failed_value: params,
@@ -1396,7 +1397,8 @@ defmodule EctoShorts.Actions do
   @spec find(query_source(), params(), opts()) :: {:ok, schema_struct()} | {:error, any()}
   def find(query_source, params, opts \\ [])
 
-  def find(query_source, params, opts) when params === %{} do
+  def find(query_source, params, opts)
+      when params === %{} and not is_struct(query_source, Ecto.Query) do
     {:error,
      Error.call(
        :not_found,
