@@ -8,9 +8,9 @@ defmodule EctoShorts.CommonChangesTest do
     Actions,
     CommonChanges,
     Repo,
-    Schema.Comment,
-    Schema.Post,
-    Schema.User
+    Schemas.Comment,
+    Schemas.Post,
+    Schemas.User
   }
 
   describe "put_when: " do

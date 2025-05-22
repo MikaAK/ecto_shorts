@@ -190,7 +190,9 @@ defmodule EctoShorts.CommonFilters do
 
     schema_module =
       with nil <- schema_module do
-        CommonSchemas.get_source_and_schema(query_source, :schema)
+        {_, schema_module} = CommonSchemas.get_source(query_source)
+
+        schema_module
       end
 
     binding_alias = params[:as]
@@ -226,7 +228,7 @@ defmodule EctoShorts.CommonFilters do
   end
 
   def convert_params_to_filter(query_source, params, opts) do
-    schema_module = CommonSchemas.get_source_and_schema(query_source, :schema)
+    {_, schema_module} = CommonSchemas.get_source(query_source)
 
     {binding_alias, params} = Keyword.pop(params, :as)
 

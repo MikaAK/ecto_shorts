@@ -7,54 +7,54 @@ defmodule EctoShorts.SchemaHelpers do
 
   @type ecto_type :: Ecto.Type.t()
   @type schema_module :: Ecto.Queryable.t()
-  @type schema_struct :: Ecto.Schema.t()
+  @type schema_struct :: Ecto.Schemas.t()
 
   @type key :: atom()
   @type params :: map()
 
   @doc """
-  This is a simple wrapper function for `get_association_schema_module/2`
+  This is a simple wrapper function for `get_schema_association_module/2`
   that returns the atom `:error` if the association key is not found on
   the given Ecto schema module.
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module!(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module!(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module!(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module!(EctoShorts.Schemas.Post, :does_not_exist)
       ** (ArgumentError) association key not found for the schema EctoShorts.Schemas.Post, got: :does_not_exist
   """
-  @spec fetch_association_schema_module!(schema_module(), key()) :: schema_module()
-  def fetch_association_schema_module!(schema_module, key) do
-    with :error <- fetch_association_schema_module(schema_module, key) do
+  @spec fetch_schema_association_module!(schema_module(), key()) :: schema_module()
+  def fetch_schema_association_module!(schema_module, key) do
+    with :error <- fetch_schema_association_module(schema_module, key) do
       raise ArgumentError,
             "association key not found for the schema #{inspect(schema_module)}, got: #{inspect(key)}"
     end
   end
 
   @doc """
-  This is a simple wrapper function for `get_association_schema_module/2`
+  This is a simple wrapper function for `get_schema_association_module/2`
   that returns the atom `:error` if the association key is not found on
   the given Ecto schema module.
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.fetch_association_schema_module(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module(EctoShorts.Schemas.Post, :does_not_exist)
       :error
   """
-  @spec fetch_association_schema_module(schema_module(), key()) :: schema_module() | :error
-  def fetch_association_schema_module(schema_module, key) do
-    with nil <- get_association_schema_module(schema_module, key) do
+  @spec fetch_schema_association_module(schema_module(), key()) :: schema_module() | :error
+  def fetch_schema_association_module(schema_module, key) do
+    with nil <- get_schema_association_module(schema_module, key) do
       :error
     end
   end
@@ -69,30 +69,30 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.get_schema_association_module(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.get_schema_association_module(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.get_association_schema_module(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.get_schema_association_module(EctoShorts.Schemas.Post, :does_not_exist)
       nil
   """
-  @spec get_association_schema_module(schema_module(), key()) :: schema_module() | nil
-  def get_association_schema_module(schema_module, key) do
+  @spec get_schema_association_module(schema_module(), key()) :: schema_module() | nil
+  def get_schema_association_module(schema_module, key) do
     case schema_module.__schema__(:association, key) do
       %{through: [field1, field2]} ->
         schema_module
-        |> get_association_schema_module(field1)
-        |> get_association_schema_module(field2)
+        |> get_schema_association_module(field1)
+        |> get_schema_association_module(field2)
 
-      %{related: related} ->
-        related
+      %{queryable: queryable} ->
+        queryable
 
-      nil ->
-        nil
+      _ -> nil
     end
   end
+
 
   @doc """
   Checks if the type of a given field on a schema is an array type.
@@ -498,7 +498,7 @@ defmodule EctoShorts.SchemaHelpers do
       ...> EctoShorts.SchemaHelpers.primary_key?(EctoShorts.Schemas.Post, incomplete_attrs)
       false
   """
-  @spec primary_key?(Ecto.Queryable.t(), Ecto.Changeset.t() | Ecto.Schema.t() | map()) ::
+  @spec primary_key?(Ecto.Queryable.t(), Ecto.Changeset.t() | Ecto.Schemas.t() | map()) ::
           boolean()
   def primary_key?(schema_module, %{data: %{__meta__: _} = schema_struct}) do
     primary_key?(schema_module, schema_struct)

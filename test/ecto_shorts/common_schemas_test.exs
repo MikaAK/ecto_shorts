@@ -45,37 +45,21 @@ defmodule EctoShorts.CommonSchemasTest do
     end
   end
 
-  describe "get_source_and_schema/1" do
+  describe "get_source/1" do
     test "when given a schema module, returns database table name" do
       assert {"posts", PostHasSchemaPrefix} =
-               CommonSchemas.get_source_and_schema(PostHasSchemaPrefix)
+               CommonSchemas.get_source(PostHasSchemaPrefix)
     end
 
     test "when given an {source, schema} tuple, returns database table name" do
       assert {"posts", PostAbstractHasSchemaPrefix} =
-               CommonSchemas.get_source_and_schema({"posts", PostAbstractHasSchemaPrefix})
+               CommonSchemas.get_source({"posts", PostAbstractHasSchemaPrefix})
     end
 
     test "when given an ecto query, returns {binary, queryable}" do
       query = from p in PostHasSchemaPrefix, as: :posts
 
-      assert {"posts", PostHasSchemaPrefix} = CommonSchemas.get_source_and_schema(query)
-    end
-  end
-
-  describe "get_source_and_schema/2" do
-    test "when given a schema module, returns schema module" do
-      assert Post = CommonSchemas.get_source_and_schema(Post, :schema)
-    end
-
-    test "when given an {source, schema} tuple, returns schema module" do
-      assert PostAbstract = CommonSchemas.get_source_and_schema({"posts", PostAbstract}, :schema)
-    end
-
-    test "when given an ecto query, returns schema module" do
-      query = from p in Post, as: :posts
-
-      assert Post = CommonSchemas.get_source_and_schema(query, :schema)
+      assert {"posts", PostHasSchemaPrefix} = CommonSchemas.get_source(query)
     end
   end
 

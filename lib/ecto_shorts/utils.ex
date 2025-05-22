@@ -1,7 +1,7 @@
 defmodule EctoShorts.Utils do
   @moduledoc false
 
-  @type schema_data :: Ecto.Schema.t()
+  @type schema_data :: Ecto.Schemas.t()
   @type acc :: any()
   @type input :: any()
   @type callback :: (any(), any() -> any())

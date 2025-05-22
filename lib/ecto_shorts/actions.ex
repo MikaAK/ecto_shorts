@@ -133,7 +133,7 @@ defmodule EctoShorts.Actions do
   @type sourceable :: schema_module() | source_and_schema()
   @type query_source :: query() | sourceable()
   @type changeset :: Ecto.Changeset.t()
-  @type schema_struct :: Ecto.Schema.t()
+  @type schema_struct :: Ecto.Schemas.t()
   @type schema_or_changeset :: schema_or_changeset()
   @type schema_struct_or_structs :: schema_struct() | list(schema_struct())
   @type schema_or_map :: schema_struct() | map()
@@ -495,7 +495,7 @@ defmodule EctoShorts.Actions do
 
   @doc false
   def match_id(query_source, match_keys, data) do
-    schema_module = CommonSchemas.get_source_and_schema(query_source, :schema)
+    {_, schema_module} = CommonSchemas.get_source(query_source)
 
     if has_all_keys?(match_keys, data) do
       Map.take(data, match_keys)
@@ -598,7 +598,7 @@ defmodule EctoShorts.Actions do
   @spec insert_all(query_source(), list(params()), opts()) ::
           {:ok, insert_all_response()} | {:error, any()}
   def insert_all(query_source, list_of_params, opts \\ []) do
-    schema_module = CommonSchemas.get_source_and_schema(query_source, :schema)
+    {_, schema_module} = CommonSchemas.get_source(query_source)
 
     with {:ok, inserts, insert_opts} <-
            CommonParams.convert_to_insert_all_params(
@@ -659,7 +659,8 @@ defmodule EctoShorts.Actions do
 
     updates =
       query_source
-      |> CommonSchemas.get_source_and_schema(:schema)
+      |> CommonSchemas.get_source()
+      |> elem(1)
       |> CommonParams.convert_to_update_all_params(update_params, opts)
 
     query_source

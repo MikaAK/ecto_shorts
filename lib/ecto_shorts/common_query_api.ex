@@ -516,12 +516,7 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   def join(query, binding_alias, assoc_as, :association, key, params, opts) do
-    schema_module =
-      CommonQueries.fetch_binding_expr_source_and_schema!(
-        query,
-        binding_alias,
-        :schema
-      )
+    {_, assoc_schema_module} = CommonQueries.fetch_expression_source!(query, binding_alias)
 
     qual = params[:qualifier] || :inner
 
@@ -530,18 +525,13 @@ defmodule EctoShorts.CommonQueryAPI do
     on =
       params
       |> Map.get(:on, true)
-      |> join_on(assoc_as, schema_module, opts)
+      |> join_on(assoc_as, assoc_schema_module, opts)
 
     query_join_assoc(query, binding_alias, assoc_as, key, {qual, on, prefix})
   end
 
   def join(query, binding_alias, subquery_as, :subquery, subquery_data, params, opts) do
-    schema_module =
-      CommonQueries.fetch_binding_expr_source_and_schema!(
-        query,
-        binding_alias,
-        :schema
-      )
+    {_, subquery_schema_module} = CommonQueries.fetch_expression_source!(query, binding_alias)
 
     qual = params[:qualifier] || :inner
 
@@ -550,7 +540,7 @@ defmodule EctoShorts.CommonQueryAPI do
     on =
       params
       |> Map.get(:on, true)
-      |> join_on(subquery_as, schema_module, opts)
+      |> join_on(subquery_as, subquery_schema_module, opts)
 
     query_join_subquery(
       query,
@@ -685,15 +675,14 @@ defmodule EctoShorts.CommonQueryAPI do
     if Map.has_key?(params, :expression) do
       do_or_where(query, binding_alias, params[:expression])
     else
-      {schema_module, params} = Map.pop(params, :schema)
+      {schema_module, params} = Map.pop(params, :queryable)
 
       schema_module =
         with nil <- schema_module do
-          CommonQueries.fetch_binding_expr_source_and_schema!(
-            query,
-            binding_alias,
-            :schema
-          )
+          {_schema_source, schema_module} =
+            CommonQueries.fetch_expression_source!(query, binding_alias)
+
+          schema_module
         end
 
       expr = dynamic(schema_module, binding_alias, params, opts)
@@ -710,6 +699,7 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
+  @spec where(any(), any(), maybe_improper_list() | map(), any()) :: any()
   def where(query, binding_alias, params, opts) when is_list(params) do
     if Keyword.keyword?(params) do
       where(query, binding_alias, Map.new(params), opts)
@@ -724,15 +714,13 @@ defmodule EctoShorts.CommonQueryAPI do
     if Map.has_key?(params, :expression) do
       do_where(query, binding_alias, params[:expression])
     else
-      {schema_module, params} = Map.pop(params, :schema)
+      {schema_module, params} = Map.pop(params, :queryable)
 
       schema_module =
         with nil <- schema_module do
-          CommonQueries.fetch_binding_expr_source_and_schema!(
-            query,
-            binding_alias,
-            :schema
-          )
+          {_, schema_module} = CommonQueries.fetch_expression_source!(query, binding_alias)
+
+          schema_module
         end
 
       expr = dynamic(schema_module, binding_alias, params, opts)

@@ -388,13 +388,22 @@ defmodule EctoShorts.QueryBuilders.Schema do
   defp join_association(query, binding_alias, schema_module, assoc_key, params, opts) do
     {assoc_as, params} = Map.pop(params, :as)
 
-    assoc_schema_module = SchemaHelpers.fetch_association_schema_module!(schema_module, assoc_key)
+    {assoc_schema_module, params} = Map.pop(params, :queryable)
+
+    assoc_schema_module =
+      if is_nil(assoc_schema_module) do
+        SchemaHelpers.fetch_schema_association_module!(schema_module, assoc_key)
+      else
+        assoc_schema_module
+      end
 
     assoc_as =
-      with nil <- assoc_as do
+      if is_nil(assoc_as) do
         assoc_key
         |> named_binding()
         |> String.to_atom()
+      else
+        assoc_as
       end
 
     query
@@ -422,24 +431,31 @@ defmodule EctoShorts.QueryBuilders.Schema do
   defp join_subquery(query, binding_alias, params, opts) do
     {subquery_as, params} = Map.pop(params, :as)
 
-    {subquery_schema_module, params} = Map.pop(params, :queryable)
+    {inner_query, params} =
+      if Map.has_key?(params, :query) do
+        Map.pop(params, :query)
+      else
+        raise KeyError, "key :query not found, got: #{inspect(params)}"
+      end
 
-    {subquery_from, params} = Map.pop(params, :query)
+    {subquery_schema_module, params} = Map.pop(params, :queryable)
 
     subquery_schema_module =
       if is_nil(subquery_schema_module) do
-        subquery_from
-        |> CommonQueries.fetch_binding_expr_source_and_schema!(subquery_as)
+        inner_query
+        |> CommonQueries.fetch_expression_source!(subquery_as)
         |> elem(1)
       else
         subquery_schema_module
       end
 
     subquery_as =
-      with nil <- subquery_as do
+      if is_nil(subquery_as) do
         subquery_schema_module
         |> named_binding_from_module()
         |> String.to_atom()
+      else
+        subquery_as
       end
 
     query
@@ -447,7 +463,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       binding_alias,
       subquery_as,
       :subquery,
-      subquery_from,
+      inner_query,
       take_join_keys(params),
       opts
     )

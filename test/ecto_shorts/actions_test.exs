@@ -6,9 +6,9 @@ defmodule EctoShorts.ActionsTest do
   alias EctoShorts.{
     Actions,
     Repo,
-    Schema.PostAbstract,
-    Schema.Post,
-    Schema.PostNoPrimaryKey
+    Schemas.PostAbstract,
+    Schemas.Post,
+    Schemas.PostNoPrimaryKey
   }
 
   def insert!(repo, {schema_source, schema_module}, params) do

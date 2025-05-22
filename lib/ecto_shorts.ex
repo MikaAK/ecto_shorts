@@ -28,7 +28,7 @@ defmodule EctoShorts do
   For example, the following function:
 
   ```elixir
-  Actions.all(EctoShorts.Support.Schema.Post, %{
+  Actions.all(EctoShorts.Support.Schemas.Post, %{
     title: %{ilike: "blog post"},
     body: "body",
     likes: %{gte: 0, lte: 50},
@@ -41,7 +41,7 @@ defmodule EctoShorts do
 
   ```elixir
   query =
-    from p in EctoShorts.Support.Schema.Post,
+    from p in EctoShorts.Support.Schemas.Post,
       preload: [:comments],
       limit: 5,
       where: p.body == "body" and
@@ -55,7 +55,7 @@ defmodule EctoShorts do
   extends to the  `Ecto.Changeset` api. The following function
 
   ```elixir
-  Actions.create(EctoShorts.Support.Schema.Post, %{
+  Actions.create(EctoShorts.Support.Schemas.Post, %{
     title: "blog post",
     body: "body",
     likes: 10,
@@ -66,9 +66,9 @@ defmodule EctoShorts do
   is equivalent to
 
   ```elixir
-  EctoShorts.Support.Schema.Post
+  EctoShorts.Support.Schemas.Post
   |> struct()
-  |> EctoShorts.Support.Schema.Post.changeset(%{
+  |> EctoShorts.Support.Schemas.Post.changeset(%{
     title: "blog post",
     body: "body",
     likes: 10,
@@ -91,7 +91,7 @@ defmodule EctoShorts do
 
   ```elixir
   query =
-    from c in EctoShorts.Support.Schema.Post,
+    from c in EctoShorts.Support.Schemas.Post,
       where: c.id == 1
 
   EctoShorts.Repo.one(query)
@@ -100,13 +100,13 @@ defmodule EctoShorts do
   you can write it as
 
   ```elixir
-  EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Support.Schema.Post, %{id: 1})
+  EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Support.Schemas.Post, %{id: 1})
   ```
 
   This api also works with associations
 
   ```elixir
-  EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Support.Schema.Post, %{id: 1, comments: %{id: 1}})
+  EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Support.Schemas.Post, %{id: 1, comments: %{id: 1}})
   ```
 
   See `EctoShorts.QueryBuilders` for more info on information on
@@ -191,7 +191,7 @@ defmodule EctoShorts do
 
   ## Abstract tables / Polymorphic associations
 
-  In [Ecto](https://hexdocs.pm/ecto/Ecto.Schema.html#belongs_to/3-polymorphic-associations), abstract schemas allow
+  In [Ecto](https://hexdocs.pm/ecto/Ecto.Schemas.html#belongs_to/3-polymorphic-associations), abstract schemas allow
   defining database schemas without tying them to an actual
   database table. This lets you describe data structures
   and relationships without persisting them directly to

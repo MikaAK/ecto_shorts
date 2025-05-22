@@ -3,7 +3,7 @@ defmodule EctoShorts.QueryBuilders.CommonTest do
   doctest EctoShorts.QueryBuilders.Common
 
   alias EctoShorts.QueryBuilders.Common
-  alias EctoShorts.Support.Schema.Comment
+  alias EctoShorts.Support.Schemas.Comment
 
   describe "filters: " do
     test "returns expected list" do

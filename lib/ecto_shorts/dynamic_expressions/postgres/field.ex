@@ -81,6 +81,30 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
 
   """
   @spec create_dynamic(binding_alias() | nil, any(), operator(), any()) :: dynamic_expr()
+  def create_dynamic(binding_alias, key, :eq, value) do
+    create_dynamic(binding_alias, key, :==, value)
+  end
+
+  def create_dynamic(binding_alias, key, :not, value) do
+    create_dynamic(binding_alias, key, :!=, value)
+  end
+
+  def create_dynamic(binding_alias, key, :lt, value) do
+    create_dynamic(binding_alias, key, :<, value)
+  end
+
+  def create_dynamic(binding_alias, key, :gt, value) do
+    create_dynamic(binding_alias, key, :>, value)
+  end
+
+    def create_dynamic(binding_alias, key, :lte, value) do
+    create_dynamic(binding_alias, key, :<=, value)
+  end
+
+  def create_dynamic(binding_alias, key, :gte, value) do
+    create_dynamic(binding_alias, key, :>=, value)
+  end
+
   def create_dynamic(binding_alias, key, :=~, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], fragment("? ~* ?", field(q, ^key), ^value))

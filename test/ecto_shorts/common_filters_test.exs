@@ -4,7 +4,7 @@ defmodule EctoShorts.CommonFiltersTest do
 
   alias EctoShorts.{
     CommonFilters,
-    Schema.Post
+    Schemas.Post
   }
 
   import Ecto.Query, only: [from: 2]

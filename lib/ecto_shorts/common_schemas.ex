@@ -6,14 +6,14 @@ defmodule EctoShorts.CommonSchemas do
 
   ## Polymorphic Associations
 
-  This module supports [polymorphic associations](https://hexdocs.pm/ecto/Ecto.Schema.html#belongs_to/3-polymorphic-associations)
+  This module supports [polymorphic associations](https://hexdocs.pm/ecto/Ecto.Schemas.html#belongs_to/3-polymorphic-associations)
   by allowing you to use a `{source :: binary(), queryable :: Ecto.Queryable.t()}` tuple
   in place of a traditional schema module. This is useful when you want to query
   different tables using a shared schema definition.
 
   For example:
 
-      EctoSchema.Actions.all({"posts", EctoShorts.Schemas.PostAbstract}, %{id: 1})
+      EctoSchemas.Actions.all({"posts", EctoShorts.Schemas.PostAbstract}, %{id: 1})
 
   In this example, the query runs against the "posts" table instead of the default
   source defined in the schema. When both a `source` and `queryable` are provided,
@@ -28,10 +28,10 @@ defmodule EctoShorts.CommonSchemas do
   @type query :: Ecto.Query.t()
   @type schema_module :: Ecto.Queryable.t()
   @type schema_source :: binary()
-  @type schema_struct :: Ecto.Schema.t()
+  @type schema_struct :: Ecto.Schemas.t()
   @type schema_metadata :: Ecto.Schema.Metadata.t()
-  @type source_and_schema :: {schema_source(), schema_module()}
-  @type sourceable :: schema_module() | source_and_schema()
+  @type abstract_source :: {schema_source() | nil, schema_module()}
+  @type sourceable :: schema_module() | abstract_source()
   @type schema_attribute :: :schema | :source
   @type query_source :: query() | sourceable()
   @type changeset :: Ecto.Changeset.t()
@@ -102,75 +102,34 @@ defmodule EctoShorts.CommonSchemas do
 
   ## Examples
 
-      iex> EctoShorts.CommonSchemas.get_source_and_schema(%EctoShorts.Schemas.Post{})
+      iex> EctoShorts.CommonSchemas.get_source(%EctoShorts.Schemas.Post{})
       {"posts", EctoShorts.Schemas.Post}
 
-      iex> EctoShorts.CommonSchemas.get_source_and_schema({"posts", EctoShorts.Schemas.PostAbstract})
+      iex> EctoShorts.CommonSchemas.get_source({"posts", EctoShorts.Schemas.PostAbstract})
       {"posts", EctoShorts.Schemas.PostAbstract}
 
-      iex> EctoShorts.CommonSchemas.get_source_and_schema(EctoShorts.Schemas.Post)
+      iex> EctoShorts.CommonSchemas.get_source(EctoShorts.Schemas.Post)
       {"posts", EctoShorts.Schemas.Post}
   """
-  @spec get_source_and_schema(schema_struct() | sourceable() | query_source()) ::
-          source_and_schema()
-  def get_source_and_schema(%{__meta__: %{schema: schema_module, source: schema_source}}) do
+  @spec get_source(schema_struct() | sourceable() | query_source()) :: abstract_source()
+  def get_source(%{__meta__: %{schema: schema_module, source: schema_source}}) do
     {schema_source, schema_module}
   end
 
-  def get_source_and_schema({schema_source, schema_module}) do
+  def get_source({schema_source, schema_module}) do
     {schema_source, schema_module}
   end
 
-  def get_source_and_schema(schema_module) when is_atom(schema_module) do
+  def get_source(schema_module) when is_atom(schema_module) do
     if function_exported?(schema_module, :__schema__, 1) do
       {schema_module.__schema__(:source), schema_module}
     else
-      CommonQueries.get_from_expr(schema_module, :source)
+      CommonQueries.fetch_source!(schema_module)
     end
   end
 
-  def get_source_and_schema(query) do
-    CommonQueries.get_from_expr(query, :source)
-  end
-
-  @doc """
-  Returns the database table name if they key is `:source` otherwise
-  the schema module if the key is `:schema`.
-
-  ## Examples
-
-      iex> EctoShorts.CommonSchemas.get_source_and_schema({"posts", EctoShorts.Schemas.PostAbstract}, :schema)
-      EctoShorts.Schemas.PostAbstract
-
-      iex> EctoShorts.CommonSchemas.get_source_and_schema({"custom_table_name", EctoShorts.Schemas.PostAbstract}, :source)
-      "custom_table_name"
-
-      iex> EctoShorts.CommonSchemas.get_source_and_schema(EctoShorts.Schemas.Post, :schema)
-      EctoShorts.Schemas.Post
-
-      iex> EctoShorts.CommonSchemas.get_source_and_schema(EctoShorts.Schemas.Post, :source)
-      "posts"
-
-      iex> EctoShorts.CommonSchemas.get_source_and_schema(%EctoShorts.Schemas.Post{}, :schema)
-      EctoShorts.Schemas.Post
-
-      iex> EctoShorts.CommonSchemas.get_source_and_schema(%EctoShorts.Schemas.Post{}, :source)
-      "posts"
-  """
-  @spec get_source_and_schema(
-          schema_struct() | sourceable() | query_source(),
-          schema_attribute()
-        ) :: any()
-  def get_source_and_schema(schema_input, :schema) do
-    {_schema_source, schema_module} = get_source_and_schema(schema_input)
-
-    schema_module
-  end
-
-  def get_source_and_schema(schema_input, :source) do
-    {schema_source, _schema_module} = get_source_and_schema(schema_input)
-
-    schema_source
+  def get_source(query) do
+    CommonQueries.fetch_source!(query)
   end
 
   @doc """
