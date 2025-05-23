@@ -282,7 +282,7 @@ defmodule EctoShorts.CommonQueries do
   defp extract_expression(%{as: as, source: source} = from_expr, _pos, binding_alias)
        when is_struct(from_expr, Ecto.Query.FromExpr) do
     if as === binding_alias do
-      {resolve_root_expression(from_expr), 0}
+      {get_root_from_expr(from_expr), 0}
     else
       extract_expression(source, 0, binding_alias)
     end
@@ -298,16 +298,26 @@ defmodule EctoShorts.CommonQueries do
 
   defp extract_expression(_, _, _), do: nil
 
-  defp resolve_root_expression(%{source: {_, _}} = expr) do
+  defp get_root_from_expr(%{source: {_, _}} = expr) do
     expr
   end
 
-  defp resolve_root_expression(%{source: %{query: query}} = _expr) do
-    resolve_root_expression(query)
+  defp get_root_from_expr(%{query: query} = _subquery) do
+    get_root_from_expr(query)
   end
 
-  defp resolve_root_expression(%{source: _} = expr) do
-    expr
+  defp get_root_from_expr(%{from: from} = _query) do
+    get_root_from_expr(from)
+  end
+
+  defp get_root_from_expr(%{source: source} = expr) do
+    with nil <- get_root_from_expr(source) do
+      expr
+    end
+  end
+
+  defp get_root_from_expr(_) do
+    nil
   end
 
   defp fetch_association_schema_module!(schema_module, key) do
