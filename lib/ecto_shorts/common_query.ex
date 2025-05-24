@@ -279,7 +279,7 @@ defmodule EctoShorts.CommonQuery do
   def get_binding_expr_source(query, binding_alias) do
     case get_binding_expr(query, binding_alias) do
       {join_expr, _} when is_struct(join_expr, Ecto.Query.JoinExpr) ->
-        fetch_join_expr_source!(join_expr, query)
+        resolve_join_expr_source(join_expr, query)
 
       {%{source: source} = _expr, _} ->
         source
@@ -289,7 +289,7 @@ defmodule EctoShorts.CommonQuery do
     end
   end
 
-  defp fetch_join_expr_source!(
+  defp resolve_join_expr_source(
          %{assoc: {parent_binding_position, parent_key}} = join_expr,
          %{from: from_expr, joins: joins} = query
        ) do
@@ -315,7 +315,7 @@ defmodule EctoShorts.CommonQuery do
           # top level of the query if might exist in a subquery so we
           # have to continue searching.
           if has_subquery?(from_expr) do
-            fetch_join_expr_source!(join_expr, get_inner_query(query))
+            resolve_join_expr_source(join_expr, get_inner_query(query))
           else
             raise ArgumentError,
                   """
@@ -359,7 +359,7 @@ defmodule EctoShorts.CommonQuery do
           {nil, assoc_schema}
 
         parent_join_expr ->
-          {_, parent_schema} = fetch_join_expr_source!(parent_join_expr, query)
+          {_, parent_schema} = resolve_join_expr_source(parent_join_expr, query)
 
           assoc = parent_schema.__schema__(:association, parent_key)
 
@@ -375,7 +375,7 @@ defmodule EctoShorts.CommonQuery do
     end
   end
 
-  defp fetch_join_expr_source!(%{source: source} = join_expr, query) do
+  defp resolve_join_expr_source(%{source: source} = join_expr, query) do
     with nil <- get_schema_source(source) do
       raise ArgumentError,
             """
@@ -418,10 +418,6 @@ defmodule EctoShorts.CommonQuery do
           """
   end
 
-  defp assoc_type_name(assoc) when is_struct(assoc, Ecto.Association.BelongsTo) do
-    "belongs_to"
-  end
-
   defp assoc_type_name(%{cardinality: :one} = assoc)
        when is_struct(assoc, Ecto.Association.Has) do
     "has_one"
@@ -430,16 +426,6 @@ defmodule EctoShorts.CommonQuery do
   defp assoc_type_name(%{cardinality: :many} = assoc)
        when is_struct(assoc, Ecto.Association.Has) do
     "has_many"
-  end
-
-  defp assoc_type_name(%{cardinality: :many} = assoc)
-       when is_struct(assoc, Ecto.Association.HasThrough) do
-    "has_through"
-  end
-
-  defp assoc_type_name(%{cardinality: :many} = assoc)
-       when is_struct(assoc, Ecto.Association.ManyToMany) do
-    "many_to_many"
   end
 
   defp assoc_type_name(%module{}) do

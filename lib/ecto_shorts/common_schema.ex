@@ -22,7 +22,7 @@ defmodule EctoShorts.CommonSchema do
   This approach allows reusing schema modules across different tables,
   as long as the table structure matches the schema definition.
   """
-  alias EctoShorts.CommonQuery
+  alias EctoShorts.{CommonChanges, CommonQuery}
 
   @type query :: Ecto.Query.t()
   @type schema :: Ecto.Queryable.t()
@@ -366,7 +366,7 @@ defmodule EctoShorts.CommonSchema do
   defp normalize_schema(schema), do: schema
 
   defp to_changeset(schema, struct_or_changeset, params, nil) do
-    schema.changeset(struct_or_changeset, params)
+    CommonChanges.changeset(schema, struct_or_changeset, params)
   end
 
   defp to_changeset(_schema, struct_or_changeset, params, {module, fun, args}) do
@@ -386,12 +386,12 @@ defmodule EctoShorts.CommonSchema do
   end
 
   defp to_changeset(schema, struct_or_changeset, params, fun) when is_function(fun, 1) do
-    struct_or_changeset
-    |> schema.changeset(params)
+    schema
+    |> CommonChanges.changeset(struct_or_changeset, params)
     |> fun.()
   end
 
   defp to_changeset(schema, struct_or_changeset, params, changes) when is_map(changes) do
-    schema.changeset(struct_or_changeset, Map.merge(params, changes))
+    CommonChanges.changeset(schema, struct_or_changeset, Map.merge(params, changes))
   end
 end

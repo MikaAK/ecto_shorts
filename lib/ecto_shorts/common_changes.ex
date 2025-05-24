@@ -283,28 +283,22 @@ defmodule EctoShorts.CommonChanges do
   end
 
   def changeset(%{data: %{__meta__: %{schema: schema}}} = changeset, params) do
-    if function_exported?(schema, :changeset, 2) do
-      schema.changeset(changeset, params)
-    else
-      Ecto.Changeset.change(changeset, params)
-    end
+    changeset(schema, changeset, params)
   end
 
   def changeset(%{__meta__: %{schema: schema}} = schema_data, params) do
-    if function_exported?(schema, :changeset, 2) do
-      schema.changeset(schema_data, params)
-    else
-      Ecto.Changeset.change(schema_data)
-    end
+    changeset(schema, schema_data, params)
   end
 
   def changeset(schema, params) when is_atom(schema) do
-    schema_struct = struct(schema)
+    changeset(schema, struct(schema), params)
+  end
 
+  def changeset(schema, struct_or_changeset, params) do
     if function_exported?(schema, :changeset, 2) do
-      schema.changeset(schema_struct, params)
+      schema.changeset(struct_or_changeset, params)
     else
-      Ecto.Changeset.change(schema_struct)
+      Ecto.Changeset.change(struct_or_changeset, params)
     end
   end
 
@@ -440,53 +434,6 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  defp load_association(changeset, key, assoc_schema, query_params, opts) do
-    records = repo_all(assoc_schema, query_params, opts)
-
-    put_loaded_association(changeset, key, records, opts)
-  end
-
-  defp repo_all(schema, params, opts) do
-    extra_params =
-      if Keyword.has_key?(opts, :query_parameters) do
-        case opts[:query_parameters] do
-          nil -> %{}
-          fun when is_function(fun, 0) -> fun.()
-          value -> value
-        end
-      else
-        %{}
-      end
-
-    params = Map.merge(extra_params, params)
-
-    Actions.all(schema, params, opts)
-  end
-
-  defp put_loaded_association(changeset, key, records, opts) do
-    Map.update!(changeset, :data, fn schema_data ->
-      if SchemaHelpers.association_not_loaded?(schema_data, key) do
-        Map.put(schema_data, key, records)
-      else
-        if Keyword.get(opts, :replace_loaded_association, true) do
-          Map.put(schema_data, key, records)
-        else
-          schema_data
-        end
-      end
-    end)
-  end
-
-  defp preload_association(changeset, key, opts) do
-    if association_not_loaded?(changeset, key) or opts[:force_preload] === true do
-      Map.update!(changeset, :data, fn schema_data ->
-        Actions.preload(schema_data, key, opts)
-      end)
-    else
-      changeset
-    end
-  end
-
   defp build_assoc_query_params(owner_params, assoc_schema, params_data) do
     params_list =
       params_data
@@ -517,6 +464,53 @@ defmodule EctoShorts.CommonChanges do
           acc
       end)
     end)
+  end
+
+  defp load_association(changeset, key, assoc_schema, query_params, opts) do
+    records = repo_all(assoc_schema, query_params, opts)
+
+    put_loaded_association(changeset, key, records, opts)
+  end
+
+  defp repo_all(schema, params, opts) do
+    extra_params =
+      if Keyword.has_key?(opts, :query_parameters) do
+        case opts[:query_parameters] do
+          nil -> %{}
+          fun when is_function(fun, 0) -> fun.()
+          value -> value
+        end
+      else
+        %{}
+      end
+
+    params = Map.merge(extra_params, params)
+
+    Actions.all(schema, params, opts)
+  end
+
+  defp put_loaded_association(changeset, key, records, opts) do
+    Map.update!(changeset, :data, fn schema_data ->
+      if SchemaHelpers.association_not_loaded?(schema_data, key) do
+        Map.put(schema_data, key, records)
+      else
+        if Keyword.get(opts, :replace_association, true) do
+          Map.put(schema_data, key, records)
+        else
+          schema_data
+        end
+      end
+    end)
+  end
+
+  defp preload_association(changeset, key, opts) do
+    if association_not_loaded?(changeset, key) or opts[:force_preload] === true do
+      Map.update!(changeset, :data, fn schema_data ->
+        Actions.preload(schema_data, key, opts)
+      end)
+    else
+      changeset
+    end
   end
 
   defp changeset_params_has_key?(%{params: nil}, _key), do: false
@@ -552,10 +546,6 @@ defmodule EctoShorts.CommonChanges do
           """
   end
 
-  defp assoc_type_name(assoc) when is_struct(assoc, Ecto.Association.BelongsTo) do
-    "belongs_to"
-  end
-
   defp assoc_type_name(%{cardinality: :one} = assoc)
        when is_struct(assoc, Ecto.Association.Has) do
     "has_one"
@@ -564,16 +554,6 @@ defmodule EctoShorts.CommonChanges do
   defp assoc_type_name(%{cardinality: :many} = assoc)
        when is_struct(assoc, Ecto.Association.Has) do
     "has_many"
-  end
-
-  defp assoc_type_name(%{cardinality: :many} = assoc)
-       when is_struct(assoc, Ecto.Association.HasThrough) do
-    "has_through"
-  end
-
-  defp assoc_type_name(%{cardinality: :many} = assoc)
-       when is_struct(assoc, Ecto.Association.ManyToMany) do
-    "many_to_many"
   end
 
   defp assoc_type_name(%module{}) do

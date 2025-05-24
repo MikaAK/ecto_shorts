@@ -34,7 +34,7 @@ defmodule EctoShorts.Testing do
 
   def insert!(repo, {source, schema}, params, opts) do
     schema
-    |> struct!()
+    |> struct()
     |> Ecto.put_meta(source: source)
     |> schema.changeset(params)
     |> repo.insert!(opts)
@@ -42,7 +42,7 @@ defmodule EctoShorts.Testing do
 
   def insert!(repo, schema, params, opts) do
     schema
-    |> struct!()
+    |> struct()
     |> schema.changeset(params)
     |> repo.insert!(opts)
   end

@@ -44,8 +44,7 @@ defmodule EctoShorts.CommonParams do
   """
 
   alias Ecto.Changeset
-  alias EctoShorts.SchemaHelpers
-  alias EctoShorts.Utils
+  alias EctoShorts.{CommonChanges, SchemaHelpers, Utils}
 
   @type schema :: Ecto.Queryable.t()
   @type params :: map()
@@ -333,7 +332,7 @@ defmodule EctoShorts.CommonParams do
 
       {:ok, struct(schema_data, params), changed_keys}
     else
-      changeset = schema.changeset(changeset, params)
+      changeset = CommonChanges.changeset(schema, changeset, params)
 
       changed_keys = get_params_changed_keys(params, schema, opts)
 
@@ -353,7 +352,7 @@ defmodule EctoShorts.CommonParams do
 
       {:ok, struct(schema_data, params), changed_keys}
     else
-      changeset = schema.changeset(schema_data, params)
+      changeset = CommonChanges.changeset(schema, schema_data, params)
 
       changed_keys = get_params_changed_keys(params, schema, opts)
 
@@ -377,7 +376,7 @@ defmodule EctoShorts.CommonParams do
     if opts[:validate] === false do
       {:ok, schema_data, changed_keys}
     else
-      changeset = schema.changeset(changeset, %{})
+      changeset = CommonChanges.changeset(schema, changeset, %{})
 
       with {:ok, schema_data} <-
              Changeset.apply_action(
@@ -398,7 +397,7 @@ defmodule EctoShorts.CommonParams do
     if opts[:validate] === false do
       {:ok, schema_data, changed_keys}
     else
-      changeset = schema.changeset(schema_data, %{})
+      changeset = CommonChanges.changeset(schema, schema_data, %{})
 
       with {:ok, schema_data} <-
              Changeset.apply_action(
@@ -425,10 +424,7 @@ defmodule EctoShorts.CommonParams do
           %{}
         end
 
-      changeset =
-        schema
-        |> struct!(created_data)
-        |> schema.changeset(params)
+      changeset = CommonChanges.changeset(schema, struct!(schema, created_data), params)
 
       changed_keys = get_params_changed_keys(params, schema, opts)
 
