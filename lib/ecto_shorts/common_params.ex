@@ -147,7 +147,7 @@ defmodule EctoShorts.CommonParams do
     else
       EctoShorts.Utils.Logger.warning(
         __MODULE__,
-        "The field '#{inspect(field)}' is not a query field on the schema '#{schema}'."
+        "key not found on schema #{inspect(schema)}, got: #{inspect(field)}"
       )
 
       acc
@@ -160,7 +160,7 @@ defmodule EctoShorts.CommonParams do
     else
       EctoShorts.Utils.Logger.warning(
         __MODULE__,
-        "The field '#{inspect(field)}' is not a query field on the schema '#{schema}'."
+        "key not found on schema #{inspect(schema)}, got: #{inspect(field)}"
       )
 
       acc
@@ -173,7 +173,7 @@ defmodule EctoShorts.CommonParams do
     else
       EctoShorts.Utils.Logger.warning(
         __MODULE__,
-        "The field '#{inspect(field)}' is not a query field on the schema '#{schema}'."
+        "key not found on schema #{inspect(schema)}, got: #{inspect(field)}"
       )
 
       acc

@@ -526,7 +526,7 @@ defmodule EctoShorts.CommonChangesTest do
 
     test "raises an error if the key is not a type of ecto changeset queryable" do
       assert_raise ArgumentError,
-                   "changeset association key not found in schema EctoShorts.Schemas.Comment, got: :invalid_association",
+                   "association :invalid_association not found in the changeset for schema EctoShorts.Schemas.Comment",
                    fn ->
                      %Comment{}
                      |> Comment.changeset(%{invalid_association: [%{id: 1}]})

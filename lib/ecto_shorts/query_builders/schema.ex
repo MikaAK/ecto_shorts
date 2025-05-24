@@ -77,7 +77,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
   ```
   """
   alias EctoShorts.{
-    CommonQueries,
+    CommonQuery,
     CommonQueryAPI,
     Utils,
     SchemaHelpers
@@ -339,12 +339,12 @@ defmodule EctoShorts.QueryBuilders.Schema do
          params,
          opts
        ) do
-    Enum.reduce(params, query, fn {assoc_key, value}, query ->
+    Enum.reduce(params, query, fn {key, value}, query ->
       join_association(
         query,
         binding_alias,
         schema,
-        assoc_key,
+        key,
         value,
         opts
       )
@@ -355,7 +355,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
          query,
          binding_alias,
          schema,
-         assoc_key,
+         key,
          values,
          opts
        )
@@ -365,7 +365,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
         query,
         binding_alias,
         schema,
-        assoc_key,
+        key,
         Map.new(values),
         opts
       )
@@ -375,7 +375,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
           query,
           binding_alias,
           schema,
-          assoc_key,
+          key,
           params,
           opts
         )
@@ -383,34 +383,34 @@ defmodule EctoShorts.QueryBuilders.Schema do
     end
   end
 
-  defp join_association(query, binding_alias, schema, assoc_key, params, opts) do
+  defp join_association(query, binding_alias, schema, key, params, opts) do
     {join_binding_alias, params} = Map.pop(params, :as)
 
     join_schema =
-      case params[:queryable] do
-        nil -> SchemaHelpers.fetch_schema_association_module!(schema, assoc_key)
+      case params[:schema] do
+        nil -> SchemaHelpers.fetch_schema_association_module!(schema, key)
         module -> module
       end
 
     join_binding_alias =
       if is_nil(join_binding_alias) do
-        assoc_key
+        key
         |> named_binding()
         |> String.to_atom()
       else
         join_binding_alias
       end
 
-    join_params = Map.take(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
+    join_params = Map.take(params, [:as, :qualifier, :query, :schema, :on, :prefix])
 
-    params = Map.drop(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
+    params = Map.drop(params, [:as, :qualifier, :query, :schema, :on, :prefix])
 
     query
     |> CommonQueryAPI.join(
       binding_alias,
       join_binding_alias,
       :association,
-      assoc_key,
+      key,
       join_params,
       opts
     )
@@ -438,8 +438,8 @@ defmodule EctoShorts.QueryBuilders.Schema do
       end
 
     join_schema =
-      case params[:queryable] do
-        nil -> inner_query |> CommonQueries.validate_schema_source!(join_binding_alias) |> elem(1)
+      case params[:schema] do
+        nil -> inner_query |> CommonQuery.validate_schema_source!(join_binding_alias) |> elem(1)
         module -> module
       end
 
@@ -452,9 +452,9 @@ defmodule EctoShorts.QueryBuilders.Schema do
         join_binding_alias
       end
 
-    join_params = Map.take(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
+    join_params = Map.take(params, [:as, :qualifier, :query, :schema, :on, :prefix])
 
-    params = Map.drop(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
+    params = Map.drop(params, [:as, :qualifier, :query, :schema, :on, :prefix])
 
     query
     |> CommonQueryAPI.join(

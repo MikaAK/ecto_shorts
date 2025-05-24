@@ -25,7 +25,7 @@ defmodule EctoShorts.CommonQueryAPI do
   learn, just use functions that work with data.
   """
 
-  alias EctoShorts.CommonQueries
+  alias EctoShorts.CommonQuery
   alias Ecto.Query
 
   alias EctoShorts.{
@@ -515,8 +515,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   def join(query, binding_alias, assoc_as, :association, key, params, opts) do
     parent_schema =
-      case params[:queryable] do
-        nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+      case params[:schema] do
+        nil -> query |> CommonQuery.validate_schema_source!(binding_alias) |> elem(1)
         module -> module
       end
 
@@ -534,8 +534,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
   def join(query, binding_alias, subquery_as, :subquery, subquery_data, params, opts) do
     parent_schema =
-      case params[:queryable] do
-        nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+      case params[:schema] do
+        nil -> query |> CommonQuery.validate_schema_source!(binding_alias) |> elem(1)
         module -> module
       end
 
@@ -682,8 +682,8 @@ defmodule EctoShorts.CommonQueryAPI do
       do_or_where(query, binding_alias, params[:expression])
     else
       schema =
-        case params[:queryable] do
-          nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+        case params[:schema] do
+          nil -> query |> CommonQuery.validate_schema_source!(binding_alias) |> elem(1)
           module -> module
         end
 
@@ -717,8 +717,8 @@ defmodule EctoShorts.CommonQueryAPI do
       do_where(query, binding_alias, params[:expression])
     else
       schema =
-        case params[:queryable] do
-          nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+        case params[:schema] do
+          nil -> query |> CommonQuery.validate_schema_source!(binding_alias) |> elem(1)
           module -> module
         end
 

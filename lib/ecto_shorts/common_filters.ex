@@ -60,7 +60,7 @@ defmodule EctoShorts.CommonFilters do
 
   alias EctoShorts.{
     CommonQueryAPI,
-    CommonSchemas,
+    CommonSchema,
     QueryBuilder,
     QueryBuilders.Common,
     QueryBuilders.Schema
@@ -93,48 +93,6 @@ defmodule EctoShorts.CommonFilters do
   @doc since: "2.5.0"
   @doc """
   Converts a set of parameters into an `Ecto.Query`.
-
-  ## Supported Parameters
-
-  This function supports multiple forms of input for flexibility:
-
-  1. **Simple Schema + Filter Map**
-
-    You can pass a schema module as the first argument and a map or keyword
-    list as the second:
-
-        EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Schemas.Post, %{id: 1})
-
-  2. **Query Map**
-
-    You can pass a single map with a `:query` key containing the schema or
-    base query. This form also supports additional metadata:
-
-        EctoShorts.CommonFilters.convert_params_to_filter(%{
-          query: EctoShorts.Schemas.Post,
-          as: :post,
-          where: %{id: 1}
-        })
-
-  3. **Keyword Lists**
-
-    You can use keyword lists to express filters, especially for flat queries:
-
-        EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Schemas.Post, [title: "Hello", limit: 10])
-
-  4. **Empty Input**
-
-    If filters are an empty map or list, the original query is returned unchanged.
-
-  ## Metadata Keys (when using the query map form)
-
-  When you pass a map as the only argument (the query map form), you may include:
-
-    * `:query` – The base query or schema module (required)
-    * `:queryable` – An optional override for determining field types
-    * `:as` – The named binding alias to use in the query
-    * `:prefix` – Database prefix to use
-    * `:options` – Additional options passed to filter builders
 
   ## Examples
 
@@ -188,8 +146,8 @@ defmodule EctoShorts.CommonFilters do
       end
 
     schema =
-      case params[:queryable] do
-        nil -> query_input |> CommonSchemas.get_schema_source() |> elem(1)
+      case params[:schema] do
+        nil -> query_input |> CommonSchema.get_schema_source() |> elem(1)
         module -> module
       end
 
@@ -197,11 +155,11 @@ defmodule EctoShorts.CommonFilters do
 
     from_opts = Map.take(params, [:as, :prefix, :options])
 
-    params = Map.drop(params, [:as, :prefix, :query, :queryable, :options])
+    params = Map.drop(params, [:as, :prefix, :query, :schema, :options])
 
     query_input
     |> CommonQueryAPI.from(binding_alias, from_opts)
-    |> apply_filters(binding_alias, schema, params, opts)
+    |> reduce_params(binding_alias, schema, params, opts)
   end
 
   @doc group: "Filter API"
@@ -228,20 +186,20 @@ defmodule EctoShorts.CommonFilters do
   end
 
   def convert_params_to_filter(query_input, params, opts) do
-    {_, schema} = CommonSchemas.get_schema_source(query_input)
+    {_, schema} = CommonSchema.get_schema_source(query_input)
 
     {binding_alias, params} = Keyword.pop(params, :as)
 
     params = ensure_last_is_final_filter(params)
 
-    apply_filters(query_input, binding_alias, schema, params, opts)
+    reduce_params(query_input, binding_alias, schema, params, opts)
   end
 
-  defp apply_filters(query_input, binding_alias, schema, params, opts) do
+  defp reduce_params(query_input, binding_alias, schema, params, opts) do
     Enum.reduce(
       params,
       query_input,
-      &build_query_filters(
+      &apply_query_builder(
         &2,
         binding_alias,
         schema,
@@ -251,14 +209,13 @@ defmodule EctoShorts.CommonFilters do
     )
   end
 
-  @doc false
-  def build_query_filters(
-        query_input,
-        binding_alias,
-        schema,
-        {key, value},
-        opts
-      ) do
+  defp apply_query_builder(
+         query_input,
+         binding_alias,
+         schema,
+         {key, value},
+         opts
+       ) do
     if schema_exports_filter?(schema, key) and Keyword.get(opts, :enable_schema_filters, true) do
       if function_exported?(schema, :build_query, 4) do
         schema.build_query(

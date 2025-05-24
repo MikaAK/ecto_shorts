@@ -378,10 +378,14 @@ defmodule EctoShorts.CommonChanges do
   end
 
   defp put_assoc(changeset, key, params_data, opts) do
-    raise_if_not_changeset_association!(changeset, key)
-
     assoc = fetch_changeset_association!(changeset, key)
-    assoc_schema = assoc.queryable
+
+    assoc_schema =
+      if has_related_key?(assoc) do
+        assoc.related
+      else
+        raise_not_related_assoc!(changeset, key, assoc)
+      end
 
     related_key = assoc.related_key
     owner_value = Map.fetch!(changeset.data, assoc.owner_key)
@@ -394,7 +398,7 @@ defmodule EctoShorts.CommonChanges do
     else
       changeset = preload_association(changeset, key, opts)
 
-      records = actions_all(assoc_schema, query_params, opts)
+      records = repo_all(assoc_schema, query_params, opts)
 
       Changeset.put_assoc(changeset, key, records, opts)
     end
@@ -412,10 +416,14 @@ defmodule EctoShorts.CommonChanges do
   end
 
   defp cast_assoc(changeset, key, params_data, opts) do
-    raise_if_not_changeset_association!(changeset, key)
-
     assoc = fetch_changeset_association!(changeset, key)
-    assoc_schema = assoc.queryable
+
+    assoc_schema =
+      if has_related_key?(assoc) do
+        assoc.related
+      else
+        raise_not_related_assoc!(changeset, key, assoc)
+      end
 
     related_key = assoc.related_key
     owner_value = Map.fetch!(changeset.data, assoc.owner_key)
@@ -433,15 +441,19 @@ defmodule EctoShorts.CommonChanges do
   end
 
   defp load_association(changeset, key, assoc_schema, query_params, opts) do
-    records = actions_all(assoc_schema, query_params, opts)
+    records = repo_all(assoc_schema, query_params, opts)
 
     put_loaded_association(changeset, key, records, opts)
   end
 
-  defp actions_all(schema, params, opts) do
+  defp repo_all(schema, params, opts) do
     extra_params =
       if Keyword.has_key?(opts, :query_parameters) do
-        opts[:query_parameters] || %{}
+        case opts[:query_parameters] do
+          nil -> %{}
+          fun when is_function(fun, 0) -> fun.()
+          value -> value
+        end
       else
         %{}
       end
@@ -495,15 +507,6 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  defp raise_if_not_changeset_association!(changeset, key) do
-    schema = get_changeset_schema(changeset)
-
-    if key not in schema.__schema__(:associations) do
-      raise ArgumentError,
-            "changeset association key not found in schema #{inspect(schema)}, got: #{inspect(key)}"
-    end
-  end
-
   defp flatten_query_params(params_data) do
     Enum.reduce(params_data, %{}, fn params, acc ->
       Enum.reduce(params, acc, fn
@@ -522,6 +525,61 @@ defmodule EctoShorts.CommonChanges do
   defp get_changeset_params(%{params: nil}, _key), do: nil
   defp get_changeset_params(%{params: params}, key), do: Map.get(params, to_string(key))
 
+  defp has_related_key?(%{related: _}), do: true
+  defp has_related_key?(_), do: false
+
+  defp raise_not_related_assoc!(%{data: %{__meta__: %{schema: schema}}} = changeset, key, assoc) do
+    raise ArgumentError,
+          """
+          Expected a direct association with a `:related` key, but got
+          an association that does not support direct Ecto operations.
+
+          This likely happens when using a `:through` association,
+          which cannot be used with functions like `put_assoc` or
+          `cast_assoc`.
+
+          Supported associations include: `belongs_to`, `has_one`, and `has_many`.
+
+          association: #{assoc_type_name(assoc)}
+          key: #{inspect(key)}
+          schema: #{inspect(schema)}
+
+          ---
+
+          changeset:
+
+          #{inspect(changeset, pretty: true)}
+          """
+  end
+
+  defp assoc_type_name(assoc) when is_struct(assoc, Ecto.Association.BelongsTo) do
+    "belongs_to"
+  end
+
+  defp assoc_type_name(%{cardinality: :one} = assoc)
+       when is_struct(assoc, Ecto.Association.Has) do
+    "has_one"
+  end
+
+  defp assoc_type_name(%{cardinality: :many} = assoc)
+       when is_struct(assoc, Ecto.Association.Has) do
+    "has_many"
+  end
+
+  defp assoc_type_name(%{cardinality: :many} = assoc)
+       when is_struct(assoc, Ecto.Association.HasThrough) do
+    "has_through"
+  end
+
+  defp assoc_type_name(%{cardinality: :many} = assoc)
+       when is_struct(assoc, Ecto.Association.ManyToMany) do
+    "many_to_many"
+  end
+
+  defp assoc_type_name(%module{}) do
+    module |> Module.split() |> List.last() |> Macro.underscore()
+  end
+
   defp fetch_changeset_association!(%{types: types} = changeset, key) do
     schema = get_changeset_schema(changeset)
 
@@ -532,11 +590,11 @@ defmodule EctoShorts.CommonChanges do
 
         _ ->
           raise ArgumentError,
-                "key is not a type of association on schema #{inspect(schema)} changeset, got: #{inspect(key)}"
+                "expected #{inspect(key)} to be an association in the changeset for schema #{inspect(schema)}"
       end
     else
       raise ArgumentError,
-            "association key not found on schema #{inspect(schema)} changeset, got: #{inspect(key)}"
+            "association #{inspect(key)} not found in the changeset for schema #{inspect(schema)}"
     end
   end
 

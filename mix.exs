@@ -97,7 +97,7 @@ defmodule EctoShorts.MixProject do
         ],
         "Query API": [
           EctoShorts.CommonQuery,
-          EctoShorts.CommonQueries,
+          EctoShorts.CommonQuery,
           EctoShorts.CommonQueryAPI
         ],
         "Query Builder API": [
@@ -107,7 +107,7 @@ defmodule EctoShorts.MixProject do
         ],
         "Schema API": [
           EctoShorts.CommonParams,
-          EctoShorts.CommonSchemas,
+          EctoShorts.CommonSchema,
           EctoShorts.SchemaHelpers
         ],
         "Testing API": [

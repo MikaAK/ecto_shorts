@@ -150,7 +150,7 @@ When associations are involved:
 
 1. User calls `Actions.all(User, filters)`
 2. `Actions` calls `CommonFilters.convert_params_to_filter(User, filters)`
-3. `CommonFilters` uses `CommonSchemas.get_schema_query` to get the base query
+3. `CommonFilters` uses `CommonSchema.get_schema_query` to get the base query
 4. For each filter parameter, it calls `create_schema_filter` to build the appropriate query
 5. For common filters (like `preload`, `first`, `last`), it delegates to `QueryBuilder.Common`
 6. For field filters, it delegates to `QueryBuilder.Schema`

@@ -79,14 +79,22 @@ defmodule EctoShorts.SchemaHelpers do
   """
   @spec get_schema_association_module(schema(), key()) :: schema() | nil
   def get_schema_association_module(schema, key) do
+    get_related_schema(schema, key)
+  end
+
+  defp get_related_schema(nil, _key) do
+    nil
+  end
+
+  defp get_related_schema(schema, key) do
     case schema.__schema__(:association, key) do
       %{through: [field1, field2]} ->
         schema
-        |> get_schema_association_module(field1)
-        |> get_schema_association_module(field2)
+        |> get_related_schema(field1)
+        |> get_related_schema(field2)
 
-      %{queryable: queryable} ->
-        queryable
+      %{related: schema} ->
+        schema
 
       _ ->
         nil

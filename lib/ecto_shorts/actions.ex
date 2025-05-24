@@ -120,7 +120,7 @@ defmodule EctoShorts.Actions do
     Actions.Error,
     CommonFilters,
     CommonParams,
-    CommonSchemas,
+    CommonSchema,
     Config,
     Utils
   }
@@ -495,7 +495,7 @@ defmodule EctoShorts.Actions do
 
   @doc false
   def match_id(query_input, match_keys, data) do
-    {_, schema} = CommonSchemas.get_schema_source(query_input)
+    {_, schema} = CommonSchema.get_schema_source(query_input)
 
     if has_all_keys?(match_keys, data) do
       Map.take(data, match_keys)
@@ -521,7 +521,7 @@ defmodule EctoShorts.Actions do
 
   @doc false
   def normalize_match_keys(query_input, :primary_key) do
-    case CommonSchemas.get_schema_reflection(query_input, :primary_key) do
+    case CommonSchema.get_schema_reflection(query_input, :primary_key) do
       [] -> [:id]
       key -> key
     end
@@ -598,7 +598,7 @@ defmodule EctoShorts.Actions do
   @spec insert_all(query_input(), list(params()), opts()) ::
           {:ok, insert_all_response()} | {:error, any()}
   def insert_all(query_input, params_list, opts \\ []) do
-    {_, schema} = CommonSchemas.get_schema_source(query_input)
+    {_, schema} = CommonSchema.get_schema_source(query_input)
 
     with {:ok, inserts, insert_opts} <-
            CommonParams.convert_to_insert_all_params(
@@ -659,7 +659,7 @@ defmodule EctoShorts.Actions do
 
     updates =
       query_input
-      |> CommonSchemas.get_schema_source()
+      |> CommonSchema.get_schema_source()
       |> elem(1)
       |> CommonParams.convert_to_update_all_params(update_params, opts)
 
@@ -1066,7 +1066,7 @@ defmodule EctoShorts.Actions do
           {:error,
            {:conflict, "Failed to delete record.",
             %{
-              query: CommonSchemas.get_schema_metadata(entry),
+              query: CommonSchema.get_schema_metadata(entry),
               params: entries,
               changeset: changeset,
               failed_value: entry,
@@ -1814,7 +1814,7 @@ defmodule EctoShorts.Actions do
 
   @doc false
   def create_changeset(%_{} = struct_or_changeset, params, opts) do
-    CommonSchemas.create_changeset(struct_or_changeset, params, opts)
+    CommonSchema.create_changeset(struct_or_changeset, params, opts)
   end
 
   def create_changeset({source, schema}, params, opts) do
@@ -1822,7 +1822,7 @@ defmodule EctoShorts.Actions do
          not Keyword.has_key?(opts, :create_changeset) do
       schema.create_changeset({source, params})
     else
-      CommonSchemas.create_changeset({source, schema}, params, opts)
+      CommonSchema.create_changeset({source, schema}, params, opts)
     end
   end
 
@@ -1831,13 +1831,13 @@ defmodule EctoShorts.Actions do
          not Keyword.has_key?(opts, :create_changeset) do
       schema.create_changeset(params)
     else
-      CommonSchemas.create_changeset(schema, params, opts)
+      CommonSchema.create_changeset(schema, params, opts)
     end
   end
 
   @doc false
   def create_changeset(queryable_input, struct_or_changeset, params, opts) do
-    CommonSchemas.create_changeset(queryable_input, struct_or_changeset, params, opts)
+    CommonSchema.create_changeset(queryable_input, struct_or_changeset, params, opts)
   end
 
   @doc false
@@ -1851,7 +1851,7 @@ defmodule EctoShorts.Actions do
 
   @doc false
   def filter_queryable_params(params, query_input) do
-    Map.take(params, CommonSchemas.get_schema_reflection(query_input, :query_fields))
+    Map.take(params, CommonSchema.get_schema_reflection(query_input, :query_fields))
   end
 
   defp put_order_by(params, opts) do

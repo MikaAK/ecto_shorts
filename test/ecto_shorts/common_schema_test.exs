@@ -1,9 +1,9 @@
-defmodule EctoShorts.CommonSchemasTest do
+defmodule EctoShorts.CommonSchemaTest do
   use ExUnit.Case, async: true
-  doctest EctoShorts.CommonSchemas
+  doctest EctoShorts.CommonSchema
 
   alias Ecto.Schema.Metadata
-  alias EctoShorts.CommonSchemas
+  alias EctoShorts.CommonSchema
 
   alias EctoShorts.Schemas.{
     Post,
@@ -16,64 +16,64 @@ defmodule EctoShorts.CommonSchemasTest do
 
   describe "get_schema_reflection/2" do
     test "when given a schema module, returns the expected value" do
-      assert [:id] = CommonSchemas.get_schema_reflection(Post, :primary_key)
+      assert [:id] = CommonSchema.get_schema_reflection(Post, :primary_key)
     end
 
     test "when given an {source, schema} tuple, returns the expected value" do
-      assert [:id] = CommonSchemas.get_schema_reflection({"posts", PostAbstract}, :primary_key)
+      assert [:id] = CommonSchema.get_schema_reflection({"posts", PostAbstract}, :primary_key)
     end
   end
 
   describe "get_schema_reflection/3" do
     test "when given a schema module, returns the expected type" do
-      assert :id = CommonSchemas.get_schema_reflection(Post, :type, :id)
+      assert :id = CommonSchema.get_schema_reflection(Post, :type, :id)
     end
 
     test "when given an {source, schema} tuple, returns the expected type" do
-      assert :id = CommonSchemas.get_schema_reflection({"posts", PostAbstract}, :type, :id)
+      assert :id = CommonSchema.get_schema_reflection({"posts", PostAbstract}, :type, :id)
     end
   end
 
   describe "get_schema_prefix/1" do
     test "when given a schema module, returns the @schema_prefix value" do
-      assert "custom_schema_prefix" = CommonSchemas.get_schema_prefix(PostHasSchemaPrefix)
+      assert "custom_schema_prefix" = CommonSchema.get_schema_prefix(PostHasSchemaPrefix)
     end
 
     test "when given an {source, schema} tuple, returns the @schema_prefix value" do
       assert "custom_schema_prefix" =
-               CommonSchemas.get_schema_prefix({"posts", PostAbstractHasSchemaPrefix})
+               CommonSchema.get_schema_prefix({"posts", PostAbstractHasSchemaPrefix})
     end
   end
 
   describe "get_schema_source/1" do
     test "when given a schema module, returns database table name" do
       assert {"posts", PostHasSchemaPrefix} =
-               CommonSchemas.get_schema_source(PostHasSchemaPrefix)
+               CommonSchema.get_schema_source(PostHasSchemaPrefix)
     end
 
     test "when given an {source, schema} tuple, returns database table name" do
       assert {"posts", PostAbstractHasSchemaPrefix} =
-               CommonSchemas.get_schema_source({"posts", PostAbstractHasSchemaPrefix})
+               CommonSchema.get_schema_source({"posts", PostAbstractHasSchemaPrefix})
     end
 
     test "when given an ecto query, returns {binary, queryable}" do
       query = from p in PostHasSchemaPrefix, as: :posts
 
-      assert {"posts", PostHasSchemaPrefix} = CommonSchemas.get_schema_source(query)
+      assert {"posts", PostHasSchemaPrefix} = CommonSchema.get_schema_source(query)
     end
   end
 
   describe "get_schema_metadata/1" do
     test "returns the schema's full metadata struct" do
       assert %Metadata{prefix: "custom_schema_prefix"} =
-               CommonSchemas.get_schema_metadata(%PostHasSchemaPrefix{})
+               CommonSchema.get_schema_metadata(%PostHasSchemaPrefix{})
     end
   end
 
   describe "get_schema_metadata/2" do
     test "returns the value for the specified metadata key" do
       assert "custom_schema_prefix" =
-               CommonSchemas.get_schema_metadata(%PostHasSchemaPrefix{}, :prefix)
+               CommonSchema.get_schema_metadata(%PostHasSchemaPrefix{}, :prefix)
     end
   end
 
@@ -81,19 +81,19 @@ defmodule EctoShorts.CommonSchemasTest do
     test "updates the schema's metadata" do
       assert %EctoShorts.Schemas.Post{
                __meta__: %Metadata{prefix: "test_prefix"}
-             } = CommonSchemas.put_schema_metadata(%Post{}, prefix: "test_prefix")
+             } = CommonSchema.put_schema_metadata(%Post{}, prefix: "test_prefix")
     end
   end
 
   describe "create_struct/1" do
     test "when given a schema module, returns a struct" do
       assert %Post{__meta__: %Metadata{source: "posts"}} =
-               CommonSchemas.create_struct(Post)
+               CommonSchema.create_struct(Post)
     end
 
     test "when given a {source, schema} tuple, returns a struct" do
       assert %PostAbstract{__meta__: %Metadata{source: "custom_source"}} =
-               CommonSchemas.create_struct({"custom_source", PostAbstract})
+               CommonSchema.create_struct({"custom_source", PostAbstract})
     end
   end
 end
