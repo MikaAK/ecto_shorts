@@ -44,7 +44,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
   require Ecto.Query
 
   @type dynamic_expr :: Ecto.Query.dynamic_expr()
-  @type binding_alias :: atom()
+  @type binding_alias :: atom() | nil
 
   @type operator :: atom()
 

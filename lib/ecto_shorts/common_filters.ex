@@ -68,12 +68,12 @@ defmodule EctoShorts.CommonFilters do
 
   @type prefix :: binary()
   @type query :: Ecto.Query.t()
-  @type schema_module :: Ecto.Queryable.t()
-  @type schema_source :: binary()
-  @type source_and_schema :: {schema_source(), schema_module()}
-  @type sourceable :: schema_module() | source_and_schema()
-  @type query_source :: query_source()
-  @type binding_alias :: atom()
+  @type schema :: Ecto.Queryable.t()
+  @type source :: binary()
+  @type schema_source :: {source(), schema()}
+  @type queryable_input :: schema() | schema_source()
+  @type query_input :: query_input()
+  @type binding_alias :: atom() | nil
   @type key :: atom()
   @type value :: any()
   @type params :: keyword() | map()
@@ -164,13 +164,13 @@ defmodule EctoShorts.CommonFilters do
       ...> EctoShorts.CommonFilters.convert_params_to_filter(query, %{})
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post>
   """
-  @spec convert_params_to_filter(query_source() | params()) :: query_source()
-  @spec convert_params_to_filter(query_source() | params(), params() | opts()) :: query_source()
+  @spec convert_params_to_filter(query_input() | params()) :: query_input()
+  @spec convert_params_to_filter(query_input() | params(), params() | opts()) :: query_input()
   def convert_params_to_filter(params, opts \\ [])
 
-  def convert_params_to_filter(query_source, params)
-      when is_atom(query_source) or is_struct(query_source) or is_tuple(query_source) do
-    convert_params_to_filter(query_source, params, [])
+  def convert_params_to_filter(query_input, params)
+      when is_atom(query_input) or is_struct(query_input) or is_tuple(query_input) do
+    convert_params_to_filter(query_input, params, [])
   end
 
   def convert_params_to_filter(params, opts) when is_list(params) do
@@ -180,28 +180,28 @@ defmodule EctoShorts.CommonFilters do
   end
 
   def convert_params_to_filter(params, opts) do
-    {query_source, params} = Map.pop(params, :query)
+    query_input =
+      if Map.has_key?(params, :query) do
+        params[:query]
+      else
+        raise KeyError, "key :query not found: #{inspect(params)}"
+      end
 
-    if is_nil(query_source) do
-      raise KeyError, "key :query not found, got: #{inspect(params)}"
-    end
-
-    {schema_module, params} = Map.pop(params, :queryable)
-
-    schema_module =
-      with nil <- schema_module do
-        {_, schema_module} = CommonSchemas.get_source(query_source)
-
-        schema_module
+    schema =
+      case params[:queryable] do
+        nil -> query_input |> CommonSchemas.get_schema_source() |> elem(1)
+        module -> module
       end
 
     binding_alias = params[:as]
-    base_params = Map.take(params, [:as, :prefix, :options])
-    params = Map.drop(params, [:as, :prefix, :options])
 
-    query_source
-    |> CommonQueryAPI.from(binding_alias, base_params)
-    |> reduce_params_to_filters(binding_alias, schema_module, params, opts)
+    from_opts = Map.take(params, [:as, :prefix, :options])
+
+    params = Map.drop(params, [:as, :prefix, :query, :queryable, :options])
+
+    query_input
+    |> CommonQueryAPI.from(binding_alias, from_opts)
+    |> apply_filters(binding_alias, schema, params, opts)
   end
 
   @doc group: "Filter API"
@@ -216,52 +216,53 @@ defmodule EctoShorts.CommonFilters do
       iex> EctoShorts.CommonFilters.convert_params_to_filter(%{query: EctoShorts.Schemas.Post, as: :post, where: %{id: 1}})
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, as: :post, where: p0.id == ^1>
   """
-  @spec convert_params_to_filter(query_source(), params()) :: query_source()
-  @spec convert_params_to_filter(query_source(), params(), opts()) :: query_source()
-  def convert_params_to_filter(query_source, params, _opts)
+  @spec convert_params_to_filter(query_input(), params()) :: query_input()
+  @spec convert_params_to_filter(query_input(), params(), opts()) :: query_input()
+  def convert_params_to_filter(query_input, params, _opts)
       when params === %{} or params === [] do
-    query_source
+    query_input
   end
 
-  def convert_params_to_filter(query_source, params, opts) when is_map(params) do
-    convert_params_to_filter(query_source, Map.to_list(params), opts)
+  def convert_params_to_filter(query_input, params, opts) when is_map(params) do
+    convert_params_to_filter(query_input, Map.to_list(params), opts)
   end
 
-  def convert_params_to_filter(query_source, params, opts) do
-    {_, schema_module} = CommonSchemas.get_source(query_source)
+  def convert_params_to_filter(query_input, params, opts) do
+    {_, schema} = CommonSchemas.get_schema_source(query_input)
 
     {binding_alias, params} = Keyword.pop(params, :as)
 
     params = ensure_last_is_final_filter(params)
 
-    reduce_params_to_filters(query_source, binding_alias, schema_module, params, opts)
+    apply_filters(query_input, binding_alias, schema, params, opts)
   end
 
-  defp reduce_params_to_filters(query_source, binding_alias, schema_module, params, opts) do
+  defp apply_filters(query_input, binding_alias, schema, params, opts) do
     Enum.reduce(
       params,
-      query_source,
-      &build_with_schema_or_adapter(
+      query_input,
+      &build_query_filters(
         &2,
         binding_alias,
-        schema_module,
+        schema,
         &1,
         opts
       )
     )
   end
 
-  defp build_with_schema_or_adapter(
-         query_source,
-         binding_alias,
-         schema_module,
-         {key, value},
-         opts
-       ) do
-    if schema_exports_filter?(schema_module, key) do
-      if function_exported?(schema_module, :build_query, 4) do
-        schema_module.build_query(
-          query_source,
+  @doc false
+  def build_query_filters(
+        query_input,
+        binding_alias,
+        schema,
+        {key, value},
+        opts
+      ) do
+    if schema_exports_filter?(schema, key) and Keyword.get(opts, :enable_schema_filters, true) do
+      if function_exported?(schema, :build_query, 4) do
+        schema.build_query(
+          query_input,
           binding_alias,
           key,
           value
@@ -269,23 +270,27 @@ defmodule EctoShorts.CommonFilters do
       else
         EctoShorts.Utils.Logger.warning(
           __MODULE__,
-          "callback function build_query/4 not found in schema module #{inspect(schema_module)} for filter: #{inspect(key)}"
+          "callback function build_query/4 not found in schema module #{inspect(schema)} for filter: #{inspect(key)}"
         )
 
-        build_query_with_adapter(
-          query_source,
+        opts
+        |> query_builder_adapter()
+        |> QueryBuilder.build_query(
+          query_input,
           binding_alias,
-          schema_module,
+          schema,
           key,
           value,
           opts
         )
       end
     else
-      build_query_with_adapter(
-        query_source,
+      opts
+      |> query_builder_adapter()
+      |> QueryBuilder.build_query(
+        query_input,
         binding_alias,
-        schema_module,
+        schema,
         key,
         value,
         opts
@@ -294,34 +299,13 @@ defmodule EctoShorts.CommonFilters do
   end
 
   @doc false
-  def build_query_with_adapter(
-        query_source,
-        binding_alias,
-        schema_module,
-        key,
-        value,
-        opts
-      ) do
-    opts
-    |> query_builder_adapter()
-    |> QueryBuilder.build_query(
-      query_source,
-      binding_alias,
-      schema_module,
-      key,
-      value,
-      opts
-    )
+  def schema_exports_filter?(schema, key) do
+    schema_has_filters?(schema) and key in schema.filters()
   end
 
   @doc false
-  def schema_exports_filter?(schema_module, key) do
-    schema_has_filters?(schema_module) and key in schema_module.filters()
-  end
-
-  @doc false
-  def schema_has_filters?(schema_module) do
-    function_exported?(schema_module, :filters, 0)
+  def schema_has_filters?(schema) do
+    function_exported?(schema, :filters, 0)
   end
 
   defp ensure_last_is_final_filter(params) do
@@ -401,41 +385,41 @@ defmodule EctoShorts.CommonFilters do
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, as: :post, where: p0.title == ^"Hello">
   """
   @spec build_query(
-          query_source(),
+          query_input(),
           binding_alias() | nil,
-          schema_module(),
+          schema(),
           key(),
           value()
-        ) :: query_source()
+        ) :: query_input()
   @spec build_query(
-          query_source(),
+          query_input(),
           binding_alias() | nil,
-          schema_module(),
+          schema(),
           key(),
           value(),
           opts()
-        ) :: query_source()
-  def build_query(query_source, binding_alias, schema_module, key, value, opts \\ [])
+        ) :: query_input()
+  def build_query(query_input, binding_alias, schema, key, value, opts \\ [])
 
-  def build_query(query_source, binding_alias, schema_module, key, value, opts)
+  def build_query(query_input, binding_alias, schema, key, value, opts)
       when key in @common_filters do
     QueryBuilder.build_query(
       Common,
-      query_source,
+      query_input,
       binding_alias,
-      schema_module,
+      schema,
       key,
       value,
       opts
     )
   end
 
-  def build_query(query_source, binding_alias, schema_module, key, value, opts) do
+  def build_query(query_input, binding_alias, schema, key, value, opts) do
     QueryBuilder.build_query(
       Schema,
-      query_source,
+      query_input,
       binding_alias,
-      schema_module,
+      schema,
       key,
       value,
       opts

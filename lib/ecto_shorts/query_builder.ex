@@ -37,7 +37,7 @@ defmodule EctoShorts.QueryBuilder do
 
         def filters, do: [:limit]
 
-        def build_query(query, _binding_alias, _schema_module, :limit, value, _opts) do
+        def build_query(query, _binding_alias, _schema, :limit, value, _opts) do
           if binding_alias do
             Query.limit(query, [{^binding_alias, q}], ^value)
           else
@@ -56,14 +56,13 @@ defmodule EctoShorts.QueryBuilder do
   """
 
   @type query :: Ecto.Query.t()
-  @type schema_module :: Ecto.Queryable.t()
-  @type schema_source :: binary()
-  @type source_and_schema :: {schema_source(), schema_module()}
-  @type sourceable :: schema_module() | source_and_schema()
-  @type queryable_source :: query() | schema_module()
-  @type query_source :: query() | sourceable()
-  @type binding_alias :: atom()
-
+  @type schema :: Ecto.Queryable.t()
+  @type source :: binary()
+  @type schema_source :: {source(), schema()}
+  @type queryable_input :: schema() | schema_source()
+  @type queryable_source :: query() | schema()
+  @type query_source :: query() | queryable_input()
+  @type binding_alias :: atom() | nil
   @type adapter :: module()
   @type key :: atom()
   @type value :: any()
@@ -86,7 +85,7 @@ defmodule EctoShorts.QueryBuilder do
 
   ## Parameters
 
-    * `query` — An existing query, queryable, or `{schema_source, schema_module}` tuple.
+    * `query` — An existing query, queryable, or `{source, schema}` tuple.
     * `binding` — An optional alias used to refer to the query binding (e.g. `:post`).
     * `queryable` — The schema module or queryable the filters apply to.
     * `key` — A filter key, such as a field name (`:title`) or virtual key (`:limit`).
@@ -107,7 +106,7 @@ defmodule EctoShorts.QueryBuilder do
 
         def filters, do: [:limit]
 
-        def build_query(query, _binding_alias, _schema_module, :limit, value, _opts) do
+        def build_query(query, _binding_alias, _schema, :limit, value, _opts) do
           if binding_alias do
             Query.limit(query, [{^binding_alias, q}], ^value)
           else
@@ -119,7 +118,7 @@ defmodule EctoShorts.QueryBuilder do
   @callback build_query(
               query_source(),
               binding_alias() | nil,
-              schema_module(),
+              schema(),
               key(),
               value(),
               opts()
@@ -154,7 +153,7 @@ defmodule EctoShorts.QueryBuilder do
           adapter(),
           query_source(),
           binding_alias() | nil,
-          schema_module(),
+          schema(),
           key(),
           value()
         ) :: queryable_source()
@@ -162,16 +161,16 @@ defmodule EctoShorts.QueryBuilder do
           adapter(),
           query_source(),
           binding_alias() | nil,
-          schema_module(),
+          schema(),
           key(),
           value(),
           opts()
         ) :: queryable_source()
-  def build_query(adapter, query, binding_alias, schema_module, key, value, opts \\ []) do
+  def build_query(adapter, query, binding_alias, schema, key, value, opts \\ []) do
     adapter.build_query(
       query,
       binding_alias,
-      schema_module,
+      schema,
       key,
       value,
       opts

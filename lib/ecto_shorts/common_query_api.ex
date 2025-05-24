@@ -35,24 +35,22 @@ defmodule EctoShorts.CommonQueryAPI do
 
   require Ecto.Query
 
-  @type subquery :: Ecto.SubQuery.t()
-  @type query :: Ecto.Query.t()
-  @type schema_module :: Ecto.Queryable.t()
-  @type schema_source :: binary()
-  @type schema_metadata :: Ecto.Schema.Metadata.t()
-  @type source_and_schema :: {schema_source(), schema_module()}
-  @type sourceable :: schema_module() | source_and_schema()
-  @type query_source :: query() | sourceable()
-  @type prefix :: binary() | nil
   @type changeset :: Ecto.Changeset.t()
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
-  @type binding_alias :: atom()
-
+  @type subquery :: Ecto.SubQuery.t()
+  @type query :: Ecto.Query.t()
+  @type schema :: Ecto.Queryable.t()
+  @type source :: binary()
+  @type schema_source :: {source(), schema()}
+  @type schema_metadata :: Ecto.Schema.Metadata.t()
+  @type queryable_input :: schema() | schema_source()
+  @type query_source :: query() | queryable_input()
+  @type prefix :: binary() | nil
+  @type binding_alias :: atom() | nil
   @type condition :: :and | :or
   @type join_kind :: :association | :subquery
   @type limit :: non_neg_integer()
   @type offset :: integer()
-
   @type key :: atom()
   @type value :: any()
   @type operator :: atom()
@@ -117,19 +115,19 @@ defmodule EctoShorts.CommonQueryAPI do
       iex> EctoShorts.CommonQueryAPI.dynamic(EctoShorts.Schemas.Post, nil, %{id: 1}, [])
   """
   @spec dynamic(
-          schema_module(),
+          schema(),
           binding_alias() | nil,
           params(),
           opts()
         ) :: dynamic_expr()
-  def dynamic(schema_module, binding_alias, params, opts) when is_list(params) do
-    dynamic(schema_module, binding_alias, Map.new(params), opts)
+  def dynamic(schema, binding_alias, params, opts) when is_list(params) do
+    dynamic(schema, binding_alias, Map.new(params), opts)
   end
 
-  def dynamic(schema_module, binding_alias, params, opts) do
+  def dynamic(schema, binding_alias, params, opts) do
     with nil <-
            build_dynamic_expression(
-             schema_module,
+             schema,
              binding_alias,
              params,
              opts
@@ -138,7 +136,7 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
-  defp build_dynamic_expression(schema_module, binding_alias, params, opts) do
+  defp build_dynamic_expression(schema, binding_alias, params, opts) do
     {dyn, params} = Map.pop(params, :dynamic)
 
     params
@@ -150,7 +148,7 @@ defmodule EctoShorts.CommonQueryAPI do
           params,
           fn {key, value}, dyn ->
             DynamicExpressions.create_dynamic(
-              schema_module,
+              schema,
               dyn,
               binding_alias,
               condition,
@@ -516,7 +514,11 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   def join(query, binding_alias, assoc_as, :association, key, params, opts) do
-    {_, assoc_schema_module} = CommonQueries.fetch_expression_source!(query, binding_alias)
+    parent_schema =
+      case params[:queryable] do
+        nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+        module -> module
+      end
 
     qual = params[:qualifier] || :inner
 
@@ -525,13 +527,17 @@ defmodule EctoShorts.CommonQueryAPI do
     on =
       params
       |> Map.get(:on, true)
-      |> join_on(assoc_as, assoc_schema_module, opts)
+      |> join_on(assoc_as, parent_schema, opts)
 
     query_join_assoc(query, binding_alias, assoc_as, key, {qual, on, prefix})
   end
 
   def join(query, binding_alias, subquery_as, :subquery, subquery_data, params, opts) do
-    {_, subquery_schema_module} = CommonQueries.fetch_expression_source!(query, binding_alias)
+    parent_schema =
+      case params[:queryable] do
+        nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+        module -> module
+      end
 
     qual = params[:qualifier] || :inner
 
@@ -540,7 +546,7 @@ defmodule EctoShorts.CommonQueryAPI do
     on =
       params
       |> Map.get(:on, true)
-      |> join_on(subquery_as, subquery_schema_module, opts)
+      |> join_on(subquery_as, parent_schema, opts)
 
     query_join_subquery(
       query,
@@ -653,12 +659,12 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
-  defp join_on(true, _binding_alias, _schema_module, _opts) do
+  defp join_on(true, _binding_alias, _schema, _opts) do
     true
   end
 
-  defp join_on(params, binding_alias, schema_module, opts) do
-    dynamic(schema_module, binding_alias, params, opts)
+  defp join_on(params, binding_alias, schema, opts) do
+    dynamic(schema, binding_alias, params, opts)
   end
 
   def or_where(query, binding_alias, params, opts) when is_list(params) do
@@ -675,17 +681,13 @@ defmodule EctoShorts.CommonQueryAPI do
     if Map.has_key?(params, :expression) do
       do_or_where(query, binding_alias, params[:expression])
     else
-      {schema_module, params} = Map.pop(params, :queryable)
-
-      schema_module =
-        with nil <- schema_module do
-          {_schema_source, schema_module} =
-            CommonQueries.fetch_expression_source!(query, binding_alias)
-
-          schema_module
+      schema =
+        case params[:queryable] do
+          nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+          module -> module
         end
 
-      expr = dynamic(schema_module, binding_alias, params, opts)
+      expr = dynamic(schema, binding_alias, params, opts)
 
       do_or_where(query, nil, expr)
     end
@@ -714,16 +716,13 @@ defmodule EctoShorts.CommonQueryAPI do
     if Map.has_key?(params, :expression) do
       do_where(query, binding_alias, params[:expression])
     else
-      {schema_module, params} = Map.pop(params, :queryable)
-
-      schema_module =
-        with nil <- schema_module do
-          {_, schema_module} = CommonQueries.fetch_expression_source!(query, binding_alias)
-
-          schema_module
+      schema =
+        case params[:queryable] do
+          nil -> query |> CommonQueries.validate_schema_source!(binding_alias) |> elem(1)
+          module -> module
         end
 
-      expr = dynamic(schema_module, binding_alias, params, opts)
+      expr = dynamic(schema, binding_alias, params, opts)
 
       do_where(query, nil, expr)
     end

@@ -191,7 +191,7 @@ defmodule EctoShorts do
 
   ## Abstract tables / Polymorphic associations
 
-  In [Ecto](https://hexdocs.pm/ecto/Ecto.Schemas.html#belongs_to/3-polymorphic-associations), abstract schemas allow
+  In [Ecto](https://hexdocs.pm/ecto/Ecto.Schema.html#belongs_to/3-polymorphic-associations), abstract schemas allow
   defining database schemas without tying them to an actual
   database table. This lets you describe data structures
   and relationships without persisting them directly to

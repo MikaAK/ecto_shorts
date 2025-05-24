@@ -52,7 +52,7 @@ defmodule EctoShorts.DynamicExpression do
   """
 
   @type adapter :: module()
-  @type schema_module :: Ecto.Queryable.t()
+  @type schema :: Ecto.Queryable.t()
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
   @type maybe_dynamic_expr :: dynamic_expr() | nil
   @type binding_alias :: atom() | nil
@@ -66,14 +66,14 @@ defmodule EctoShorts.DynamicExpression do
   It receives:
     - `dyn`: the current dynamic expression being built or `nil`.
     - `binding_alias`: the binding index (e.g. 0 for the main schema)
-    - `schema_module`: the module for the schema being queried
+    - `schema`: the module for the schema being queried
     - `key`: the field name (e.g. `:name`)
     - `value`: the filter value (e.g. a string or a special operator like `%{ilike: "foo"}`)
 
   Returns an updated dynamic expression.
   """
   @callback create_dynamic(
-              schema_module(),
+              schema(),
               maybe_dynamic_expr(),
               binding_alias(),
               condition(),
@@ -96,7 +96,7 @@ defmodule EctoShorts.DynamicExpression do
   ## Parameters
 
     * `adapter` – A module that implements the `EctoShorts.DynamicExpression` behaviour.
-    * `schema_module` – The Ecto schema module for the query.
+    * `schema` – The Ecto schema module for the query.
     * `dyn` – The current dynamic expression (or `nil` if starting a new one).
     * `binding_alias` – The alias or index representing the query binding (e.g. `:post` or `nil`).
     * `condition` – Logical operator (`:and` or `:or`) to merge expressions.
@@ -128,7 +128,7 @@ defmodule EctoShorts.DynamicExpression do
   """
   @spec create_dynamic(
           adapter(),
-          schema_module(),
+          schema(),
           maybe_dynamic_expr(),
           binding_alias(),
           condition(),
@@ -137,7 +137,7 @@ defmodule EctoShorts.DynamicExpression do
         ) :: dynamic_expr()
   def create_dynamic(
         adapter,
-        schema_module,
+        schema,
         dyn,
         binding_alias,
         condition,
@@ -145,7 +145,7 @@ defmodule EctoShorts.DynamicExpression do
         value
       ) do
     adapter.create_dynamic(
-      schema_module,
+      schema,
       dyn,
       binding_alias,
       condition,

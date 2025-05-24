@@ -127,17 +127,17 @@ defmodule EctoShorts.Actions do
 
   @type multi :: Ecto.Multi.t()
   @type query :: Ecto.Query.t()
-  @type schema_module :: Ecto.Queryable.t()
-  @type schema_source :: binary()
-  @type source_and_schema :: {schema_source(), schema_module()}
-  @type sourceable :: schema_module() | source_and_schema()
-  @type query_source :: query() | sourceable()
+  @type schema :: Ecto.Queryable.t()
+  @type source :: binary()
+  @type schema_source :: {source(), schema()}
+  @type queryable_input :: schema() | schema_source()
+  @type query_input :: query() | queryable_input()
   @type changeset :: Ecto.Changeset.t()
-  @type schema_struct :: Ecto.Schemas.t()
-  @type schema_or_changeset :: schema_or_changeset()
-  @type schema_struct_or_structs :: schema_struct() | list(schema_struct())
-  @type schema_or_map :: schema_struct() | map()
-  @type data :: map() | Keyword.t() | {list(), list()}
+  @type schema_data :: Ecto.Schema.t()
+  @type changeset_input :: schema_data() | changeset()
+  @type maybe_list_of_schema_data :: schema_data() | list(schema_data())
+  @type schema_data_or_params :: schema_data() | map()
+  @type load_data :: map() | Keyword.t() | {list(), list()}
   @type insert_all_response :: {non_neg_integer(), nil | [term()]}
   @type update_all_response :: {non_neg_integer(), nil | [term()]}
   @type delete_all_response :: {non_neg_integer(), nil | [term()]}
@@ -147,8 +147,8 @@ defmodule EctoShorts.Actions do
 
   @type match_keys :: atom() | list(atom())
   @type batch_id :: map()
-  @type batch_params :: list(params() | {params(), params()} | {schema_struct(), params()})
-  @type batch_results :: %{optional(batch_id()) => schema_struct()}
+  @type batch_params :: list(params() | {params(), params()} | {schema_data(), params()})
+  @type batch_results :: %{optional(batch_id()) => schema_data()}
 
   @type id :: integer() | binary()
   @type key :: atom()
@@ -161,10 +161,10 @@ defmodule EctoShorts.Actions do
   @doc """
   Loads data into a schema or a map.
   """
-  @spec load(schema_or_map(), data()) :: schema_struct() | map()
-  @spec load(schema_or_map(), data(), opts()) :: schema_struct() | map()
-  def load(schema_or_map, data, opts \\ []) do
-    Config.repo!(opts).load(schema_or_map, data)
+  @spec load(schema_data_or_params(), load_data()) :: schema_data() | map()
+  @spec load(schema_data_or_params(), load_data(), opts()) :: schema_data() | map()
+  def load(schema_data_or_params, data, opts \\ []) do
+    Config.repo!(opts).load(schema_data_or_params, data)
   end
 
   @doc group: "Query API"
@@ -177,10 +177,10 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.exists?(EctoShorts.Schemas.Post)
   """
-  @spec exists?(schema_module()) :: schema_struct_or_structs()
-  @spec exists?(schema_module(), opts()) :: schema_struct_or_structs()
-  def exists?(schema_module, opts \\ []) do
-    Config.replica!(opts).exists?(schema_module, opts)
+  @spec exists?(schema()) :: maybe_list_of_schema_data()
+  @spec exists?(schema(), opts()) :: maybe_list_of_schema_data()
+  def exists?(schema, opts \\ []) do
+    Config.replica!(opts).exists?(schema, opts)
   end
 
   @doc group: "Schema API"
@@ -202,11 +202,11 @@ defmodule EctoShorts.Actions do
       # Preload multiple associations on a list of records
       iex> EctoShorts.Actions.preload(%EctoShorts.Schemas.Post{}, [comments: :authors])
   """
-  @spec preload(schema_struct_or_structs(), preloads(), opts()) :: schema_struct_or_structs()
-  def preload(schema_struct_or_structs, preloads, opts \\ []) do
+  @spec preload(maybe_list_of_schema_data(), preloads(), opts()) :: maybe_list_of_schema_data()
+  def preload(maybe_list_of_schema_data, preloads, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    Config.replica!(opts).preload(schema_struct_or_structs, preloads, opts)
+    Config.replica!(opts).preload(maybe_list_of_schema_data, preloads, opts)
   end
 
   @doc group: "Schema API"
@@ -226,12 +226,12 @@ defmodule EctoShorts.Actions do
       iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.reload([post])
   """
-  @spec reload(schema_struct_or_structs()) :: schema_struct_or_structs()
-  @spec reload(schema_struct_or_structs(), opts()) :: schema_struct_or_structs()
-  def reload(schema_struct_or_structs, opts \\ []) do
+  @spec reload(maybe_list_of_schema_data()) :: maybe_list_of_schema_data()
+  @spec reload(maybe_list_of_schema_data(), opts()) :: maybe_list_of_schema_data()
+  def reload(maybe_list_of_schema_data, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    Config.replica!(opts).reload(schema_struct_or_structs, opts)
+    Config.replica!(opts).reload(maybe_list_of_schema_data, opts)
   end
 
   @doc group: "Schema API"
@@ -249,12 +249,12 @@ defmodule EctoShorts.Actions do
       iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.reload!([post])
   """
-  @spec reload!(schema_struct_or_structs()) :: schema_struct_or_structs()
-  @spec reload!(schema_struct_or_structs(), opts()) :: schema_struct_or_structs()
-  def reload!(schema_struct_or_structs, opts \\ []) do
+  @spec reload!(maybe_list_of_schema_data()) :: maybe_list_of_schema_data()
+  @spec reload!(maybe_list_of_schema_data(), opts()) :: maybe_list_of_schema_data()
+  def reload!(maybe_list_of_schema_data, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    Config.replica!(opts).reload!(schema_struct_or_structs, opts)
+    Config.replica!(opts).reload!(maybe_list_of_schema_data, opts)
   end
 
   @doc group: "Batch API"
@@ -285,20 +285,20 @@ defmodule EctoShorts.Actions do
       # Load users and preserve the original input
       iex> EctoShorts.Actions.batch_load(EctoShorts.Schemas.Post, [%{body: "example"}])
   """
-  @spec batch_load(query_source(), match_keys(), batch_params()) :: batch_params()
-  @spec batch_load(query_source(), match_keys(), batch_params(), opts()) :: batch_params()
-  def batch_load(query_source, match_keys \\ :primary_key, list_of_params, opts \\ []) do
-    match_keys = normalize_match_keys(query_source, match_keys)
+  @spec batch_load(query_input(), match_keys(), batch_params()) :: batch_params()
+  @spec batch_load(query_input(), match_keys(), batch_params(), opts()) :: batch_params()
+  def batch_load(query_input, match_keys \\ :primary_key, params_list, opts \\ []) do
+    match_keys = normalize_match_keys(query_input, match_keys)
 
-    case filter_and_index_batch_params(list_of_params, query_source, match_keys) do
+    case filter_and_index_batch_params(params_list, query_input, match_keys) do
       {[], _} ->
-        list_of_params
+        params_list
 
       {batch_params, batch_lookup} ->
         with batch_results <-
-               batch(query_source, match_keys, batch_params, opts) do
+               batch(query_input, match_keys, batch_params, opts) do
           merge_batch_results(
-            list_of_params,
+            params_list,
             batch_lookup,
             batch_results
           )
@@ -307,41 +307,41 @@ defmodule EctoShorts.Actions do
   end
 
   @doc false
-  def merge_batch_results(list_of_params, batch_lookup, batch_results) do
-    Enum.reduce(batch_lookup, list_of_params, fn {batch_id, idx}, list_of_params ->
+  def merge_batch_results(params_list, batch_lookup, batch_results) do
+    Enum.reduce(batch_lookup, params_list, fn {batch_id, idx}, params_list ->
       record = Map.fetch!(batch_results, batch_id)
 
-      case get_in(list_of_params, [Access.at!(idx)]) do
-        {_, params} -> put_in(list_of_params, [Access.at!(idx)], {record, params})
-        params -> put_in(list_of_params, [Access.at!(idx)], {record, params})
+      case get_in(params_list, [Access.at!(idx)]) do
+        {_, params} -> put_in(params_list, [Access.at!(idx)], {record, params})
+        params -> put_in(params_list, [Access.at!(idx)], {record, params})
       end
     end)
   end
 
   @doc false
-  def filter_and_index_batch_params(list_of_params, query_source, match_keys) do
-    list_of_params
+  def filter_and_index_batch_params(params_list, query_input, match_keys) do
+    params_list
     |> Enum.with_index()
-    |> Enum.reduce({[], %{}}, &prepare_batch_params(&1, query_source, match_keys, &2))
+    |> Enum.reduce({[], %{}}, &prepare_batch_params(&1, query_input, match_keys, &2))
   end
 
-  defp prepare_batch_params({{data, _}, _idx}, _query_source, _match_keys, {acc, metadata})
+  defp prepare_batch_params({{data, _}, _idx}, _query_input, _match_keys, {acc, metadata})
        when is_struct(data) do
     {acc, metadata}
   end
 
-  defp prepare_batch_params({{params, _}, idx}, query_source, match_keys, {acc, metadata}) do
-    prepare_batch_params({params, idx}, query_source, match_keys, {acc, metadata})
+  defp prepare_batch_params({{params, _}, idx}, query_input, match_keys, {acc, metadata}) do
+    prepare_batch_params({params, idx}, query_input, match_keys, {acc, metadata})
   end
 
-  defp prepare_batch_params({data, _idx}, _query_source, _match_keys, {acc, metadata})
+  defp prepare_batch_params({data, _idx}, _query_input, _match_keys, {acc, metadata})
        when is_struct(data) do
     {acc, metadata}
   end
 
-  defp prepare_batch_params({params, idx}, query_source, match_keys, {acc, metadata}) do
+  defp prepare_batch_params({params, idx}, query_input, match_keys, {acc, metadata}) do
     if has_all_keys?(match_keys, params) do
-      batch_id = match_id(query_source, match_keys, params)
+      batch_id = match_id(query_input, match_keys, params)
 
       {[params | acc], Map.put(metadata, batch_id, idx)}
     else
@@ -349,7 +349,7 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  defp prepare_batch_params(_term, _query_source, _match_keys, {acc, metadata}) do
+  defp prepare_batch_params(_term, _query_input, _match_keys, {acc, metadata}) do
     {acc, metadata}
   end
 
@@ -372,26 +372,26 @@ defmodule EctoShorts.Actions do
       # Find all users matching any of the filter criteria
       iex> EctoShorts.Actions.batch_find(EctoShorts.Schemas.Post, [:title], [%{title: "finds_record_by_title_one"}, %{title: "or_title_two"}])
   """
-  @spec batch_find(query_source(), match_keys(), list(params())) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec batch_find(query_source(), match_keys(), list(params()), opts()) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  def batch_find(query_source, match_keys \\ :primary_key, list_of_params, opts \\ []) do
-    match_keys = normalize_match_keys(query_source, match_keys)
+  @spec batch_find(query_input(), match_keys(), list(params())) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec batch_find(query_input(), match_keys(), list(params()), opts()) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  def batch_find(query_input, match_keys \\ :primary_key, params_list, opts \\ []) do
+    match_keys = normalize_match_keys(query_input, match_keys)
 
-    batch_results = batch(query_source, match_keys, list_of_params, opts)
+    batch_results = batch(query_input, match_keys, params_list, opts)
 
-    list_of_params
+    params_list
     |> Enum.with_index()
     |> Utils.reduce_all(fn {params, i} ->
-      batch_id = match_id(query_source, match_keys, params)
+      batch_id = match_id(query_input, match_keys, params)
 
       case Map.get(batch_results, batch_id) do
         nil ->
           {:error,
            Error.call(:not_found, "Record not found.", %{
-             query: query_source,
-             params: list_of_params,
+             query: query_input,
+             params: params_list,
              failed_value: params,
              position: i,
              match_keys: match_keys
@@ -452,16 +452,16 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.batch(EctoShorts.Schemas.Post, [:title], [%{title: "post_title"}])
   """
-  @spec batch(query_source(), match_keys(), list(params())) :: batch_results()
-  @spec batch(query_source(), match_keys(), list(params()), opts()) :: batch_results()
-  def batch(query_source, match_keys \\ :primary_key, list_of_params, opts \\ [])
-      when is_list(list_of_params) do
-    match_keys = normalize_match_keys(query_source, match_keys)
+  @spec batch(query_input(), match_keys(), list(params())) :: batch_results()
+  @spec batch(query_input(), match_keys(), list(params()), opts()) :: batch_results()
+  def batch(query_input, match_keys \\ :primary_key, params_list, opts \\ [])
+      when is_list(params_list) do
+    match_keys = normalize_match_keys(query_input, match_keys)
 
     {batch_results, duplicates} =
-      query_source
-      |> all(%{or_where: list_of_params}, opts)
-      |> build_batch_results(query_source, match_keys)
+      query_input
+      |> all(%{or_where: params_list}, opts)
+      |> build_batch_results(query_input, match_keys)
 
     if duplicates === [] do
       batch_results
@@ -482,9 +482,9 @@ defmodule EctoShorts.Actions do
   end
 
   @doc false
-  def build_batch_results(records, query_source, match_keys) do
+  def build_batch_results(records, query_input, match_keys) do
     Enum.reduce(records, {%{}, []}, fn record, {batch_results, duplicates} ->
-      batch_id = match_id(query_source, match_keys, record)
+      batch_id = match_id(query_input, match_keys, record)
 
       case Map.get(batch_results, batch_id) do
         nil -> {Map.put(batch_results, batch_id, record), duplicates}
@@ -494,8 +494,8 @@ defmodule EctoShorts.Actions do
   end
 
   @doc false
-  def match_id(query_source, match_keys, data) do
-    {_, schema_module} = CommonSchemas.get_source(query_source)
+  def match_id(query_input, match_keys, data) do
+    {_, schema} = CommonSchemas.get_schema_source(query_input)
 
     if has_all_keys?(match_keys, data) do
       Map.take(data, match_keys)
@@ -506,7 +506,7 @@ defmodule EctoShorts.Actions do
 
             schema:
 
-            #{inspect(schema_module)}
+            #{inspect(schema)}
 
             keys:
 
@@ -520,14 +520,14 @@ defmodule EctoShorts.Actions do
   end
 
   @doc false
-  def normalize_match_keys(query_source, :primary_key) do
-    case CommonSchemas.get_reflection(query_source, :primary_key) do
+  def normalize_match_keys(query_input, :primary_key) do
+    case CommonSchemas.get_schema_reflection(query_input, :primary_key) do
       [] -> [:id]
       key -> key
     end
   end
 
-  def normalize_match_keys(_query_source, value) do
+  def normalize_match_keys(_query_input, value) do
     case List.wrap(value) do
       [] -> [:id]
       key -> key
@@ -547,7 +547,7 @@ defmodule EctoShorts.Actions do
   @doc """
   Inserts multiple records into the database.
 
-  Each entry in the `list_of_params` is validated using the schema's
+  Each entry in the `params_list` is validated using the schema's
   `changeset/2` function unless `validate: false` is passed.
 
   ## Conflict Handling
@@ -578,7 +578,7 @@ defmodule EctoShorts.Actions do
 
   You can enable this behavior with the `:batch_load` option:
 
-      EctoShorts.Actions.insert_all(EctoShorts.Schemas.Post, list_of_params, batch_load: :primary_key)
+      EctoShorts.Actions.insert_all(EctoShorts.Schemas.Post, params_list, batch_load: :primary_key)
 
   This will call `batch_load/4` and transform each param into
   `{existing_record, new_params}` tuples when a match is found.
@@ -593,38 +593,38 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.insert_all(EctoShorts.Schemas.Post, [%{id: 1, body: "Jane"}], batch_load: :primary_key)
   """
-  @spec insert_all(query_source(), list(params())) ::
+  @spec insert_all(query_input(), list(params())) ::
           {:ok, insert_all_response()} | {:error, any()}
-  @spec insert_all(query_source(), list(params()), opts()) ::
+  @spec insert_all(query_input(), list(params()), opts()) ::
           {:ok, insert_all_response()} | {:error, any()}
-  def insert_all(query_source, list_of_params, opts \\ []) do
-    {_, schema_module} = CommonSchemas.get_source(query_source)
+  def insert_all(query_input, params_list, opts \\ []) do
+    {_, schema} = CommonSchemas.get_schema_source(query_input)
 
     with {:ok, inserts, insert_opts} <-
            CommonParams.convert_to_insert_all_params(
-             schema_module,
-             maybe_batch_load(query_source, list_of_params, opts),
+             schema,
+             maybe_batch_load(query_input, params_list, opts),
              opts
            ) do
       {:ok,
        Config.repo!(opts).insert_all(
-         query_source,
+         query_input,
          inserts,
          Keyword.merge(insert_opts, opts)
        )}
     end
   end
 
-  defp maybe_batch_load(query_source, list_of_params, opts) do
+  defp maybe_batch_load(query_input, params_list, opts) do
     cond do
       opts[:batch_load] === true ->
-        batch_load(query_source, :primary_key, list_of_params, opts)
+        batch_load(query_input, :primary_key, params_list, opts)
 
       Keyword.has_key?(opts, :match_keys) ->
-        batch_load(query_source, opts[:match_keys], list_of_params, opts)
+        batch_load(query_input, opts[:match_keys], params_list, opts)
 
       true ->
-        list_of_params
+        params_list
     end
   end
 
@@ -652,18 +652,18 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.update_all(EctoShorts.Schemas.Post, %{title: "hello"}, %{title: "world"}, repo: EctoShorts.Repo)
   """
-  @spec update_all(query_source(), params(), params()) :: update_all_response()
-  @spec update_all(query_source(), params(), params(), opts()) :: update_all_response()
-  def update_all(query_source, find_params, update_params, opts \\ []) do
+  @spec update_all(query_input(), params(), params()) :: update_all_response()
+  @spec update_all(query_input(), params(), params(), opts()) :: update_all_response()
+  def update_all(query_input, find_params, update_params, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
     updates =
-      query_source
-      |> CommonSchemas.get_source()
+      query_input
+      |> CommonSchemas.get_schema_source()
       |> elem(1)
       |> CommonParams.convert_to_update_all_params(update_params, opts)
 
-    query_source
+    query_input
     |> CommonFilters.convert_params_to_filter(find_params, opts)
     |> Config.repo!(opts).update_all(updates, opts)
   end
@@ -693,13 +693,13 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.delete_all(EctoShorts.Schemas.Post, %{published: true}, repo: EctoShorts.Repo)
   """
-  @spec delete_all(query_source()) :: delete_all_response()
-  @spec delete_all(query_source(), params()) :: delete_all_response()
-  @spec delete_all(query_source(), params(), opts()) :: delete_all_response()
-  def delete_all(query_source, params \\ %{}, opts \\ []) do
+  @spec delete_all(query_input()) :: delete_all_response()
+  @spec delete_all(query_input(), params()) :: delete_all_response()
+  @spec delete_all(query_input(), params(), opts()) :: delete_all_response()
+  def delete_all(query_input, params \\ %{}, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
+    query_input
     |> CommonFilters.convert_params_to_filter(params, opts)
     |> Config.repo!(opts).delete_all(opts)
   end
@@ -719,37 +719,37 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_or_create_many(EctoShorts.Schemas.Post, [%{title: "title_one", body: "example"}])
   """
-  @spec find_or_create_many(query_source(), list(params())) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec find_or_create_many(query_source(), list(params()), opts()) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  def find_or_create_many(query_source, list_of_params, opts \\ []) do
+  @spec find_or_create_many(query_input(), list(params())) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec find_or_create_many(query_input(), list(params()), opts()) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  def find_or_create_many(query_input, params_list, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
-    |> multi_find_or_create(list_of_params, opts)
+    query_input
+    |> multi_find_or_create(params_list, opts)
     |> Config.repo!(opts).transaction(opts)
     |> handle_multi_response()
   end
 
-  defp multi_find_or_create(query_source, list_of_params, opts) do
-    list_of_params
+  defp multi_find_or_create(query_input, params_list, opts) do
+    params_list
     |> Enum.with_index()
     |> Enum.reduce(Ecto.Multi.new(), fn {params, idx}, multi ->
       Ecto.Multi.run(multi, {:find_or_create, idx}, fn repo, _changes_so_far ->
-        case query_source
+        case query_input
              |> CommonFilters.convert_params_to_filter(params, opts)
              |> repo.one(opts) do
           nil ->
             with {:error, changeset} <-
-                   query_source
+                   query_input
                    |> create_changeset(params, opts)
                    |> repo.insert(opts) do
               {:error,
                {:conflict, "Failed to create record.",
                 %{
-                  query: query_source,
-                  params: list_of_params,
+                  query: query_input,
+                  params: params_list,
                   changeset: changeset,
                   failed_value: params,
                   position: idx
@@ -784,49 +784,49 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_update_many(EctoShorts.Schemas.Post, [{%{id: 2}, %{body: "Another Update"}}])
   """
-  @spec find_and_update_many(query_source(), list(params() | {params(), params()})) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec find_and_update_many(query_source(), list(params() | {params(), params()})) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  def find_and_update_many(query_source, list_of_params, opts \\ []) do
+  @spec find_and_update_many(query_input(), list(params() | {params(), params()})) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec find_and_update_many(query_input(), list(params() | {params(), params()})) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  def find_and_update_many(query_input, params_list, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
-    |> multi_find_and_update(list_of_params, opts)
+    query_input
+    |> multi_find_and_update(params_list, opts)
     |> Config.repo!(opts).transaction(opts)
     |> handle_multi_response()
   end
 
-  defp multi_find_and_update(query_source, list_of_params, opts) do
-    list_of_params
+  defp multi_find_and_update(query_input, params_list, opts) do
+    params_list
     |> Enum.with_index()
     |> Enum.reduce(Ecto.Multi.new(), fn {args, idx}, multi ->
-      {find_params, update_params} = unzip_find_params(args, query_source, opts)
+      {find_params, update_params} = unzip_find_params(args, query_input, opts)
 
       Ecto.Multi.run(multi, {:find_and_update, idx}, fn repo, _changes_so_far ->
-        case query_source
+        case query_input
              |> CommonFilters.convert_params_to_filter(find_params, opts)
              |> repo.one(opts) do
           nil ->
             {:error,
              {:not_found, "Record not found.",
               %{
-                query: query_source,
-                params: list_of_params,
+                query: query_input,
+                params: params_list,
                 failed_value: find_params,
                 position: idx
               }}}
 
           record ->
             with {:error, changeset} <-
-                   query_source
+                   query_input
                    |> create_changeset(record, Map.merge(find_params, update_params), opts)
                    |> repo.update(opts) do
               {:error,
                {:conflict, "Failed to update record.",
                 %{
-                  query: query_source,
-                  params: list_of_params,
+                  query: query_input,
+                  params: params_list,
                   changeset: changeset,
                   failed_value: update_params,
                   position: idx
@@ -861,39 +861,39 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_upsert_many(EctoShorts.Schemas.Post, [{%{title: "title_two"}, %{body: "example"}}])
   """
-  @spec find_and_upsert_many(query_source(), list(params() | {params(), params()})) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec find_and_upsert_many(query_source(), list(params() | {params(), params()}), opts()) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  def find_and_upsert_many(query_source, list_of_params, opts \\ []) do
+  @spec find_and_upsert_many(query_input(), list(params() | {params(), params()})) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec find_and_upsert_many(query_input(), list(params() | {params(), params()}), opts()) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  def find_and_upsert_many(query_input, params_list, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
-    |> multi_find_and_upsert(list_of_params, opts)
+    query_input
+    |> multi_find_and_upsert(params_list, opts)
     |> Config.repo!(opts).transaction(opts)
     |> handle_multi_response()
   end
 
-  defp multi_find_and_upsert(query_source, list_of_params, opts) do
-    list_of_params
+  defp multi_find_and_upsert(query_input, params_list, opts) do
+    params_list
     |> Enum.with_index()
     |> Enum.reduce(Ecto.Multi.new(), fn {args, idx}, multi ->
-      {find_params, upsert_params} = unzip_find_params(args, query_source, opts)
+      {find_params, upsert_params} = unzip_find_params(args, query_input, opts)
 
       Ecto.Multi.run(multi, {:find_and_upsert, idx}, fn repo, _changes_so_far ->
-        case query_source
+        case query_input
              |> CommonFilters.convert_params_to_filter(find_params, opts)
              |> repo.one(opts) do
           nil ->
             with {:error, changeset} <-
-                   query_source
+                   query_input
                    |> create_changeset(Map.merge(find_params, upsert_params), opts)
                    |> repo.insert(opts) do
               {:error,
                {:conflict, "Failed to create record.",
                 %{
-                  query: query_source,
-                  params: list_of_params,
+                  query: query_input,
+                  params: params_list,
                   changeset: changeset,
                   position: idx
                 }}}
@@ -901,14 +901,14 @@ defmodule EctoShorts.Actions do
 
           record ->
             with {:error, changeset} <-
-                   query_source
+                   query_input
                    |> create_changeset(record, Map.merge(find_params, upsert_params), opts)
                    |> repo.update(opts) do
               {:error,
                {:conflict, "Failed to update record.",
                 %{
-                  query: query_source,
-                  params: list_of_params,
+                  query: query_input,
+                  params: params_list,
                   changeset: changeset,
                   failed_value: upsert_params,
                   position: idx
@@ -919,12 +919,12 @@ defmodule EctoShorts.Actions do
     end)
   end
 
-  defp unzip_find_params({find_params, params}, _query_source, _opts) do
+  defp unzip_find_params({find_params, params}, _query_input, _opts) do
     {find_params, params}
   end
 
-  defp unzip_find_params(params, query_source, opts) do
-    {maybe_filter_queryable_params(params, query_source, opts), params}
+  defp unzip_find_params(params, query_input, opts) do
+    {maybe_filter_queryable_params(params, query_input, opts), params}
   end
 
   @doc group: "Multi API"
@@ -940,33 +940,33 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.create_many(EctoShorts.Schemas.Post, [%{title: "title_two", body: "example"}])
   """
-  @spec create_many(sourceable(), list(params())) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec create_many(sourceable(), list(params()), opts()) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  def create_many(query_source, list_of_params, opts \\ []) do
+  @spec create_many(queryable_input(), list(params())) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec create_many(queryable_input(), list(params()), opts()) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  def create_many(query_input, params_list, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
-    |> multi_insert(list_of_params, opts)
+    query_input
+    |> multi_insert(params_list, opts)
     |> Config.repo!(opts).transaction(opts)
     |> handle_multi_response()
   end
 
-  defp multi_insert(query_source, list_of_params, opts) do
-    list_of_params
+  defp multi_insert(query_input, params_list, opts) do
+    params_list
     |> Enum.with_index()
     |> Enum.reduce(Ecto.Multi.new(), fn {params, idx}, multi ->
       Ecto.Multi.run(multi, {:create, idx}, fn repo, _changes_so_far ->
         with {:error, changeset} <-
-               query_source
+               query_input
                |> create_changeset(params, opts)
                |> repo.insert(opts) do
           {:error,
            {:conflict, "Failed to create record.",
             %{
-              query: query_source,
-              params: list_of_params,
+              query: query_input,
+              params: params_list,
               changeset: changeset,
               failed_value: params,
               position: idx
@@ -989,33 +989,33 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_many(EctoShorts.Schemas.Post, [%{title: "title_one"}, %{title: "title_two"}])
   """
-  @spec find_many(query_source(), list(params())) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec find_many(query_source(), list(params()), opts()) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  def find_many(query_source, list_of_params, opts \\ []) do
+  @spec find_many(query_input(), list(params())) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec find_many(query_input(), list(params()), opts()) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  def find_many(query_input, params_list, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
-    |> multi_find(list_of_params, opts)
+    query_input
+    |> multi_find(params_list, opts)
     |> Config.repo!(opts).transaction(opts)
     |> handle_multi_response()
   end
 
-  defp multi_find(query_source, list_of_params, opts) do
-    list_of_params
+  defp multi_find(query_input, params_list, opts) do
+    params_list
     |> Enum.with_index()
     |> Enum.reduce(Ecto.Multi.new(), fn {params, idx}, multi ->
       Ecto.Multi.run(multi, {:find, idx}, fn repo, _changes_so_far ->
-        case query_source
+        case query_input
              |> CommonFilters.convert_params_to_filter(params, opts)
              |> repo.one(opts) do
           nil ->
             {:error,
              {:not_found, "Record not found.",
               %{
-                query: query_source,
-                params: list_of_params,
+                query: query_input,
+                params: params_list,
                 failed_value: params,
                 position: idx
               }}}
@@ -1041,10 +1041,10 @@ defmodule EctoShorts.Actions do
       iex> {:ok, posts} = EctoShorts.Actions.create_many(EctoShorts.Schemas.Post, [%{title: "post_title_one"}, %{title: "post_title_two"}])
       ...> EctoShorts.Actions.delete_many(posts)
   """
-  @spec delete_many(list(schema_or_changeset())) ::
-          {:ok, list(schema_struct())} | {:error, any()}
-  @spec delete_many(list(schema_or_changeset()), opts()) ::
-          {:ok, list(schema_struct())} | {:error, any()}
+  @spec delete_many(list(changeset_input())) ::
+          {:ok, list(schema_data())} | {:error, any()}
+  @spec delete_many(list(changeset_input()), opts()) ::
+          {:ok, list(schema_data())} | {:error, any()}
   def delete_many(entries, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
@@ -1066,7 +1066,7 @@ defmodule EctoShorts.Actions do
           {:error,
            {:conflict, "Failed to delete record.",
             %{
-              query: CommonSchemas.get_metadata(entry),
+              query: CommonSchemas.get_schema_metadata(entry),
               params: entries,
               changeset: changeset,
               failed_value: entry,
@@ -1095,13 +1095,13 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_create(EctoShorts.Schemas.Post, %{title: "title_one"}, %{title: "title_one", body: "new_post"})
   """
-  @spec find_and_create(query_source(), params(), params()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec find_and_create(query_source(), params(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def find_and_create(query_source, find_params, create_params, opts \\ []) do
-    with {:error, %{code: :not_found}} <- find(query_source, find_params, opts) do
-      create(query_source, create_params, opts)
+  @spec find_and_create(query_input(), params(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec find_and_create(query_input(), params(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def find_and_create(query_input, find_params, create_params, opts \\ []) do
+    with {:error, %{code: :not_found}} <- find(query_input, find_params, opts) do
+      create(query_input, create_params, opts)
     end
   end
 
@@ -1120,13 +1120,13 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_update(EctoShorts.Schemas.Post, %{id: 1}, %{body: "updated_body"})
   """
-  @spec find_and_update(query_source(), params(), params()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec find_and_update(query_source(), params(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def find_and_update(query_source, find_params, update_params, opts \\ []) do
-    with {:ok, record} <- find(query_source, find_params, opts) do
-      update(query_source, record, update_params, opts)
+  @spec find_and_update(query_input(), params(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec find_and_update(query_input(), params(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def find_and_update(query_input, find_params, update_params, opts \\ []) do
+    with {:ok, record} <- find(query_input, find_params, opts) do
+      update(query_input, record, update_params, opts)
     end
   end
 
@@ -1147,17 +1147,17 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_upsert(EctoShorts.Schemas.Post, %{title: "fira@example.com"}, %{body: "post_body"})
   """
-  @spec find_and_upsert(query_source(), params(), params()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec find_and_upsert(query_source(), params(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def find_and_upsert(query_source, find_params, update_params, opts \\ []) do
-    case find(query_source, find_params, opts) do
+  @spec find_and_upsert(query_input(), params(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec find_and_upsert(query_input(), params(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def find_and_upsert(query_input, find_params, update_params, opts \\ []) do
+    case find(query_input, find_params, opts) do
       {:ok, record} ->
-        update(query_source, record, update_params, opts)
+        update(query_input, record, update_params, opts)
 
       {:error, %{code: :not_found}} ->
-        create(query_source, Map.merge(find_params, update_params), opts)
+        create(query_input, Map.merge(find_params, update_params), opts)
 
       {:error, _} = e ->
         e
@@ -1182,12 +1182,12 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_delete({"posts", EctoShorts.Schemas.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
   """
-  @spec find_and_delete(query_source(), params()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec find_and_delete(query_source(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def find_and_delete(query_source, find_params, opts \\ []) do
-    with {:ok, record} <- find(query_source, find_params, opts) do
+  @spec find_and_delete(query_input(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec find_and_delete(query_input(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def find_and_delete(query_input, find_params, opts \\ []) do
+    with {:ok, record} <- find(query_input, find_params, opts) do
       delete(record, opts)
     end
   end
@@ -1216,18 +1216,18 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_or_create({"posts", EctoShorts.Schemas.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
   """
-  @spec find_or_create(query_source(), params()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec find_or_create(query_source(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def find_or_create(query_source, params, opts \\ []) do
+  @spec find_or_create(query_input(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec find_or_create(query_input(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def find_or_create(query_input, params, opts \\ []) do
     with {:error, %{code: :not_found}} <-
            find(
-             query_source,
-             maybe_filter_queryable_params(params, query_source, opts),
+             query_input,
+             maybe_filter_queryable_params(params, query_input, opts),
              opts
            ) do
-      create(query_source, params, opts)
+      create(query_input, params, opts)
     end
   end
 
@@ -1252,12 +1252,12 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.get({"posts", EctoShorts.Schemas.Post}, 1, replica: EctoShorts.Repo)
   """
-  @spec get(query_source(), id()) :: schema_struct() | nil
-  @spec get(query_source(), id(), opts()) :: schema_struct() | nil
-  def get(query_source, id, opts \\ []) do
+  @spec get(query_input(), id()) :: schema_data() | nil
+  @spec get(query_input(), id(), opts()) :: schema_data() | nil
+  def get(query_input, id, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    Config.replica!(opts).get(query_source, id, opts)
+    Config.replica!(opts).get(query_input, id, opts)
   end
 
   @doc group: "Query API"
@@ -1284,22 +1284,22 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.all(EctoShorts.Schemas.Post, id: 1, replica: EctoShorts.Repo)
   """
-  @spec all(query_source()) :: list(schema_struct())
-  @spec all(query_source(), params()) :: list(schema_struct())
-  @spec all(query_source(), opts()) :: list(schema_struct())
-  def all(query_source, params_or_opts \\ [])
+  @spec all(query_input()) :: list(schema_data())
+  @spec all(query_input(), params()) :: list(schema_data())
+  @spec all(query_input(), opts()) :: list(schema_data())
+  def all(query_input, params_or_opts \\ [])
 
-  def all(query_source, params) when is_map(params) do
-    all(query_source, params, [])
+  def all(query_input, params) when is_map(params) do
+    all(query_input, params, [])
   end
 
-  def all(query_source, opts) do
+  def all(query_input, opts) do
     params =
       opts
       |> Keyword.drop([:repo, :replica])
       |> Map.new()
 
-    all(query_source, params, Keyword.take(opts, [:repo, :replica]))
+    all(query_input, params, Keyword.take(opts, [:repo, :replica]))
   end
 
   @doc group: "Query API"
@@ -1325,8 +1325,8 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.all({"posts", EctoShorts.Schemas.Post}, %{published: true}, replica: EctoShorts.Repo)
   """
-  @spec all(query_source(), params(), opts()) :: list(schema_struct())
-  def all(query_source, params, opts) do
+  @spec all(query_input(), params(), opts()) :: list(schema_data())
+  def all(query_input, params, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
     params =
@@ -1336,7 +1336,7 @@ defmodule EctoShorts.Actions do
 
     opts = Keyword.drop(opts, [:order_by, :group_by])
 
-    query_source
+    query_input
     |> CommonFilters.convert_params_to_filter(params, opts)
     |> Config.replica!(opts).all(opts)
   end
@@ -1363,13 +1363,14 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.create({"posts", EctoShorts.Schemas.Post}, %{body: "post_body"}, repo: EctoShorts.Repo)
   """
-  @spec create(sourceable(), params()) :: {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec create(sourceable(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def create(query_source, params, opts \\ []) do
+  @spec create(queryable_input(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec create(queryable_input(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def create(query_input, params, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
+    query_input
     |> create_changeset(params, opts)
     |> Config.repo!(opts).insert(opts)
   end
@@ -1393,25 +1394,25 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find({"posts", EctoShorts.Schemas.Post}, %{id: 1})
   """
-  @spec find(query_source(), params()) :: {:ok, schema_struct()} | {:error, any()}
-  @spec find(query_source(), params(), opts()) :: {:ok, schema_struct()} | {:error, any()}
-  def find(query_source, params, opts \\ [])
+  @spec find(query_input(), params()) :: {:ok, schema_data()} | {:error, any()}
+  @spec find(query_input(), params(), opts()) :: {:ok, schema_data()} | {:error, any()}
+  def find(query_input, params, opts \\ [])
 
-  def find(query_source, params, opts)
-      when params === %{} and not is_struct(query_source, Ecto.Query) do
+  def find(query_input, params, opts)
+      when params === %{} and not is_struct(query_input, Ecto.Query) do
     {:error,
      Error.call(
        :not_found,
        "Record not found.",
        %{
-         query: query_source,
+         query: query_input,
          params: params
        },
        opts
      )}
   end
 
-  def find(query_source, params, opts) do
+  def find(query_input, params, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
     params =
@@ -1421,7 +1422,7 @@ defmodule EctoShorts.Actions do
 
     opts = Keyword.drop(opts, [:order_by, :group_by])
 
-    case query_source
+    case query_input
          |> CommonFilters.convert_params_to_filter(params, opts)
          |> Config.replica!(opts).one(opts) do
       nil ->
@@ -1430,7 +1431,7 @@ defmodule EctoShorts.Actions do
            :not_found,
            "Record not found.",
            %{
-             query: query_source,
+             query: query_input,
              params: params
            },
            opts
@@ -1476,27 +1477,27 @@ defmodule EctoShorts.Actions do
       iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schemas.PostAbstract}, %{body: "example"})
       ...> EctoShorts.Actions.update({"posts", EctoShorts.Schemas.PostAbstract}, post, %{body: "updated_body"})
   """
-  @spec update(query_source(), id() | schema_struct(), params()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  @spec update(query_source(), id() | schema_struct(), params(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def update(query_source, id_or_schema_struct, update_params, opts \\ [])
+  @spec update(query_input(), id() | schema_data(), params()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  @spec update(query_input(), id() | schema_data(), params(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def update(query_input, id_or_schema_data, update_params, opts \\ [])
 
-  def update(query_source, id, update_params, opts) when is_integer(id) or is_binary(id) do
-    with {:ok, record} <- find(query_source, %{id: id}, opts) do
-      update(query_source, record, update_params, opts)
+  def update(query_input, id, update_params, opts) when is_integer(id) or is_binary(id) do
+    with {:ok, record} <- find(query_input, %{id: id}, opts) do
+      update(query_input, record, update_params, opts)
     end
   end
 
-  def update(query_source, schema_struct, update_params, opts) when is_list(update_params) do
-    update(query_source, schema_struct, Map.new(update_params), opts)
+  def update(query_input, schema_data, update_params, opts) when is_list(update_params) do
+    update(query_input, schema_data, Map.new(update_params), opts)
   end
 
-  def update(query_source, schema_struct, update_params, opts) do
+  def update(query_input, schema_data, update_params, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
-    |> create_changeset(schema_struct, update_params, opts)
+    query_input
+    |> create_changeset(schema_data, update_params, opts)
     |> Config.repo!(opts).update(opts)
   end
 
@@ -1537,12 +1538,12 @@ defmodule EctoShorts.Actions do
       iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> post |> EctoShorts.Schemas.Post.changeset(%{}) |> EctoShorts.Actions.delete()
   """
-  @spec delete(schema_or_changeset() | list(schema_or_changeset())) ::
-          {:ok, list(schema_struct())} | {:error, list(changeset())} | {:error, any()}
+  @spec delete(changeset_input() | list(changeset_input())) ::
+          {:ok, list(schema_data())} | {:error, list(changeset())} | {:error, any()}
   @spec delete(
-          schema_or_changeset() | list(schema_or_changeset()),
+          changeset_input() | list(changeset_input()),
           opts()
-        ) :: {:ok, schema_struct()} | {:error, changeset() | any()}
+        ) :: {:ok, schema_data()} | {:error, changeset() | any()}
   def delete(entries, opts \\ [])
 
   def delete(%_{data: %_{__meta__: %{schema: queryable}}} = changeset, opts) do
@@ -1565,12 +1566,12 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  def delete(%_{__meta__: %{schema: queryable}} = schema_struct, opts) do
+  def delete(%_{__meta__: %{schema: queryable}} = schema_data, opts) do
     opts = Keyword.merge(default_opts(), opts)
 
     with {:error, changeset} <-
            queryable
-           |> create_changeset(schema_struct, %{}, opts)
+           |> create_changeset(schema_data, %{}, opts)
            |> Config.repo!(opts).delete(opts) do
       {:error,
        Error.call(
@@ -1591,8 +1592,8 @@ defmodule EctoShorts.Actions do
     end)
   end
 
-  def delete(query_source, id) when is_binary(id) or is_integer(id) do
-    delete(query_source, id, [])
+  def delete(query_input, id) when is_binary(id) or is_integer(id) do
+    delete(query_input, id, [])
   end
 
   @doc group: "Schema API"
@@ -1616,10 +1617,10 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.delete({"posts", EctoShorts.Schemas.Post}, 1, repo: EctoShorts.Repo)
   """
-  @spec delete(query_source(), id(), opts()) ::
-          {:ok, schema_struct()} | {:error, changeset() | any()}
-  def delete(query_source, id, opts) when is_integer(id) or is_binary(id) do
-    with {:ok, record} <- find(query_source, %{id: id}, opts) do
+  @spec delete(query_input(), id(), opts()) ::
+          {:ok, schema_data()} | {:error, changeset() | any()}
+  def delete(query_input, id, opts) when is_integer(id) or is_binary(id) do
+    with {:ok, record} <- find(query_input, %{id: id}, opts) do
       delete(record, opts)
     end
   end
@@ -1644,13 +1645,13 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.stream({"posts", EctoShorts.Schemas.Post}, %{published: true}, repo: EctoShorts.Repo)
   """
-  @spec stream(query_source()) :: stream()
-  @spec stream(query_source(), params()) :: stream()
-  @spec stream(query_source(), params(), opts()) :: stream()
-  def stream(query_source, params \\ %{}, opts \\ []) do
+  @spec stream(query_input()) :: stream()
+  @spec stream(query_input(), params()) :: stream()
+  @spec stream(query_input(), params(), opts()) :: stream()
+  def stream(query_input, params \\ %{}, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
+    query_input
     |> CommonFilters.convert_params_to_filter(params, opts)
     |> Config.repo!(opts).stream(opts)
   end
@@ -1683,15 +1684,15 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.aggregate(EctoShorts.Schemas.Post, %{published: true}, :avg, :views, repo: EctoShorts.Repo)
   """
-  @spec aggregate(query_source()) :: any() | nil
-  @spec aggregate(query_source(), params()) :: any() | nil
-  @spec aggregate(query_source(), params(), aggregate_options()) :: any() | nil
-  @spec aggregate(query_source(), params(), aggregate_options(), key()) :: any() | nil
-  @spec aggregate(query_source(), params(), aggregate_options(), key(), opts()) :: any() | nil
-  def aggregate(query_source, params \\ %{}, aggregate \\ :count, key \\ :id, opts \\ []) do
+  @spec aggregate(query_input()) :: any() | nil
+  @spec aggregate(query_input(), params()) :: any() | nil
+  @spec aggregate(query_input(), params(), aggregate_options()) :: any() | nil
+  @spec aggregate(query_input(), params(), aggregate_options(), key()) :: any() | nil
+  @spec aggregate(query_input(), params(), aggregate_options(), key(), opts()) :: any() | nil
+  def aggregate(query_input, params \\ %{}, aggregate \\ :count, key \\ :id, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    query_source
+    query_input
     |> CommonFilters.convert_params_to_filter(params, opts)
     |> Config.replica!(opts).aggregate(aggregate, key, opts)
   end
@@ -1816,41 +1817,41 @@ defmodule EctoShorts.Actions do
     CommonSchemas.create_changeset(struct_or_changeset, params, opts)
   end
 
-  def create_changeset({schema_source, schema_module}, params, opts) do
-    if function_exported?(schema_module, :create_changeset, 1) and
+  def create_changeset({source, schema}, params, opts) do
+    if function_exported?(schema, :create_changeset, 1) and
          not Keyword.has_key?(opts, :create_changeset) do
-      schema_module.create_changeset({schema_source, params})
+      schema.create_changeset({source, params})
     else
-      CommonSchemas.create_changeset({schema_source, schema_module}, params, opts)
+      CommonSchemas.create_changeset({source, schema}, params, opts)
     end
   end
 
-  def create_changeset(schema_module, params, opts) do
-    if function_exported?(schema_module, :create_changeset, 1) and
+  def create_changeset(schema, params, opts) do
+    if function_exported?(schema, :create_changeset, 1) and
          not Keyword.has_key?(opts, :create_changeset) do
-      schema_module.create_changeset(params)
+      schema.create_changeset(params)
     else
-      CommonSchemas.create_changeset(schema_module, params, opts)
+      CommonSchemas.create_changeset(schema, params, opts)
     end
   end
 
   @doc false
-  def create_changeset(sourceable, struct_or_changeset, params, opts) do
-    CommonSchemas.create_changeset(sourceable, struct_or_changeset, params, opts)
+  def create_changeset(queryable_input, struct_or_changeset, params, opts) do
+    CommonSchemas.create_changeset(queryable_input, struct_or_changeset, params, opts)
   end
 
   @doc false
-  def maybe_filter_queryable_params(params, query_source, opts) do
+  def maybe_filter_queryable_params(params, query_input, opts) do
     if Keyword.get(opts, :filter_queryable_params, true) do
-      filter_queryable_params(params, query_source)
+      filter_queryable_params(params, query_input)
     else
       params
     end
   end
 
   @doc false
-  def filter_queryable_params(params, query_source) do
-    Map.take(params, CommonSchemas.get_reflection(query_source, :query_fields))
+  def filter_queryable_params(params, query_input) do
+    Map.take(params, CommonSchemas.get_schema_reflection(query_input, :query_fields))
   end
 
   defp put_order_by(params, opts) do

@@ -15,6 +15,38 @@ defmodule EctoShorts.Testing do
     * `refute_*/2` versions – Inverse assertions to confirm inequality.
   """
 
+  def insert!(repo, schema_source, params \\ %{}, opts \\ [])
+
+  def insert!(repo, source, params, opts) when is_binary(source) do
+    params = params |> Map.to_list() |> Enum.sort()
+
+    keys = params |> Keyword.keys() |> Enum.map_join(", ", &to_string/1)
+    values = Keyword.values(params)
+    placeholders = Enum.map(0..Enum.count(keys), fn idx -> "$#{idx + 1}" end)
+
+    Ecto.Adapters.SQL.query!(
+      repo,
+      "INSERT INTO #{source} (#{keys}) VALUES (#{placeholders})",
+      values,
+      opts
+    )
+  end
+
+  def insert!(repo, {source, schema}, params, opts) do
+    schema
+    |> struct!()
+    |> Ecto.put_meta(source: source)
+    |> schema.changeset(params)
+    |> repo.insert!(opts)
+  end
+
+  def insert!(repo, schema, params, opts) do
+    schema
+    |> struct!()
+    |> schema.changeset(params)
+    |> repo.insert!(opts)
+  end
+
   @doc """
   Asserts that two `dynamic/2` expressions are structurally identical.
 

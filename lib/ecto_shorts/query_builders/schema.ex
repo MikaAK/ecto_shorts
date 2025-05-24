@@ -84,17 +84,15 @@ defmodule EctoShorts.QueryBuilders.Schema do
   }
 
   @type query :: Ecto.Query.t()
-  @type schema_module :: Ecto.Queryable.t()
-  @type schema_source :: binary()
-  @type source_and_schema :: {schema_source(), schema_module()}
-  @type sourceable :: schema_module() | source_and_schema()
-  @type query_source :: query() | sourceable()
-  @type binding_alias :: atom()
-
+  @type schema :: Ecto.Queryable.t()
+  @type source :: binary()
+  @type schema_source :: {source(), schema()}
+  @type queryable_input :: schema() | schema_source()
+  @type query_source :: query() | queryable_input()
+  @type binding_alias :: atom() | nil
   @type key :: atom()
   @type value :: any()
   @type opts :: keyword()
-
   @type filter :: :join | :select | :select_merge | :or_where
 
   @behaviour EctoShorts.QueryBuilder
@@ -183,35 +181,35 @@ defmodule EctoShorts.QueryBuilders.Schema do
   @spec build_query(
           query_source(),
           binding_alias() | nil,
-          schema_module(),
+          schema(),
           key(),
           value()
-        ) :: query() | schema_module()
+        ) :: query() | schema()
   @spec build_query(
           query_source(),
           binding_alias() | nil,
-          schema_module(),
+          schema(),
           key(),
           value(),
           opts()
-        ) :: query() | schema_module()
-  def build_query(query, binding_alias, schema_module, key, value, opts \\ []) do
+        ) :: query() | schema()
+  def build_query(query, binding_alias, schema, key, value, opts \\ []) do
     cond do
       key in @query_api_filters ->
-        build_query_api_filter(query, binding_alias, schema_module, key, value, opts)
+        build_query_api_filter(query, binding_alias, schema, key, value, opts)
 
-      key in schema_module.__schema__(:associations) ->
+      key in schema.__schema__(:associations) ->
         join_association(
           query,
           binding_alias,
-          schema_module,
+          schema,
           key,
           value,
           opts
         )
 
-      key in schema_module.__schema__(:query_fields) ->
-        build_schema_filter(query, binding_alias, schema_module, key, value, opts)
+      key in schema.__schema__(:query_fields) ->
+        build_schema_filter(query, binding_alias, schema, key, value, opts)
 
       true ->
         message =
@@ -220,7 +218,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
           schema:
 
-          #{inspect(schema_module)}
+          #{inspect(schema)}
 
           key:
 
@@ -238,16 +236,16 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
           - Use a valid schema field, such as:
 
-          #{Enum.map_join(schema_module.__schema__(:query_fields), "\n", &"* #{&1}")}
+          #{Enum.map_join(schema.__schema__(:query_fields), "\n", &"* #{&1}")}
 
           """
 
         assoc_warning_message =
-          if schema_module.__schema__(:associations) !== [] do
+          if schema.__schema__(:associations) !== [] do
             """
             - Use a valid association, such as:
 
-            #{Enum.map_join(schema_module.__schema__(:associations), "\n", &"* #{&1}")}
+            #{Enum.map_join(schema.__schema__(:associations), "\n", &"* #{&1}")}
             """
           else
             ""
@@ -259,32 +257,32 @@ defmodule EctoShorts.QueryBuilders.Schema do
     end
   end
 
-  defp reduce_query_params(query, binding_alias, schema_module, params, opts) do
+  defp reduce_query_params(query, binding_alias, schema, params, opts) do
     Enum.reduce(params, query, fn {key, value}, query ->
-      build_query(query, binding_alias, schema_module, key, value, opts)
+      build_query(query, binding_alias, schema, key, value, opts)
     end)
   end
 
-  defp build_schema_filter(query, binding_alias, schema_module, key, value, opts) do
+  defp build_schema_filter(query, binding_alias, schema, key, value, opts) do
     Utils.apply_expressions(
       query,
       value,
       fn value, query ->
-        apply_schema_filter(query, binding_alias, schema_module, key, value, opts)
+        apply_schema_filter(query, binding_alias, schema, key, value, opts)
       end,
       opts
     )
   end
 
-  defp apply_schema_filter(query, binding_alias, _schema_module, key, {operator, value}, opts) do
+  defp apply_schema_filter(query, binding_alias, _schema, key, {operator, value}, opts) do
     CommonQueryAPI.where(query, binding_alias, %{key => %{operator => value}}, opts)
   end
 
-  defp apply_schema_filter(query, binding_alias, schema_module, key, value, opts) do
-    apply_schema_filter(query, binding_alias, schema_module, key, {:==, value}, opts)
+  defp apply_schema_filter(query, binding_alias, schema, key, value, opts) do
+    apply_schema_filter(query, binding_alias, schema, key, {:==, value}, opts)
   end
 
-  defp build_query_api_filter(query, _binding_alias, _schema_module, :from, params, _opts) do
+  defp build_query_api_filter(query, _binding_alias, _schema, :from, params, _opts) do
     params
     |> List.wrap()
     |> Enum.reduce(query, fn params, query ->
@@ -294,50 +292,50 @@ defmodule EctoShorts.QueryBuilders.Schema do
     end)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema_module, :select, value, _opts) do
+  defp build_query_api_filter(query, binding_alias, _schema, :select, value, _opts) do
     CommonQueryAPI.select(query, binding_alias, value)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema_module, :select_merge, value, _opts) do
+  defp build_query_api_filter(query, binding_alias, _schema, :select_merge, value, _opts) do
     CommonQueryAPI.select_merge(query, binding_alias, value)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema_module, :or, value, opts) do
+  defp build_query_api_filter(query, binding_alias, _schema, :or, value, opts) do
     CommonQueryAPI.or_where(query, binding_alias, value, opts)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema_module, :or_where, value, opts) do
+  defp build_query_api_filter(query, binding_alias, _schema, :or_where, value, opts) do
     CommonQueryAPI.or_where(query, binding_alias, value, opts)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema_module, :where, value, opts) do
+  defp build_query_api_filter(query, binding_alias, _schema, :where, value, opts) do
     CommonQueryAPI.where(query, binding_alias, value, opts)
   end
 
-  defp build_query_api_filter(query, binding_alias, schema_module, :join, params, opts) do
+  defp build_query_api_filter(query, binding_alias, schema, :join, params, opts) do
     Enum.reduce(params, query, fn {key, value}, query ->
-      build_join_filter(query, binding_alias, schema_module, key, value, opts)
+      build_join_filter(query, binding_alias, schema, key, value, opts)
     end)
   end
 
-  defp build_join_filter(query, binding_alias, schema_module, :association, params, opts) do
+  defp build_join_filter(query, binding_alias, schema, :association, params, opts) do
     join_associations(
       query,
       binding_alias,
-      schema_module,
+      schema,
       params,
       opts
     )
   end
 
-  defp build_join_filter(query, binding_alias, _schema_module, :subquery, params, opts) do
+  defp build_join_filter(query, binding_alias, _schema, :subquery, params, opts) do
     join_subquery(query, binding_alias, params, opts)
   end
 
   defp join_associations(
          query,
          binding_alias,
-         schema_module,
+         schema,
          params,
          opts
        ) do
@@ -345,7 +343,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       join_association(
         query,
         binding_alias,
-        schema_module,
+        schema,
         assoc_key,
         value,
         opts
@@ -356,7 +354,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
   defp join_association(
          query,
          binding_alias,
-         schema_module,
+         schema,
          assoc_key,
          values,
          opts
@@ -366,7 +364,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       join_association(
         query,
         binding_alias,
-        schema_module,
+        schema,
         assoc_key,
         Map.new(values),
         opts
@@ -376,7 +374,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
         join_association(
           query,
           binding_alias,
-          schema_module,
+          schema,
           assoc_key,
           params,
           opts
@@ -385,37 +383,38 @@ defmodule EctoShorts.QueryBuilders.Schema do
     end
   end
 
-  defp join_association(query, binding_alias, schema_module, assoc_key, params, opts) do
-    {assoc_as, params} = Map.pop(params, :as)
+  defp join_association(query, binding_alias, schema, assoc_key, params, opts) do
+    {join_binding_alias, params} = Map.pop(params, :as)
 
-    {assoc_schema_module, params} = Map.pop(params, :queryable)
-
-    assoc_schema_module =
-      if is_nil(assoc_schema_module) do
-        SchemaHelpers.fetch_schema_association_module!(schema_module, assoc_key)
-      else
-        assoc_schema_module
+    join_schema =
+      case params[:queryable] do
+        nil -> SchemaHelpers.fetch_schema_association_module!(schema, assoc_key)
+        module -> module
       end
 
-    assoc_as =
-      if is_nil(assoc_as) do
+    join_binding_alias =
+      if is_nil(join_binding_alias) do
         assoc_key
         |> named_binding()
         |> String.to_atom()
       else
-        assoc_as
+        join_binding_alias
       end
+
+    join_params = Map.take(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
+
+    params = Map.drop(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
 
     query
     |> CommonQueryAPI.join(
       binding_alias,
-      assoc_as,
+      join_binding_alias,
       :association,
       assoc_key,
-      take_join_keys(params),
+      join_params,
       opts
     )
-    |> reduce_query_params(assoc_as, assoc_schema_module, drop_join_keys(params), opts)
+    |> reduce_query_params(join_binding_alias, join_schema, params, opts)
   end
 
   defp join_subquery(query, binding_alias, values, opts) when is_list(values) do
@@ -429,58 +428,44 @@ defmodule EctoShorts.QueryBuilders.Schema do
   end
 
   defp join_subquery(query, binding_alias, params, opts) do
-    {subquery_as, params} = Map.pop(params, :as)
+    {join_binding_alias, params} = Map.pop(params, :as)
 
-    {inner_query, params} =
+    inner_query =
       if Map.has_key?(params, :query) do
-        Map.pop(params, :query)
+        params[:query]
       else
         raise KeyError, "key :query not found, got: #{inspect(params)}"
       end
 
-    {subquery_schema_module, params} = Map.pop(params, :queryable)
-
-    subquery_schema_module =
-      if is_nil(subquery_schema_module) do
-        inner_query
-        |> CommonQueries.fetch_expression_source!(subquery_as)
-        |> elem(1)
-      else
-        subquery_schema_module
+    join_schema =
+      case params[:queryable] do
+        nil -> inner_query |> CommonQueries.validate_schema_source!(join_binding_alias) |> elem(1)
+        module -> module
       end
 
-    subquery_as =
-      if is_nil(subquery_as) do
-        subquery_schema_module
+    join_binding_alias =
+      if is_nil(join_binding_alias) do
+        join_schema
         |> named_binding_from_module()
         |> String.to_atom()
       else
-        subquery_as
+        join_binding_alias
       end
+
+    join_params = Map.take(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
+
+    params = Map.drop(params, [:as, :qualifier, :query, :queryable, :on, :prefix])
 
     query
     |> CommonQueryAPI.join(
       binding_alias,
-      subquery_as,
+      join_binding_alias,
       :subquery,
       inner_query,
-      take_join_keys(params),
+      join_params,
       opts
     )
-    |> reduce_query_params(
-      subquery_as,
-      subquery_schema_module,
-      drop_join_keys(params),
-      opts
-    )
-  end
-
-  defp take_join_keys(params) do
-    Map.take(params, [:as, :qualifier, :query, :on, :prefix])
-  end
-
-  defp drop_join_keys(params) do
-    Map.drop(params, [:as, :qualifier, :query, :on, :prefix])
+    |> reduce_query_params(join_binding_alias, join_schema, params, opts)
   end
 
   @doc false

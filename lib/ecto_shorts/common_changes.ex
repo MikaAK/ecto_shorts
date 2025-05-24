@@ -274,6 +274,40 @@ defmodule EctoShorts.CommonChanges do
     Map.update!(changeset, :data, &Actions.preload(&1, preloads, opts))
   end
 
+  def association_not_loaded?(%{data: schema_data} = _changeset, key) do
+    SchemaHelpers.association_not_loaded?(schema_data, key)
+  end
+
+  def changeset(%{data: _} = changeset, params) when params === %{} or params === [] do
+    changeset
+  end
+
+  def changeset(%{data: %{__meta__: %{schema: schema}}} = changeset, params) do
+    if function_exported?(schema, :changeset, 2) do
+      schema.changeset(changeset, params)
+    else
+      Ecto.Changeset.change(changeset, params)
+    end
+  end
+
+  def changeset(%{__meta__: %{schema: schema}} = schema_data, params) do
+    if function_exported?(schema, :changeset, 2) do
+      schema.changeset(schema_data, params)
+    else
+      Ecto.Changeset.change(schema_data)
+    end
+  end
+
+  def changeset(schema, params) when is_atom(schema) do
+    schema_struct = struct(schema)
+
+    if function_exported?(schema, :changeset, 2) do
+      schema.changeset(schema_struct, params)
+    else
+      Ecto.Changeset.change(schema_struct)
+    end
+  end
+
   @doc """
   Determines how to apply an association change based on the shape
   of the input in `changeset.params[key]`.
@@ -297,9 +331,9 @@ defmodule EctoShorts.CommonChanges do
   @spec put_or_cast_assoc(changeset(), key()) :: changeset()
   @spec put_or_cast_assoc(changeset(), key(), opts()) :: changeset()
   def put_or_cast_assoc(%{data: %{__meta__: _}} = changeset, key, opts \\ []) do
-    data_or_nil = get_changeset_params(changeset, key)
+    params_data = get_changeset_params(changeset, key)
 
-    apply_put_or_cast_assoc(changeset, key, data_or_nil, opts)
+    apply_put_or_cast_assoc(changeset, key, params_data, opts)
   end
 
   defp apply_put_or_cast_assoc(changeset, key, nil, opts) do
@@ -307,59 +341,17 @@ defmodule EctoShorts.CommonChanges do
   end
 
   defp apply_put_or_cast_assoc(changeset, key, params_data, opts) when is_list(params_data) do
-    schema_module = get_changeset_queryable(changeset)
+    schema = get_changeset_schema(changeset)
 
     cond do
-      SchemaHelpers.all_schema?(params_data) ->
+      SchemaHelpers.all_schema_struct?(params_data) ->
         Changeset.put_assoc(changeset, key, params_data, opts)
 
-      only_primary_keys?(schema_module, params_data) ->
-        raise_if_not_association!(schema_module, key)
+      SchemaHelpers.all_only_primary_key?(schema, params_data) ->
+        put_assoc(changeset, key, params_data, opts)
 
-        assoc_schema_module = fetch_association_schema!(changeset, key)
-
-        query_params = build_query_params(schema_module, params_data)
-
-        query_params =
-          if Keyword.has_key?(opts, :limit) do
-            Map.put(query_params, :limit, opts[:limit])
-          else
-            query_params
-          end
-
-        records = Actions.all(assoc_schema_module, query_params, opts)
-
-        Changeset.put_assoc(changeset, key, records, opts)
-
-      SchemaHelpers.any_created?(schema_module, params_data) ->
-        raise_if_not_association!(schema_module, key)
-
-        assoc_schema_module = fetch_association_schema!(changeset, key)
-
-        query_params = build_query_params(schema_module, params_data)
-
-        query_params =
-          if Keyword.has_key?(opts, :limit) do
-            Map.put(query_params, :limit, opts[:limit])
-          else
-            query_params
-          end
-
-        records = Actions.all(assoc_schema_module, query_params, opts)
-
-        changeset
-        |> Map.update!(:data, fn schema_struct ->
-          if SchemaHelpers.association_not_loaded?(schema_struct, key) do
-            Map.put(schema_struct, key, records)
-          else
-            if Keyword.get(opts, :force, true) do
-              Map.put(schema_struct, key, records)
-            else
-              schema_struct
-            end
-          end
-        end)
-        |> Changeset.cast_assoc(key, opts)
+      SchemaHelpers.any_created?(schema, params_data) ->
+        cast_assoc(changeset, key, params_data, opts)
 
       true ->
         Changeset.cast_assoc(changeset, key, opts)
@@ -367,121 +359,188 @@ defmodule EctoShorts.CommonChanges do
   end
 
   defp apply_put_or_cast_assoc(changeset, key, params_data, opts) do
-    if SchemaHelpers.schema?(params_data) do
+    if SchemaHelpers.schema_struct?(params_data) do
       Changeset.put_assoc(changeset, key, params_data, opts)
     else
       Changeset.cast_assoc(changeset, key, opts)
     end
   end
 
-  defp raise_if_not_association!(schema_module, key) do
-    if key not in schema_module.__schema__(:associations) do
+  @doc """
+  ...
+  """
+  def put_assoc(changeset, key, opts) do
+    put_assoc(changeset, key, get_changeset_params(changeset, key), opts)
+  end
+
+  defp put_assoc(changeset, _key, nil, _opts) do
+    changeset
+  end
+
+  defp put_assoc(changeset, key, params_data, opts) do
+    raise_if_not_changeset_association!(changeset, key)
+
+    assoc = fetch_changeset_association!(changeset, key)
+    assoc_schema = assoc.queryable
+
+    related_key = assoc.related_key
+    owner_value = Map.fetch!(changeset.data, assoc.owner_key)
+
+    owner_params = if is_nil(owner_value), do: %{}, else: %{related_key => owner_value}
+    query_params = build_assoc_query_params(owner_params, assoc_schema, params_data)
+
+    if query_params === %{} do
+      changeset
+    else
+      changeset = preload_association(changeset, key, opts)
+
+      records = actions_all(assoc_schema, query_params, opts)
+
+      Changeset.put_assoc(changeset, key, records, opts)
+    end
+  end
+
+  @doc """
+  ...
+  """
+  def cast_assoc(changeset, key, opts) do
+    cast_assoc(changeset, key, get_changeset_params(changeset, key), opts)
+  end
+
+  defp cast_assoc(changeset, _key, nil, _opts) do
+    changeset
+  end
+
+  defp cast_assoc(changeset, key, params_data, opts) do
+    raise_if_not_changeset_association!(changeset, key)
+
+    assoc = fetch_changeset_association!(changeset, key)
+    assoc_schema = assoc.queryable
+
+    related_key = assoc.related_key
+    owner_value = Map.fetch!(changeset.data, assoc.owner_key)
+
+    owner_params = if is_nil(owner_value), do: %{}, else: %{related_key => owner_value}
+    query_params = build_assoc_query_params(owner_params, assoc_schema, params_data)
+
+    if query_params === %{} do
+      changeset
+    else
+      changeset
+      |> load_association(key, assoc_schema, query_params, opts)
+      |> Changeset.cast_assoc(key, opts)
+    end
+  end
+
+  defp load_association(changeset, key, assoc_schema, query_params, opts) do
+    records = actions_all(assoc_schema, query_params, opts)
+
+    put_loaded_association(changeset, key, records, opts)
+  end
+
+  defp actions_all(schema, params, opts) do
+    extra_params =
+      if Keyword.has_key?(opts, :query_parameters) do
+        opts[:query_parameters] || %{}
+      else
+        %{}
+      end
+
+    params = Map.merge(extra_params, params)
+
+    Actions.all(schema, params, opts)
+  end
+
+  defp put_loaded_association(changeset, key, records, opts) do
+    Map.update!(changeset, :data, fn schema_data ->
+      if SchemaHelpers.association_not_loaded?(schema_data, key) do
+        Map.put(schema_data, key, records)
+      else
+        if Keyword.get(opts, :replace_loaded_association, true) do
+          Map.put(schema_data, key, records)
+        else
+          schema_data
+        end
+      end
+    end)
+  end
+
+  defp preload_association(changeset, key, opts) do
+    if association_not_loaded?(changeset, key) or opts[:force_preload] === true do
+      Map.update!(changeset, :data, fn schema_data ->
+        Actions.preload(schema_data, key, opts)
+      end)
+    else
+      changeset
+    end
+  end
+
+  defp build_assoc_query_params(owner_params, assoc_schema, params_data) do
+    params_list =
+      params_data
+      |> List.wrap()
+      |> Enum.reject(&is_struct/1)
+      |> SchemaHelpers.filter_primary_key(assoc_schema)
+
+    if SchemaHelpers.primary_key_count(assoc_schema) > 1 do
+      if params_list === [] do
+        owner_params
+      else
+        Map.put(owner_params, :or_where, params_list)
+      end
+    else
+      params_list
+      |> flatten_query_params()
+      |> Map.merge(owner_params)
+    end
+  end
+
+  defp raise_if_not_changeset_association!(changeset, key) do
+    schema = get_changeset_schema(changeset)
+
+    if key not in schema.__schema__(:associations) do
       raise ArgumentError,
-            "key not found in schema #{inspect(schema_module)} associations, got: #{inspect(key)}"
+            "changeset association key not found in schema #{inspect(schema)}, got: #{inspect(key)}"
     end
   end
 
-  @doc false
-  def changeset_params_has_key?(%{params: nil}, _key) do
-    false
-  end
+  defp flatten_query_params(params_data) do
+    Enum.reduce(params_data, %{}, fn params, acc ->
+      Enum.reduce(params, acc, fn
+        {key, val}, acc when is_binary(val) or is_integer(val) ->
+          Map.update(acc, key, [val], &[val | &1])
 
-  def changeset_params_has_key?(%{params: params}, key) do
-    Map.has_key?(params, to_string(key))
-  end
-
-  @doc false
-  def get_changeset_params(%{params: nil}, _key) do
-    nil
-  end
-
-  def get_changeset_params(%{params: params}, key) do
-    Map.get(params, to_string(key))
-  end
-
-  @doc false
-  def build_query_params(schema_module, params_data) do
-    case SchemaHelpers.primary_key(schema_module) do
-      [_] ->
-        schema_module
-        |> SchemaHelpers.filter_primary_keys(params_data)
-        |> flatten_query_params()
-
-      _ ->
-        %{or_where: SchemaHelpers.filter_primary_keys(schema_module, params_data)}
-    end
-  end
-
-  @doc false
-  def flatten_query_params(list_of_params) do
-    Enum.reduce(list_of_params, %{}, fn params, acc ->
-      Enum.reduce(params, acc, fn {key, value}, acc ->
-        Map.update(acc, key, [value], &(&1 ++ [value]))
+        _, acc ->
+          acc
       end)
     end)
   end
 
-  @doc false
-  def only_primary_keys?(schema_module, params) when is_map(params) do
-    SchemaHelpers.filter_primary_keys(schema_module, params) === params
-  end
+  defp changeset_params_has_key?(%{params: nil}, _key), do: false
+  defp changeset_params_has_key?(%{params: params}, key), do: Map.has_key?(params, to_string(key))
 
-  def only_primary_keys?(schema_module, values) when is_list(values) do
-    if Keyword.keyword?(values) do
-      SchemaHelpers.filter_primary_keys(schema_module, values) === values
-    else
-      Enum.all?(values, fn params -> only_primary_keys?(schema_module, params) end)
-    end
-  end
+  defp get_changeset_params(%{params: nil}, _key), do: nil
+  defp get_changeset_params(%{params: params}, key), do: Map.get(params, to_string(key))
 
-  def only_primary_keys?(_schema_module, _term) do
-    false
-  end
+  defp fetch_changeset_association!(%{types: types} = changeset, key) do
+    schema = get_changeset_schema(changeset)
 
-  @doc false
-  def fetch_association_schema!(changeset, key) do
-    with :ok <- ensure_member_of_changeset_types!(changeset, key) do
-      changeset
-      |> fetch_changeset_assoc_type!(key)
-      |> Map.fetch!(:queryable)
-    end
-  end
+    if Map.has_key?(types, key) do
+      case Map.get(types, key) do
+        {:assoc, assoc} ->
+          assoc
 
-  @doc false
-  def ensure_member_of_changeset_types!(changeset, key) do
-    schema_module = get_changeset_queryable(changeset)
-
-    if member_of_changeset_types?(changeset, key) do
-      :ok
+        _ ->
+          raise ArgumentError,
+                "key is not a type of association on schema #{inspect(schema)} changeset, got: #{inspect(key)}"
+      end
     else
       raise ArgumentError,
-            "key not found in schema #{inspect(schema_module)} " <>
-              "changeset types, got: #{inspect(key)}"
+            "association key not found on schema #{inspect(schema)} changeset, got: #{inspect(key)}"
     end
   end
 
-  @doc false
-  def member_of_changeset_types?(%{types: types}, key) do
-    Map.has_key?(types, key)
-  end
-
-  @doc false
-  def fetch_changeset_assoc_type!(%{types: types} = changeset, key) do
-    schema_module = get_changeset_queryable(changeset)
-
-    case Map.get(types, key) do
-      {:assoc, value} ->
-        value
-
-      _ ->
-        raise KeyError,
-              "key not found in schema #{inspect(schema_module)} " <>
-                "changeset types, got: #{inspect(key)}"
-    end
-  end
-
-  @doc false
-  def get_changeset_queryable(%{data: %{__meta__: %{schema: queryable}}}) do
+  defp get_changeset_schema(%{data: %{__meta__: %{schema: queryable}}}) do
     queryable
   end
 end

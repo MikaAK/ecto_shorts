@@ -28,13 +28,11 @@ defmodule EctoShorts.DynamicExpressions do
   alias EctoShorts.Config
   alias EctoShorts.DynamicExpression
 
-  @type schema_module :: Ecto.Queryable.t()
+  @type schema :: Ecto.Queryable.t()
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
   @type maybe_dynamic_expr :: dynamic_expr() | nil
-  @type binding_alias :: atom()
-
+  @type binding_alias :: atom() | nil
   @type condition :: :and | :or
-
   @type key :: atom()
   @type value :: any()
   @type opts :: keyword()
@@ -71,7 +69,7 @@ defmodule EctoShorts.DynamicExpressions do
         iex> EctoShorts.DynamicExpressions.create_dynamic(EctoShorts.Schemas.Post, nil, nil, :and, :tags, {:==, "blog"}, [])
   """
   @spec create_dynamic(
-          schema_module(),
+          schema(),
           maybe_dynamic_expr(),
           binding_alias() | nil,
           condition(),
@@ -79,7 +77,7 @@ defmodule EctoShorts.DynamicExpressions do
           value()
         ) :: dynamic_expr()
   @spec create_dynamic(
-          schema_module(),
+          schema(),
           maybe_dynamic_expr(),
           binding_alias() | nil,
           condition(),
@@ -88,7 +86,7 @@ defmodule EctoShorts.DynamicExpressions do
           opts()
         ) :: dynamic_expr()
   def create_dynamic(
-        schema_module,
+        schema,
         dyn,
         binding_alias,
         condition,
@@ -99,7 +97,7 @@ defmodule EctoShorts.DynamicExpressions do
     opts
     |> adapter!()
     |> DynamicExpression.create_dynamic(
-      schema_module,
+      schema,
       dyn,
       binding_alias,
       condition,

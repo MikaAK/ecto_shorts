@@ -23,11 +23,10 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
 
   @behaviour EctoShorts.DynamicExpression
 
-  @type schema_module :: Ecto.Queryable.t()
-  @type schema_source :: binary()
+  @type schema :: Ecto.Queryable.t()
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
   @type maybe_dynamic_expr :: dynamic_expr() | nil
-  @type binding_alias :: atom()
+  @type binding_alias :: atom() | nil
 
   @type condition :: :and | :or
 
@@ -53,7 +52,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
 
   ## Parameters
 
-    * `schema_module` – the Ecto schema module used for field introspection.
+    * `schema` – the Ecto schema module used for field introspection.
     * `dyn` – the existing dynamic expression (or `nil`) to be merged into.
     * `binding_alias` – an optional binding alias for use in the dynamic clause.
     * `condition` – the logical operator used to combine expressions (`:and` or `:or`).
@@ -69,7 +68,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
 
   """
   @spec create_dynamic(
-          schema_module(),
+          schema(),
           maybe_dynamic_expr(),
           binding_alias() | nil,
           condition(),
@@ -77,7 +76,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
           value()
         ) :: dynamic_expr()
   def create_dynamic(
-        schema_module,
+        schema,
         dyn,
         binding_alias,
         condition,
@@ -85,14 +84,14 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
         {operator, value}
       ) do
     cond do
-      SchemaHelpers.field_type_of_array?(schema_module, key) and is_list(value) ->
+      SchemaHelpers.field_type_of_array?(schema, key) and is_list(value) ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
           Array.create_dynamic(binding_alias, key, operator, value)
         )
 
-      SchemaHelpers.field_type_of_array?(schema_module, key) ->
+      SchemaHelpers.field_type_of_array?(schema, key) ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
@@ -112,7 +111,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
         dyn,
         binding_alias,
         condition,
-        schema_module,
+        schema,
         key,
         value
       ) do
@@ -120,7 +119,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
       dyn,
       binding_alias,
       condition,
-      schema_module,
+      schema,
       key,
       {:==, value}
     )
