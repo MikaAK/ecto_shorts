@@ -458,7 +458,7 @@ defmodule EctoShorts.CommonParams do
   @doc false
   def get_params_changed_keys(params, schema, opts) do
     params
-    |> atomize_keys!()
+    |> Utils.atomize_keys(opts)
     |> Map.keys()
     |> filter_supported_insert_fields(schema, opts)
   end
@@ -605,11 +605,4 @@ defmodule EctoShorts.CommonParams do
 
   defp maybe_to_naive_datetime(datetime, @naive_datetime), do: DateTime.to_naive(datetime)
   defp maybe_to_naive_datetime(datetime, @utc_datetime), do: datetime
-
-  defp atomize_keys!(map) do
-    Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_existing_atom(key), value}
-      {key, value} -> {key, value}
-    end)
-  end
 end

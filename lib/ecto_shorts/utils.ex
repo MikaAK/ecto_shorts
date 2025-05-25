@@ -9,6 +9,40 @@ defmodule EctoShorts.Utils do
 
   @ordered_expressions false
 
+  def atomize_keys(enum, opts \\ []) do
+    transform_keys(enum, &string_to_atom(&1, opts))
+  end
+
+  defp string_to_atom(value, opts) when is_binary(value) do
+    case Keyword.get(opts, :to_existing_atom, true) do
+      true -> String.to_existing_atom(value)
+      false -> String.to_atom(value)
+    end
+  end
+
+  defp string_to_atom(value, _opts) do
+    value
+  end
+
+  def transform_keys({key, value}, fun) do
+    {fun.(key), transform_keys(value, fun)}
+  end
+
+  def transform_keys([head | tail], fun) do
+    [transform_keys(head, fun) | transform_keys(tail, fun)]
+  end
+
+  def transform_keys(params, fun) when is_map(params) do
+    params
+    |> Map.to_list()
+    |> transform_keys(fun)
+    |> Map.new()
+  end
+
+  def transform_keys(value, _fun) do
+    value
+  end
+
   @doc """
   Flattens the input data and applies a function to each key-value pair.
 

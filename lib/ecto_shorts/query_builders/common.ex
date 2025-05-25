@@ -44,8 +44,8 @@ defmodule EctoShorts.QueryBuilders.Common do
   @type schema :: Ecto.Queryable.t()
   @type source :: binary()
   @type schema_source :: {source(), schema()}
-  @type queryable_input :: schema() | schema_source()
-  @type query_source :: query() | queryable_input()
+  @type schema_input :: schema() | schema_source()
+  @type query_source :: query() | schema_input()
   @type binding_alias :: atom() | nil
   @type value :: any()
   @type opts :: keyword()

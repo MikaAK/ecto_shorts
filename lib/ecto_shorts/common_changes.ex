@@ -298,7 +298,7 @@ defmodule EctoShorts.CommonChanges do
     if function_exported?(schema, :changeset, 2) do
       schema.changeset(struct_or_changeset, params)
     else
-      Ecto.Changeset.change(struct_or_changeset, params)
+      Changeset.change(struct_or_changeset, params)
     end
   end
 
@@ -385,7 +385,7 @@ defmodule EctoShorts.CommonChanges do
     owner_value = Map.fetch!(changeset.data, assoc.owner_key)
 
     owner_params = if is_nil(owner_value), do: %{}, else: %{related_key => owner_value}
-    query_params = build_assoc_query_params(owner_params, assoc_schema, params_data)
+    query_params = build_assoc_query_params(assoc_schema, params_data, owner_params)
 
     if query_params === %{} do
       changeset
@@ -423,7 +423,7 @@ defmodule EctoShorts.CommonChanges do
     owner_value = Map.fetch!(changeset.data, assoc.owner_key)
 
     owner_params = if is_nil(owner_value), do: %{}, else: %{related_key => owner_value}
-    query_params = build_assoc_query_params(owner_params, assoc_schema, params_data)
+    query_params = build_assoc_query_params(assoc_schema, params_data, owner_params)
 
     if query_params === %{} do
       changeset
@@ -434,7 +434,7 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  defp build_assoc_query_params(owner_params, assoc_schema, params_data) do
+  defp build_assoc_query_params(assoc_schema, params_data, owner_params) do
     params_list =
       params_data
       |> List.wrap()
@@ -534,30 +534,22 @@ defmodule EctoShorts.CommonChanges do
 
           Supported associations include: `belongs_to`, `has_one`, and `has_many`.
 
-          association: #{assoc_type_name(assoc)}
-          key: #{inspect(key)}
-          schema: #{inspect(schema)}
+          schema:
 
-          ---
+          #{inspect(schema)}
+
+          key:
+
+          #{inspect(key)}
+
+          association:
+
+          #{inspect(assoc, pretty: true)}
 
           changeset:
 
           #{inspect(changeset, pretty: true)}
           """
-  end
-
-  defp assoc_type_name(%{cardinality: :one} = assoc)
-       when is_struct(assoc, Ecto.Association.Has) do
-    "has_one"
-  end
-
-  defp assoc_type_name(%{cardinality: :many} = assoc)
-       when is_struct(assoc, Ecto.Association.Has) do
-    "has_many"
-  end
-
-  defp assoc_type_name(%module{}) do
-    module |> Module.split() |> List.last() |> Macro.underscore()
   end
 
   defp fetch_changeset_association!(%{types: types} = changeset, key) do

@@ -130,14 +130,13 @@ defmodule EctoShorts.Actions do
   @type schema :: Ecto.Queryable.t()
   @type source :: binary()
   @type schema_source :: {source(), schema()}
-  @type queryable_input :: schema() | schema_source()
-  @type query_input :: query() | queryable_input()
+  @type schema_input :: schema() | schema_source()
+  @type query_input :: query() | schema_input()
   @type changeset :: Ecto.Changeset.t()
   @type schema_data :: Ecto.Schema.t()
   @type changeset_input :: schema_data() | changeset()
   @type maybe_list_of_schema_data :: schema_data() | list(schema_data())
-  @type schema_data_or_params :: schema_data() | map()
-  @type load_data :: map() | Keyword.t() | {list(), list()}
+  @type repo_load_data :: map() | Keyword.t() | {list(), list()}
   @type insert_all_response :: {non_neg_integer(), nil | [term()]}
   @type update_all_response :: {non_neg_integer(), nil | [term()]}
   @type delete_all_response :: {non_neg_integer(), nil | [term()]}
@@ -161,8 +160,8 @@ defmodule EctoShorts.Actions do
   @doc """
   Loads data into a schema or a map.
   """
-  @spec load(schema_data_or_params(), load_data()) :: schema_data() | map()
-  @spec load(schema_data_or_params(), load_data(), opts()) :: schema_data() | map()
+  @spec load(schema_data() | params(), repo_load_data()) :: schema_data() | map()
+  @spec load(schema_data() | params(), repo_load_data(), opts()) :: schema_data() | map()
   def load(schema_data_or_params, data, opts \\ []) do
     Config.repo!(opts).load(schema_data_or_params, data)
   end
@@ -940,9 +939,9 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.create_many(EctoShorts.Schemas.Post, [%{title: "title_two", body: "example"}])
   """
-  @spec create_many(queryable_input(), list(params())) ::
+  @spec create_many(schema_input(), list(params())) ::
           {:ok, list(schema_data())} | {:error, any()}
-  @spec create_many(queryable_input(), list(params()), opts()) ::
+  @spec create_many(schema_input(), list(params()), opts()) ::
           {:ok, list(schema_data())} | {:error, any()}
   def create_many(query_input, params_list, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
@@ -1363,9 +1362,9 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.create({"posts", EctoShorts.Schemas.Post}, %{body: "post_body"}, repo: EctoShorts.Repo)
   """
-  @spec create(queryable_input(), params()) ::
+  @spec create(schema_input(), params()) ::
           {:ok, schema_data()} | {:error, changeset() | any()}
-  @spec create(queryable_input(), params(), opts()) ::
+  @spec create(schema_input(), params(), opts()) ::
           {:ok, schema_data()} | {:error, changeset() | any()}
   def create(query_input, params, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
@@ -1836,8 +1835,8 @@ defmodule EctoShorts.Actions do
   end
 
   @doc false
-  def create_changeset(queryable_input, struct_or_changeset, params, opts) do
-    CommonSchema.create_changeset(queryable_input, struct_or_changeset, params, opts)
+  def create_changeset(schema_input, struct_or_changeset, params, opts) do
+    CommonSchema.create_changeset(schema_input, struct_or_changeset, params, opts)
   end
 
   @doc false

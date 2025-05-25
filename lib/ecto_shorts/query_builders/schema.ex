@@ -87,8 +87,8 @@ defmodule EctoShorts.QueryBuilders.Schema do
   @type schema :: Ecto.Queryable.t()
   @type source :: binary()
   @type schema_source :: {source(), schema()}
-  @type queryable_input :: schema() | schema_source()
-  @type query_source :: query() | queryable_input()
+  @type schema_input :: schema() | schema_source()
+  @type query_source :: query() | schema_input()
   @type binding_alias :: atom() | nil
   @type key :: atom()
   @type value :: any()
@@ -439,14 +439,20 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
     join_schema =
       case params[:schema] do
-        nil -> inner_query |> CommonQuery.validate_schema_source!(join_binding_alias) |> elem(1)
-        module -> module
+        nil ->
+          inner_query
+          |> CommonQuery.to_query()
+          |> CommonQuery.validate_query_binding_schema_source!(join_binding_alias)
+          |> elem(1)
+
+        module ->
+          module
       end
 
     join_binding_alias =
       if is_nil(join_binding_alias) do
         join_schema
-        |> named_binding_from_module()
+        |> named_binding_for_module()
         |> String.to_atom()
       else
         join_binding_alias
@@ -469,7 +475,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
   end
 
   @doc false
-  def named_binding_from_module(module) do
+  def named_binding_for_module(module) do
     module
     |> Module.split()
     |> List.last()

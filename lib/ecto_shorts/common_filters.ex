@@ -71,7 +71,7 @@ defmodule EctoShorts.CommonFilters do
   @type schema :: Ecto.Queryable.t()
   @type source :: binary()
   @type schema_source :: {source(), schema()}
-  @type queryable_input :: schema() | schema_source()
+  @type schema_input :: schema() | schema_source()
   @type query_input :: query_input()
   @type binding_alias :: atom() | nil
   @type key :: atom()
