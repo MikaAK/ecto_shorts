@@ -3,7 +3,6 @@ defmodule EctoShorts.Utils do
 
   @type schema_data :: Ecto.Schema.t()
   @type acc :: any()
-  @type input :: any()
   @type callback :: (any(), any() -> any())
   @type opts :: keyword()
 
@@ -125,21 +124,21 @@ defmodule EctoShorts.Utils do
         {:tags, ["elixir", "ecto"]}
       ]
   """
-  @spec apply_expressions(acc(), input(), callback()) :: acc()
-  @spec apply_expressions(acc(), input(), callback(), opts()) :: acc()
+  @spec apply_expressions(acc(), any(), callback()) :: acc()
+  @spec apply_expressions(acc(), any(), callback(), opts()) :: acc()
   def apply_expressions(acc, input, fun, opts \\ []) when is_function(fun, 2) do
     input
     |> flatten_input(opts)
-    |> do_apply(acc, fun)
+    |> apply_transformer(acc, fun)
   end
 
-  defp do_apply([], acc, _fun) do
+  defp apply_transformer([], acc, _fun) do
     acc
   end
 
-  defp do_apply([head | todo], acc, fun) do
+  defp apply_transformer([head | todo], acc, fun) do
     with acc <- fun.(head, acc) do
-      do_apply(todo, acc, fun)
+      apply_transformer(todo, acc, fun)
     end
   end
 

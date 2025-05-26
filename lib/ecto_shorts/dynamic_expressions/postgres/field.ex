@@ -26,16 +26,16 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
   ## Example Usage
 
       # field == value
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:binding_name, :title, :==, "Hello")
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :title, :==, "Hello")
 
       # field ILIKE '%value%'
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:binding_name, :title, :ilike, "hello")
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :title, :ilike, "hello")
 
       # field IN list
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:binding_name, :id, :==, [1, 2, 3])
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :id, :==, [1, 2, 3])
 
       # field IS NOT NULL
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:binding_name, :deleted_at, :!=, nil)
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :deleted_at, :!=, nil)
 
   """
 
@@ -68,43 +68,43 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
 
   ## Examples
 
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:p, :title, :==, "hello")
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:p, :title, :==, "hello")
 
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(nil, :tags, :!=, nil)
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(nil, :tags, :!=, nil)
 
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:post, :views, :>=, 100)
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:post, :views, :>=, 100)
 
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:post, :title, :=~, "regex")
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:post, :title, :=~, "regex")
 
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.create_dynamic(:post, :title, :==, {:lower, "hello"})
+      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:post, :title, :==, {:lower, "hello"})
 
   """
-  @spec create_dynamic(binding_alias() | nil, any(), operator(), any()) :: dynamic_expr()
-  def create_dynamic(binding_alias, key, :eq, value) do
-    create_dynamic(binding_alias, key, :==, value)
+  @spec build_dynamic(binding_alias() | nil, any(), operator(), any()) :: dynamic_expr()
+  def build_dynamic(binding_alias, key, :eq, value) do
+    build_dynamic(binding_alias, key, :==, value)
   end
 
-  def create_dynamic(binding_alias, key, :not, value) do
-    create_dynamic(binding_alias, key, :!=, value)
+  def build_dynamic(binding_alias, key, :not, value) do
+    build_dynamic(binding_alias, key, :!=, value)
   end
 
-  def create_dynamic(binding_alias, key, :lt, value) do
-    create_dynamic(binding_alias, key, :<, value)
+  def build_dynamic(binding_alias, key, :lt, value) do
+    build_dynamic(binding_alias, key, :<, value)
   end
 
-  def create_dynamic(binding_alias, key, :gt, value) do
-    create_dynamic(binding_alias, key, :>, value)
+  def build_dynamic(binding_alias, key, :gt, value) do
+    build_dynamic(binding_alias, key, :>, value)
   end
 
-    def create_dynamic(binding_alias, key, :lte, value) do
-    create_dynamic(binding_alias, key, :<=, value)
+  def build_dynamic(binding_alias, key, :lte, value) do
+    build_dynamic(binding_alias, key, :<=, value)
   end
 
-  def create_dynamic(binding_alias, key, :gte, value) do
-    create_dynamic(binding_alias, key, :>=, value)
+  def build_dynamic(binding_alias, key, :gte, value) do
+    build_dynamic(binding_alias, key, :>=, value)
   end
 
-  def create_dynamic(binding_alias, key, :=~, value) do
+  def build_dynamic(binding_alias, key, :=~, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], fragment("? ~* ?", field(q, ^key), ^value))
     else
@@ -112,7 +112,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :ilike, value) do
+  def build_dynamic(binding_alias, key, :ilike, value) do
     pattern = "%#{value}%"
 
     if binding_alias do
@@ -122,7 +122,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :like, value) do
+  def build_dynamic(binding_alias, key, :like, value) do
     pattern = "%#{value}%"
 
     if binding_alias do
@@ -132,7 +132,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :<, value) do
+  def build_dynamic(binding_alias, key, :<, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) < ^value)
     else
@@ -140,7 +140,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :>, value) do
+  def build_dynamic(binding_alias, key, :>, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) > ^value)
     else
@@ -148,7 +148,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :<=, value) do
+  def build_dynamic(binding_alias, key, :<=, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) <= ^value)
     else
@@ -156,7 +156,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :>=, value) do
+  def build_dynamic(binding_alias, key, :>=, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) >= ^value)
     else
@@ -164,7 +164,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :!=, {:lower, value}) do
+  def build_dynamic(binding_alias, key, :!=, {:lower, value}) do
     if binding_alias do
       Query.dynamic(
         [{^binding_alias, q}],
@@ -175,7 +175,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :!=, {:upper, value}) do
+  def build_dynamic(binding_alias, key, :!=, {:upper, value}) do
     if binding_alias do
       Query.dynamic(
         [{^binding_alias, q}],
@@ -186,7 +186,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :!=, nil) do
+  def build_dynamic(binding_alias, key, :!=, nil) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], not is_nil(field(q, ^key)))
     else
@@ -194,7 +194,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :!=, values) when is_list(values) do
+  def build_dynamic(binding_alias, key, :!=, values) when is_list(values) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) not in ^values)
     else
@@ -202,7 +202,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :!=, value) do
+  def build_dynamic(binding_alias, key, :!=, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) != ^value)
     else
@@ -210,7 +210,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :==, {:lower, value}) do
+  def build_dynamic(binding_alias, key, :==, {:lower, value}) do
     if binding_alias do
       Query.dynamic(
         [{^binding_alias, q}],
@@ -221,7 +221,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :==, {:upper, value}) do
+  def build_dynamic(binding_alias, key, :==, {:upper, value}) do
     if binding_alias do
       Query.dynamic(
         [{^binding_alias, q}],
@@ -232,7 +232,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :==, nil) do
+  def build_dynamic(binding_alias, key, :==, nil) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], is_nil(field(q, ^key)))
     else
@@ -240,7 +240,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :==, values) when is_list(values) do
+  def build_dynamic(binding_alias, key, :==, values) when is_list(values) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) in ^values)
     else
@@ -248,7 +248,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
-  def create_dynamic(binding_alias, key, :==, value) do
+  def build_dynamic(binding_alias, key, :==, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, q}], field(q, ^key) == ^value)
     else

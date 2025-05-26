@@ -25,6 +25,8 @@ defmodule EctoShorts.CommonFiltersTest do
     # Equality tests
     #
 
+    # integer
+
     test "builds a query with == on integer field using direct value" do
       expected_query = from p in Post, where: p.id == ^1
       actual_query = CommonFilters.convert_params_to_filter(Post, %{id: 1}, [])

@@ -27,6 +27,7 @@ defmodule EctoShorts.DynamicExpressions do
 
   alias EctoShorts.Config
   alias EctoShorts.DynamicExpression
+  alias EctoShorts.Utils
 
   @type schema :: Ecto.Queryable.t()
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
@@ -39,13 +40,53 @@ defmodule EctoShorts.DynamicExpressions do
 
   @default_adapter EctoShorts.DynamicExpressions.Postgres
 
-  @default_adapters %{
-    Ecto.Adapters.Postgres => [adapter: EctoShorts.DynamicExpressions.Postgres]
-  }
+  @default_adapters [
+    {Ecto.Adapters.Postgres, adapter: EctoShorts.DynamicExpressions.Postgres}
+  ]
 
   @doc false
-  @spec default_adapters :: %{module() => keyword()}
   def default_adapters, do: @default_adapters
+
+  def convert_params_to_dynamic(binding_alias, source, params, opts) do
+    {as, params} = Map.pop(params, :as, binding_alias)
+
+    {dyn, params} = Map.pop(params, :dynamic)
+
+    params
+    |> normalize_conditions()
+    |> Enum.reduce(dyn, fn
+      {condition, params}, dyn ->
+        Utils.apply_expressions(
+          dyn,
+          params,
+          fn {key, value}, dyn ->
+            build_dynamic(
+              dyn,
+              as,
+              condition,
+              source,
+              key,
+              value,
+              opts
+            )
+          end,
+          opts
+        )
+    end)
+  end
+
+  defp normalize_conditions(params) do
+    {cons, acc} =
+      Enum.reduce(params, {[], []}, fn
+        {:and, params}, {cons, acc} -> {[{:and, params} | cons], acc}
+        {:or, params}, {cons, acc} -> {[{:or, params} | cons], acc}
+        {key, value}, {cons, acc} -> {cons, [{key, value} | acc]}
+      end)
+
+    cons
+    |> Kernel.++(and: acc)
+    |> Enum.sort()
+  end
 
   @doc """
   Creates a dynamic expression or applies a dynamic expression
@@ -66,41 +107,24 @@ defmodule EctoShorts.DynamicExpressions do
 
   ## Examples
 
-        iex> EctoShorts.DynamicExpressions.create_dynamic(EctoShorts.Schemas.Post, nil, nil, :and, :tags, {:==, "blog"}, [])
+        iex> EctoShorts.DynamicExpressions.build_dynamic(EctoShorts.Schemas.Post, nil, :and, nil, :tags, {:==, "blog"}, [])
   """
-  @spec create_dynamic(
-          schema(),
-          maybe_dynamic_expr(),
-          binding_alias() | nil,
-          condition(),
-          key(),
-          value()
-        ) :: dynamic_expr()
-  @spec create_dynamic(
-          schema(),
-          maybe_dynamic_expr(),
-          binding_alias() | nil,
-          condition(),
-          key(),
-          value(),
-          opts()
-        ) :: dynamic_expr()
-  def create_dynamic(
-        schema,
+  def build_dynamic(
         dyn,
         binding_alias,
         condition,
+        source,
         key,
         value,
         opts \\ []
       ) do
     opts
     |> adapter!()
-    |> DynamicExpression.create_dynamic(
-      schema,
+    |> DynamicExpression.build_dynamic(
       dyn,
       binding_alias,
       condition,
+      source,
       key,
       value
     )
@@ -110,20 +134,20 @@ defmodule EctoShorts.DynamicExpressions do
     if Keyword.has_key?(opts, :dynamic_expression_adapter) do
       opts[:dynamic_expression_adapter]
     else
-      case find_adapter_for_repo(Config.repo!(opts).__adapter__(), opts) do
+      case adapter_for_repo(Config.repo!(opts).__adapter__(), opts) do
         nil -> @default_adapter
         {_, adapter_config} -> Keyword.fetch!(adapter_config, :adapter)
       end
     end
   end
 
-  defp find_adapter_for_repo(repo_adapter, opts) do
+  defp adapter_for_repo(repo_adapter, opts) do
     opts
-    |> dynamic_expression_adapters()
+    |> adapters()
     |> Enum.find(fn {key, _} -> key === repo_adapter end)
   end
 
-  defp dynamic_expression_adapters(opts) do
+  defp adapters(opts) do
     opts[:dynamic_expression_adapters] ||
       Config.dynamic_expression_adapters() ||
       @default_adapters

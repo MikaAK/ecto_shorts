@@ -11,50 +11,11 @@ defmodule EctoShorts.DynamicExpression do
   You can implement the `EctoShorts.DynamicExpression` behavior in your own
   adapter module to customize how dynamic conditions are generated based
   on things like schema, field name, and value type.
-
-  ## Example
-
-  Suppose you want to filter a field using Postgres-specific operators
-  like `ILIKE`. You could write a custom adapter like:
-
-      defmodule MyApp.DynamicPostgresAdapter do
-        @behaviour EctoShorts.DynamicExpression
-
-        def create_dynamic(dyn, binding, condition, schema, key, {:ilike, val}) do
-          case condition do
-            :and -> dynamic([q], ^dyn and ilike(field(^binding, ^key), ^val))
-            :or -> dynamic([q], ^dyn or ilike(field(^binding, ^key), ^val))
-          end
-        end
-
-        def create_dynamic(dyn, binding, condition, schema, key, val) do
-          case condition do
-            :and -> dynamic([q], ^dyn and field(^binding, ^key) == ^val)
-            :or -> dynamic([q], ^dyn or field(^binding, ^key) == ^val)
-          end
-        end
-      end
-
-  Then you can call:
-
-      EctoShorts.DynamicExpression.create_dynamic(
-        MyApp.DynamicPostgresAdapter,
-        nil,
-        nil,
-        :and,
-        :name,
-        {:ilike, "john"}
-      )
-
-  This returns a dynamic expression like:
-
-      dynamic([q], ilike(q.name, ^"john")
   """
 
   @type adapter :: module()
   @type schema :: Ecto.Queryable.t()
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
-  @type maybe_dynamic_expr :: dynamic_expr() | nil
   @type binding_alias :: atom() | nil
   @type condition :: :and | :or
   @type key :: atom()
@@ -72,11 +33,11 @@ defmodule EctoShorts.DynamicExpression do
 
   Returns an updated dynamic expression.
   """
-  @callback create_dynamic(
-              schema(),
-              maybe_dynamic_expr(),
+  @callback build_dynamic(
+              dynamic_expr() | nil,
               binding_alias(),
               condition(),
+              schema(),
               key(),
               value()
             ) :: dynamic_expr()
@@ -105,50 +66,41 @@ defmodule EctoShorts.DynamicExpression do
 
   ## Examples
 
-      iex> EctoShorts.DynamicExpression.create_dynamic(
+      iex> EctoShorts.DynamicExpression.build_dynamic(
       ...>   EctoShorts.DynamicExpressions.Postgres,
-      ...>   EctoShorts.Schemas.Post,
       ...>   nil,
       ...>   :post,
       ...>   :and,
+      ...>   EctoShorts.Schemas.Post,
       ...>   :title,
       ...>   "example"
       ...> )
 
-      iex> EctoShorts.DynamicExpression.create_dynamic(
+      iex> EctoShorts.DynamicExpression.build_dynamic(
       ...>   EctoShorts.DynamicExpressions.Postgres,
-      ...>   EctoShorts.Schemas.Post,
       ...>   nil,
       ...>   :post,
       ...>   :and,
+      ...>   EctoShorts.Schemas.Post,
       ...>   :title,
       ...>   {:ilike, "example"}
       ...> )
 
   """
-  @spec create_dynamic(
-          adapter(),
-          schema(),
-          maybe_dynamic_expr(),
-          binding_alias(),
-          condition(),
-          key(),
-          value()
-        ) :: dynamic_expr()
-  def create_dynamic(
+  def build_dynamic(
         adapter,
-        schema,
         dyn,
         binding_alias,
         condition,
+        source,
         key,
         value
       ) do
-    adapter.create_dynamic(
-      schema,
+    adapter.build_dynamic(
       dyn,
       binding_alias,
       condition,
+      source,
       key,
       value
     )

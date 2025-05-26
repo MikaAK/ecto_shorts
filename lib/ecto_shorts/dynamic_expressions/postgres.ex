@@ -62,66 +62,54 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
 
   ## Examples
 
-      iex> EctoShorts.DynamicExpressions.Postgres.create_dynamic(EctoShorts.Schemas.Post, nil, :binding_name, :and, :title, {:==, "Hello"})
+      iex> EctoShorts.DynamicExpressions.Postgres.build_dynamic(nil, :binding_name, :and, EctoShorts.Schemas.Post, :title, {:==, "Hello"})
 
-      iex> EctoShorts.DynamicExpressions.Postgres.create_dynamic(EctoShorts.Schemas.Post, nil, :binding_name, :or, :tags, {:==, ["elixir", "ecto"]})
+      iex> EctoShorts.DynamicExpressions.Postgres.build_dynamic(nil, :binding_name, :or, EctoShorts.Schemas.Post, :tags, {:==, ["elixir", "ecto"]})
 
   """
-  @spec create_dynamic(
-          schema(),
-          maybe_dynamic_expr(),
-          binding_alias() | nil,
-          condition(),
-          key(),
-          value()
-        ) :: dynamic_expr()
-  def create_dynamic(
-        schema,
+  def build_dynamic(
         dyn,
         binding_alias,
         condition,
+        source,
         key,
-        {operator, value}
+        value
       ) do
+    {operator, value} =
+      case value do
+        {operator, value} -> {operator, value}
+        value -> {:==, value}
+      end
+
+    schema_source? = SchemaHelpers.schema_source?(source)
+
     cond do
-      SchemaHelpers.field_type_of_array?(schema, key) and is_list(value) ->
+      schema_source? and field_type_of_array?(source, key) and is_list(value) ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
-          Array.create_dynamic(binding_alias, key, operator, value)
+          Array.build_dynamic(binding_alias, key, operator, value)
         )
 
-      SchemaHelpers.field_type_of_array?(schema, key) ->
+      schema_source? and field_type_of_array?(source, key) ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
-          Array.create_dynamic(binding_alias, value, operator, key)
+          Array.build_dynamic(binding_alias, value, operator, key)
         )
 
       true ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
-          Field.create_dynamic(binding_alias, key, operator, value)
+          Field.build_dynamic(binding_alias, key, operator, value)
         )
     end
   end
 
-  def create_dynamic(
-        dyn,
-        binding_alias,
-        condition,
-        schema,
-        key,
-        value
-      ) do
-    create_dynamic(
-      dyn,
-      binding_alias,
-      condition,
-      schema,
-      key,
-      {:==, value}
-    )
+  defp field_type_of_array?(source, key) do
+    source
+    |> SchemaHelpers.schema_from_source()
+    |> SchemaHelpers.field_type_of_array?(key)
   end
 end

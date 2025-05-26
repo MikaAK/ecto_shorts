@@ -375,24 +375,20 @@ defmodule EctoShorts.CommonChanges do
     assoc = fetch_changeset_association!(changeset, key)
 
     assoc_schema =
-      if has_related_key?(assoc) do
+      if related_assoc?(assoc) do
         assoc.related
       else
         raise_not_related_assoc!(changeset, key, assoc)
       end
 
-    related_key = assoc.related_key
-    owner_value = Map.fetch!(changeset.data, assoc.owner_key)
-
-    owner_params = if is_nil(owner_value), do: %{}, else: %{related_key => owner_value}
-    query_params = build_assoc_query_params(assoc_schema, params_data, owner_params)
+    query_params = build_query_params(assoc_schema, params_data)
 
     if query_params === %{} do
       changeset
     else
       changeset = preload_association(changeset, key, opts)
 
-      records = repo_all(assoc_schema, query_params, opts)
+      records = actions_all(assoc_schema, query_params, opts)
 
       Changeset.put_assoc(changeset, key, records, opts)
     end
@@ -413,17 +409,13 @@ defmodule EctoShorts.CommonChanges do
     assoc = fetch_changeset_association!(changeset, key)
 
     assoc_schema =
-      if has_related_key?(assoc) do
+      if related_assoc?(assoc) do
         assoc.related
       else
         raise_not_related_assoc!(changeset, key, assoc)
       end
 
-    related_key = assoc.related_key
-    owner_value = Map.fetch!(changeset.data, assoc.owner_key)
-
-    owner_params = if is_nil(owner_value), do: %{}, else: %{related_key => owner_value}
-    query_params = build_assoc_query_params(assoc_schema, params_data, owner_params)
+    query_params = build_query_params(assoc_schema, params_data)
 
     if query_params === %{} do
       changeset
@@ -434,28 +426,27 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  defp build_assoc_query_params(assoc_schema, params_data, owner_params) do
+  @doc false
+  def build_query_params(schema, params) do
     params_list =
-      params_data
+      params
       |> List.wrap()
-      |> Enum.reject(&is_struct/1)
-      |> SchemaHelpers.filter_primary_key(assoc_schema)
+      |> Enum.filter(&(is_map(&1) and not is_struct(&1)))
+      |> SchemaHelpers.filter_primary_key(schema)
 
-    if SchemaHelpers.primary_key_count(assoc_schema) > 1 do
-      if params_list === [] do
-        owner_params
-      else
-        Map.put(owner_params, :or_where, params_list)
-      end
+    if params_list === [] do
+      %{}
     else
-      params_list
-      |> flatten_query_params()
-      |> Map.merge(owner_params)
+      if SchemaHelpers.primary_key_count(schema) > 1 do
+        %{or_where: params_list}
+      else
+        flatten_query_params(params_list)
+      end
     end
   end
 
-  defp flatten_query_params(params_data) do
-    Enum.reduce(params_data, %{}, fn params, acc ->
+  defp flatten_query_params(params_list) do
+    Enum.reduce(params_list, %{}, fn params, acc ->
       Enum.reduce(params, acc, fn
         {key, val}, acc when is_binary(val) or is_integer(val) ->
           Map.update(acc, key, [val], &[val | &1])
@@ -466,30 +457,19 @@ defmodule EctoShorts.CommonChanges do
     end)
   end
 
-  defp load_association(changeset, key, assoc_schema, query_params, opts) do
-    records = repo_all(assoc_schema, query_params, opts)
-
-    put_loaded_association(changeset, key, records, opts)
+  @doc false
+  def preload_association(changeset, key, opts) do
+    if association_not_loaded?(changeset, key) or opts[:force_preload] === true do
+      Map.update!(changeset, :data, fn schema_data ->
+        Actions.preload(schema_data, key, opts)
+      end)
+    else
+      changeset
+    end
   end
 
-  defp repo_all(schema, params, opts) do
-    extra_params =
-      if Keyword.has_key?(opts, :query_parameters) do
-        case opts[:query_parameters] do
-          nil -> %{}
-          fun when is_function(fun, 0) -> fun.()
-          value -> value
-        end
-      else
-        %{}
-      end
-
-    params = Map.merge(extra_params, params)
-
-    Actions.all(schema, params, opts)
-  end
-
-  defp put_loaded_association(changeset, key, records, opts) do
+  @doc false
+  def put_loaded_association(changeset, key, records, opts) do
     Map.update!(changeset, :data, fn schema_data ->
       if SchemaHelpers.association_not_loaded?(schema_data, key) do
         Map.put(schema_data, key, records)
@@ -503,14 +483,28 @@ defmodule EctoShorts.CommonChanges do
     end)
   end
 
-  defp preload_association(changeset, key, opts) do
-    if association_not_loaded?(changeset, key) or opts[:force_preload] === true do
-      Map.update!(changeset, :data, fn schema_data ->
-        Actions.preload(schema_data, key, opts)
-      end)
-    else
-      changeset
-    end
+  @doc false
+  def load_association(changeset, key, assoc_schema, query_params, opts) do
+    records = actions_all(assoc_schema, query_params, opts)
+
+    put_loaded_association(changeset, key, records, opts)
+  end
+
+  defp actions_all(schema, params, opts) do
+    extra_params =
+      if Keyword.has_key?(opts, :all) do
+        case opts[:all] do
+          nil -> %{}
+          fun when is_function(fun, 0) -> fun.()
+          params -> params
+        end
+      else
+        %{}
+      end
+
+    params = Map.merge(extra_params, params)
+
+    Actions.all(schema, params, opts)
   end
 
   defp changeset_params_has_key?(%{params: nil}, _key), do: false
@@ -519,8 +513,8 @@ defmodule EctoShorts.CommonChanges do
   defp get_changeset_params(%{params: nil}, _key), do: nil
   defp get_changeset_params(%{params: params}, key), do: Map.get(params, to_string(key))
 
-  defp has_related_key?(%{related: _}), do: true
-  defp has_related_key?(_), do: false
+  defp related_assoc?(%{related: _}), do: true
+  defp related_assoc?(_), do: false
 
   defp raise_not_related_assoc!(%{data: %{__meta__: %{schema: schema}}} = changeset, key, assoc) do
     raise ArgumentError,

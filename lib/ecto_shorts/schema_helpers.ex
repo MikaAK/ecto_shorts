@@ -11,6 +11,17 @@ defmodule EctoShorts.SchemaHelpers do
   @type key :: atom()
   @type params :: map()
 
+  def schema_module?(nil), do: false
+  def schema_module?(module) when is_atom(module), do: function_exported?(module, :__schema__, 2)
+  def schema_module?(_), do: false
+
+  def schema_source?({_source, schema}), do: schema_module?(schema)
+  def schema_source?(schema) when is_atom(schema), do: schema_module?(schema)
+  def schema_source?(_), do: false
+
+  def schema_from_source({_, schema}), do: schema
+  def schema_from_source(schema), do: schema
+
   @doc """
   This is a simple wrapper function for `get_schema_association_module/2`
   that returns the atom `:error` if the association key is not found on

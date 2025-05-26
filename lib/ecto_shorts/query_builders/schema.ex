@@ -72,15 +72,16 @@ defmodule EctoShorts.QueryBuilders.Schema do
   ...>   nil,
   ...>   EctoShorts.Schemas.Post,
   ...>   :join,
-  ...>   %{subquery: %{query: EctoShorts.Schemas.Comment, where: %{id: 1}}}
+  ...>   %{subquery: %{schema: EctoShorts.Schemas.Comment, where: %{id: 1}}}
   ...> )
   ```
   """
+  alias EctoShorts.CommonQuery
   alias EctoShorts.{
-    CommonQuery,
+    # CommonQuery,
     CommonQueryAPI,
-    Utils,
-    SchemaHelpers
+    Utils
+    # SchemaHelpers
   }
 
   @type query :: Ecto.Query.t()
@@ -97,7 +98,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
   @behaviour EctoShorts.QueryBuilder
 
-  @query_api_filters ~w(
+  @query_filters ~w(
     from
     join
     select
@@ -106,6 +107,15 @@ defmodule EctoShorts.QueryBuilders.Schema do
     or_where
     where
   )a
+
+  @join_keys [:qualifier, :on, :prefix]
+
+  @doc false
+  def convert_params_to_filter(query, binding_alias, source, params, opts) do
+    Enum.reduce(params, query, fn {key, value}, query ->
+      build_query(query, binding_alias, source, key, value, opts)
+    end)
+  end
 
   @impl EctoShorts.QueryBuilder
   @doc """
@@ -128,7 +138,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       [:from, :join, :select, :select_merge, :or, :or_where, :where]
   """
   @spec filters :: [filter()]
-  def filters, do: @query_api_filters
+  def filters, do: @query_filters
 
   @impl EctoShorts.QueryBuilder
   @doc """
@@ -171,35 +181,20 @@ defmodule EctoShorts.QueryBuilders.Schema do
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in assoc(p0, :comments), as: :ecto_shorts_comments, where: c1.id >= ^2>
 
       # join one subquery
-      iex> EctoShorts.QueryBuilders.Schema.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :join, %{subquery: %{query: EctoShorts.Schemas.Comment, where: %{id: 2}}}, [])
+      iex> EctoShorts.QueryBuilders.Schema.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :join, %{subquery: %{schema: EctoShorts.Schemas.Comment, where: %{id: 2}}}, [])
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in subquery(from c0 in EctoShorts.Schemas.Comment), as: :ecto_shorts_comment, on: true, where: c1.id == ^2>
 
       # join a list of subqueries
-      iex> EctoShorts.QueryBuilders.Schema.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :join, %{subquery: [%{query: EctoShorts.Schemas.Comment, where: %{id: 2}}]}, [])
+      iex> EctoShorts.QueryBuilders.Schema.build_query(EctoShorts.Schemas.Post, nil, EctoShorts.Schemas.Post, :join, %{subquery: [%{schema: EctoShorts.Schemas.Comment, where: %{id: 2}}]}, [])
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in subquery(from c0 in EctoShorts.Schemas.Comment), as: :ecto_shorts_comment, on: true, where: c1.id == ^2>
   """
-  @spec build_query(
-          query_source(),
-          binding_alias() | nil,
-          schema(),
-          key(),
-          value()
-        ) :: query() | schema()
-  @spec build_query(
-          query_source(),
-          binding_alias() | nil,
-          schema(),
-          key(),
-          value(),
-          opts()
-        ) :: query() | schema()
-  def build_query(query, binding_alias, schema, key, value, opts \\ []) do
+  def build_query(query, binding_alias, schema, key, value, opts \\ []) when is_atom(schema) do
     cond do
-      key in @query_api_filters ->
-        build_query_api_filter(query, binding_alias, schema, key, value, opts)
+      key in @query_filters ->
+        build_query_filter(query, binding_alias, schema, key, value, opts)
 
       key in schema.__schema__(:associations) ->
-        join_association(
+        build_assoc_filter(
           query,
           binding_alias,
           schema,
@@ -212,135 +207,71 @@ defmodule EctoShorts.QueryBuilders.Schema do
         build_schema_filter(query, binding_alias, schema, key, value, opts)
 
       true ->
-        message =
-          """
-          The given key is not a valid field or supported query filter for the schema.
-
-          schema:
-
-          #{inspect(schema)}
-
-          key:
-
-          #{inspect(key)}
-
-          This key has been skipped and the query will be returned as-is.
-
-          To resolve this, you can:
-
-          - Remove the key if it’s unnecessary.
-
-          - Use a supported custom filter, such as:
-
-          #{Enum.map_join(@query_api_filters, "\n", &"* #{&1}")}
-
-          - Use a valid schema field, such as:
-
-          #{Enum.map_join(schema.__schema__(:query_fields), "\n", &"* #{&1}")}
-
-          """
-
-        assoc_warning_message =
-          if schema.__schema__(:associations) !== [] do
-            """
-            - Use a valid association, such as:
-
-            #{Enum.map_join(schema.__schema__(:associations), "\n", &"* #{&1}")}
-            """
-          else
-            ""
-          end
-
-        EctoShorts.Utils.Logger.warning(__MODULE__, message <> assoc_warning_message)
+        EctoShorts.Utils.Logger.warning(__MODULE__, unrecognized_filter_key_message(schema, key))
 
         query
     end
   end
 
-  defp reduce_query_params(query, binding_alias, schema, params, opts) do
-    Enum.reduce(params, query, fn {key, value}, query ->
-      build_query(query, binding_alias, schema, key, value, opts)
-    end)
-  end
-
-  defp build_schema_filter(query, binding_alias, schema, key, value, opts) do
+  defp build_schema_filter(query, binding_alias, _schema, key, value, opts) do
     Utils.apply_expressions(
       query,
       value,
-      fn value, query ->
-        apply_schema_filter(query, binding_alias, schema, key, value, opts)
+      fn
+        {operator, value}, query ->
+          CommonQueryAPI.where(
+            query,
+            binding_alias,
+            %{key => %{operator => value}},
+            opts
+          )
+
+        value, query ->
+          CommonQueryAPI.where(query, binding_alias, %{key => %{==: value}}, opts)
       end,
       opts
     )
   end
 
-  defp apply_schema_filter(query, binding_alias, _schema, key, {operator, value}, opts) do
-    CommonQueryAPI.where(query, binding_alias, %{key => %{operator => value}}, opts)
-  end
-
-  defp apply_schema_filter(query, binding_alias, schema, key, value, opts) do
-    apply_schema_filter(query, binding_alias, schema, key, {:==, value}, opts)
-  end
-
-  defp build_query_api_filter(query, _binding_alias, _schema, :from, params, _opts) do
-    params
-    |> List.wrap()
-    |> Enum.reduce(query, fn params, query ->
-      {as, params} = Map.pop(params, :as)
-
-      CommonQueryAPI.from(query, as, params)
-    end)
-  end
-
-  defp build_query_api_filter(query, binding_alias, _schema, :select, value, _opts) do
+  defp build_query_filter(query, binding_alias, _schema, :select, value, _opts) do
     CommonQueryAPI.select(query, binding_alias, value)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema, :select_merge, value, _opts) do
+  defp build_query_filter(query, binding_alias, _schema, :select_merge, value, _opts) do
     CommonQueryAPI.select_merge(query, binding_alias, value)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema, :or, value, opts) do
+  defp build_query_filter(query, binding_alias, _schema, :or, value, opts) do
     CommonQueryAPI.or_where(query, binding_alias, value, opts)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema, :or_where, value, opts) do
+  defp build_query_filter(query, binding_alias, _schema, :or_where, value, opts) do
     CommonQueryAPI.or_where(query, binding_alias, value, opts)
   end
 
-  defp build_query_api_filter(query, binding_alias, _schema, :where, value, opts) do
+  defp build_query_filter(query, binding_alias, _schema, :where, value, opts) do
     CommonQueryAPI.where(query, binding_alias, value, opts)
   end
 
-  defp build_query_api_filter(query, binding_alias, schema, :join, params, opts) do
+  defp build_query_filter(query, binding_alias, schema, :join, params, opts) do
     Enum.reduce(params, query, fn {key, value}, query ->
       build_join_filter(query, binding_alias, schema, key, value, opts)
     end)
   end
 
+  defp build_join_filter(query, binding_alias, schema, op, values, opts) when is_list(values) do
+    if Keyword.keyword?(values) do
+      build_join_filter(query, binding_alias, schema, op, Map.new(values), opts)
+    else
+      Enum.reduce(values, query, fn value, query ->
+        build_join_filter(query, binding_alias, schema, op, value, opts)
+      end)
+    end
+  end
+
   defp build_join_filter(query, binding_alias, schema, :association, params, opts) do
-    join_associations(
-      query,
-      binding_alias,
-      schema,
-      params,
-      opts
-    )
-  end
-
-  defp build_join_filter(query, binding_alias, _schema, :subquery, params, opts) do
-    join_subquery(query, binding_alias, params, opts)
-  end
-
-  defp join_associations(
-         query,
-         binding_alias,
-         schema,
-         params,
-         opts
-       ) do
     Enum.reduce(params, query, fn {key, value}, query ->
-      join_association(
+      build_assoc_filter(
         query,
         binding_alias,
         schema,
@@ -351,127 +282,174 @@ defmodule EctoShorts.QueryBuilders.Schema do
     end)
   end
 
-  defp join_association(
-         query,
-         binding_alias,
-         schema,
-         key,
-         values,
-         opts
-       )
-       when is_list(values) do
-    if Keyword.keyword?(values) do
-      join_association(
-        query,
-        binding_alias,
-        schema,
-        key,
-        Map.new(values),
-        opts
-      )
-    else
-      Enum.reduce(values, query, fn params, query ->
-        join_association(
-          query,
-          binding_alias,
-          schema,
-          key,
-          params,
-          opts
-        )
-      end)
-    end
+  defp build_join_filter(query, binding_alias, _schema, :subquery, params, opts) do
+    build_subquery_filter(query, binding_alias, params, opts)
   end
 
-  defp join_association(query, binding_alias, schema, key, params, opts) do
-    {join_binding_alias, params} = Map.pop(params, :as)
+  defp build_join_filter(query, binding_alias, _schema, :query, params, opts) do
+    build_join_query_filter(query, binding_alias, params, opts)
+  end
 
-    join_schema =
-      case params[:schema] do
-        nil -> SchemaHelpers.fetch_schema_association_module!(schema, key)
-        module -> module
-      end
+  defp build_assoc_filter(query, binding_alias, schema, key, params, opts) do
+    {as, params} = Map.pop(params, :as)
 
-    join_binding_alias =
-      if is_nil(join_binding_alias) do
+    {schema, params} = Map.pop(params, :schema, schema)
+
+    as =
+      if is_nil(as) do
         key
         |> named_binding()
         |> String.to_atom()
       else
-        join_binding_alias
+        as
       end
 
-    join_params = Map.take(params, [:as, :qualifier, :query, :schema, :on, :prefix])
+    join_params =
+      params
+      |> Map.take(@join_keys)
+      |> Map.put(:schema, schema)
 
-    params = Map.drop(params, [:as, :qualifier, :query, :schema, :on, :prefix])
+    filter_params = Map.drop(params, @join_keys)
 
     query
     |> CommonQueryAPI.join(
-      binding_alias,
-      join_binding_alias,
       :association,
+      {binding_alias, as},
       key,
       join_params,
       opts
     )
-    |> reduce_query_params(join_binding_alias, join_schema, params, opts)
+    |> convert_params_to_filter(as, schema, filter_params, opts)
   end
 
-  defp join_subquery(query, binding_alias, values, opts) when is_list(values) do
-    if Keyword.keyword?(values) do
-      join_subquery(query, binding_alias, Map.new(values), opts)
-    else
-      Enum.reduce(values, query, fn params, query ->
-        join_subquery(query, binding_alias, params, opts)
-      end)
+  defp build_subquery_filter(query, binding_alias, params, opts) do
+    if not Map.has_key?(params, :schema) do
+      raise KeyError, "key :schema not found, got: #{inspect(params)}"
     end
-  end
 
-  defp join_subquery(query, binding_alias, params, opts) do
-    {join_binding_alias, params} = Map.pop(params, :as)
+    {as, params} = Map.pop(params, :as)
 
-    inner_query =
-      if Map.has_key?(params, :query) do
-        params[:query]
-      else
-        raise KeyError, "key :query not found, got: #{inspect(params)}"
-      end
+    {schema, params} = Map.pop(params, :schema)
 
-    join_schema =
-      case params[:schema] do
-        nil ->
-          inner_query
-          |> CommonQuery.to_query()
-          |> CommonQuery.validate_query_binding_schema_source!(join_binding_alias)
-          |> elem(1)
+    {inner_query, params} = Map.pop(params, :query, schema)
 
-        module ->
-          module
-      end
-
-    join_binding_alias =
-      if is_nil(join_binding_alias) do
-        join_schema
+    as =
+      if is_nil(as) do
+        schema
         |> named_binding_for_module()
         |> String.to_atom()
       else
-        join_binding_alias
+        as
       end
 
-    join_params = Map.take(params, [:as, :qualifier, :query, :schema, :on, :prefix])
+    join_params =
+      params
+      |> Map.take(@join_keys)
+      |> Map.put(:schema, schema)
 
-    params = Map.drop(params, [:as, :qualifier, :query, :schema, :on, :prefix])
+    filter_params = Map.drop(params, @join_keys)
 
     query
     |> CommonQueryAPI.join(
-      binding_alias,
-      join_binding_alias,
       :subquery,
+      {binding_alias, as},
       inner_query,
       join_params,
       opts
     )
-    |> reduce_query_params(join_binding_alias, join_schema, params, opts)
+    |> convert_params_to_filter(as, schema, filter_params, opts)
+  end
+
+  defp build_join_query_filter(query, binding_alias, params, opts) do
+    if not Map.has_key?(params, :source) and not Map.has_key?(params, :schema) do
+      raise ArgumentError, raise("key :source or :schema is required, got: #{inspect(params)}")
+    end
+
+    {as, params} = Map.pop(params, :as)
+
+    {source, params} = Map.pop(params, :source)
+
+    {schema, params} = Map.pop(params, :schema)
+
+    as =
+      if is_nil(as) do
+        cond do
+          is_atom(schema) and not is_nil(schema) ->
+            schema
+            |> named_binding_for_module()
+            |> String.to_atom()
+
+          is_binary(source) ->
+            source
+            |> named_binding()
+            |> String.to_atom()
+
+          true ->
+            nil
+        end
+      else
+        as
+      end
+
+    join_params =
+      params
+      |> Map.take(@join_keys)
+      |> Map.put(:schema, schema)
+
+    filter_params = Map.drop(params, @join_keys)
+
+    query
+    |> CommonQueryAPI.join(
+      :query,
+      {binding_alias, as},
+      {source, schema},
+      join_params,
+      opts
+    )
+    |> convert_params_to_filter(as, schema, filter_params, opts)
+  end
+
+  defp unrecognized_filter_key_message(schema, key) do
+    message =
+      """
+      The given key is not a valid field or supported query filter for the schema.
+
+      schema:
+
+      #{inspect(schema)}
+
+      key:
+
+      #{inspect(key)}
+
+      This key has been skipped and the query will be returned as-is.
+
+      To resolve this, you can:
+
+      - Remove the key if it’s unnecessary.
+
+      - Use a supported custom filter, such as:
+
+      #{Enum.map_join(@query_filters, "\n", &"* #{&1}")}
+
+      - Use a valid schema field, such as:
+
+      #{Enum.map_join(schema.__schema__(:query_fields), "\n", &"* #{&1}")}
+
+      """
+
+    assoc_warning_message =
+      if schema.__schema__(:associations) !== [] do
+        """
+        - Use a valid association, such as:
+
+        #{Enum.map_join(schema.__schema__(:associations), "\n", &"* #{&1}")}
+        """
+      else
+        ""
+      end
+
+    message <> assoc_warning_message
   end
 
   @doc false

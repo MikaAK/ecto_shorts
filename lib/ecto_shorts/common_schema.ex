@@ -123,7 +123,7 @@ defmodule EctoShorts.CommonSchema do
   end
 
   def get_schema_source(query) do
-    CommonQuery.validate_query_binding_schema_source!(query)
+    CommonQuery.get_source(query)
   end
 
   @doc """
