@@ -25,6 +25,7 @@ defmodule EctoShorts.CommonQueryAPI do
   learn, just use functions that work with data.
   """
   alias Ecto.Query
+
   alias EctoShorts.{
     CommonQuery,
     DynamicExpressions,
@@ -68,12 +69,12 @@ defmodule EctoShorts.CommonQueryAPI do
       ...> EctoShorts.CommonQueryAPI.merge_dynamic(dyn_a, :and, dyn_b)
 
       iex> import Ecto.Query
-      ...> dyn_a = dynamic([q], q.name == "Fira")
+      ...> dyn_a = dynamic([q], q.name == "example")
       ...> dyn_b = dynamic([q], q.id > 1)
       ...> EctoShorts.CommonQueryAPI.merge_dynamic(dyn_a, :and, dyn_b)
 
       iex> import Ecto.Query
-      ...> dyn_a = dynamic([q], q.name == "Fira")
+      ...> dyn_a = dynamic([q], q.name == "example")
       ...> dyn_b = dynamic([q], q.id > 1)
       ...> EctoShorts.CommonQueryAPI.merge_dynamic(dyn_a, :or, dyn_b)
   """
@@ -467,11 +468,11 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   def join(query, :association, {binding_alias, as}, key, params, opts) do
-    {schema, params} = Map.pop(params, :schema)
+    {source, params} = Map.pop(params, :source)
 
     source =
-      if schema !== nil do
-        schema
+      if source !== nil do
+        source
       else
         CommonQuery.get_binding_source(query, binding_alias)
       end
@@ -480,17 +481,17 @@ defmodule EctoShorts.CommonQueryAPI do
 
     prefix = params[:prefix]
 
-    on = join_on(as, source, params[:on], opts)
+    on = join_on_dynamic(as, source, params[:on], opts)
 
     join_assoc(query, {binding_alias, as}, key, {qual, on, prefix})
   end
 
   def join(query, :subquery, {binding_alias, as}, inner_query, params, opts) do
-    {schema, params} = Map.pop(params, :schema)
+    {source, params} = Map.pop(params, :source)
 
     source =
-      if schema !== nil do
-        schema
+      if source !== nil do
+        source
       else
         CommonQuery.get_binding_source(query, binding_alias)
       end
@@ -499,7 +500,7 @@ defmodule EctoShorts.CommonQueryAPI do
 
     prefix = params[:prefix]
 
-    on = join_on(as, source, params[:on], opts)
+    on = join_on_dynamic(as, source, params[:on], opts)
 
     join_subquery(query, {binding_alias, as}, inner_query, {qual, on, prefix})
   end
@@ -509,7 +510,7 @@ defmodule EctoShorts.CommonQueryAPI do
 
     prefix = params[:prefix]
 
-    on = join_on(as, source, params[:on], opts)
+    on = join_on_dynamic(as, source, params[:on], opts)
 
     join_query(query, {binding_alias, as}, source, {qual, on, prefix})
   end
@@ -611,7 +612,7 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   defp join_query(query, {binding_alias, as}, source, {qual, on, prefix}) do
-    source = sanitize_source(source)
+    source = normalize_source(source)
 
     if is_nil(as) or as === false do
       if binding_alias do
@@ -660,30 +661,16 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
-  defp join_on(binding_alias, source, params, opts) when is_list(params) do
-    params
-    |> Map.new()
-    |> join_on(binding_alias, source, opts)
+  defp join_on_dynamic(binding_alias, source, params, opts) when is_list(params) do
+    join_on_dynamic(binding_alias, source, Map.new(params), opts)
   end
 
-  defp join_on(binding_alias, source, params, opts) when is_map(params) do
+  defp join_on_dynamic(binding_alias, source, params, opts) when is_map(params) do
     dynamic(binding_alias, source, params, opts)
   end
 
-  defp join_on(_, _, _, _) do
+  defp join_on_dynamic(_, _, _, _) do
     true
-  end
-
-  defp sanitize_source({nil, schema}) when is_atom(schema) do
-    schema
-  end
-
-  defp sanitize_source({source, schema}) when is_atom(schema) do
-    {source, schema}
-  end
-
-  defp sanitize_source(source) when is_binary(source) do
-    source
   end
 
   def or_where(query, binding_alias, values, opts) when is_list(values) do
@@ -699,11 +686,11 @@ defmodule EctoShorts.CommonQueryAPI do
   def or_where(query, binding_alias, params, opts) do
     {expression, params} = Map.pop(params, :expression)
 
-    {schema, params} = Map.pop(params, :schema)
+    {source, params} = Map.pop(params, :source)
 
     source =
-      if schema !== nil do
-        schema
+      if source !== nil do
+        source
       else
         CommonQuery.get_binding_source(query, binding_alias)
       end
@@ -723,6 +710,8 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
+  def where(query, binding_alias, values, opts \\ [])
+
   def where(query, binding_alias, values, opts) when is_list(values) do
     if Keyword.keyword?(values) do
       where(query, binding_alias, Map.new(values), opts)
@@ -736,11 +725,11 @@ defmodule EctoShorts.CommonQueryAPI do
   def where(query, binding_alias, params, opts) do
     {expression, params} = Map.pop(params, :expression)
 
-    {schema, params} = Map.pop(params, :schema)
+    {source, params} = Map.pop(params, :source)
 
     source =
-      if schema !== nil do
-        schema
+      if source !== nil do
+        source
       else
         CommonQuery.get_binding_source(query, binding_alias)
       end
@@ -758,5 +747,17 @@ defmodule EctoShorts.CommonQueryAPI do
     else
       Query.where(query, [q], ^expr)
     end
+  end
+
+  defp normalize_source({nil, schema}) when is_atom(schema) do
+    schema
+  end
+
+  defp normalize_source({source, schema}) when is_atom(schema) do
+    {source, schema}
+  end
+
+  defp normalize_source(source) when is_binary(source) do
+    source
   end
 end

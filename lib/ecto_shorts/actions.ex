@@ -1144,7 +1144,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find_and_upsert(EctoShorts.Schemas.Post, %{title: "fira@example.com"}, %{body: "post_body"})
+      iex> EctoShorts.Actions.find_and_upsert(EctoShorts.Schemas.Post, %{title: "example@example.com"}, %{body: "post_body"})
   """
   @spec find_and_upsert(query_input(), params(), params()) ::
           {:ok, schema_data()} | {:error, changeset() | any()}
@@ -1179,7 +1179,7 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_and_delete(EctoShorts.Schemas.Post, %{id: 1})
 
-      iex> EctoShorts.Actions.find_and_delete({"posts", EctoShorts.Schemas.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.find_and_delete({"posts", EctoShorts.Schemas.Post}, %{title: "example@example.com"}, repo: EctoShorts.Repo)
   """
   @spec find_and_delete(query_input(), params()) ::
           {:ok, schema_data()} | {:error, changeset() | any()}
@@ -1213,7 +1213,7 @@ defmodule EctoShorts.Actions do
 
       iex> EctoShorts.Actions.find_or_create(EctoShorts.Schemas.Post, %{title: "example"})
 
-      iex> EctoShorts.Actions.find_or_create({"posts", EctoShorts.Schemas.Post}, %{title: "fira@example.com"}, repo: EctoShorts.Repo)
+      iex> EctoShorts.Actions.find_or_create({"posts", EctoShorts.Schemas.Post}, %{title: "example@example.com"}, repo: EctoShorts.Repo)
   """
   @spec find_or_create(query_input(), params()) ::
           {:ok, schema_data()} | {:error, changeset() | any()}

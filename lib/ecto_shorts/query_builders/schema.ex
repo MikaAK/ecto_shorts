@@ -76,7 +76,6 @@ defmodule EctoShorts.QueryBuilders.Schema do
   ...> )
   ```
   """
-  alias EctoShorts.CommonQuery
   alias EctoShorts.{
     # CommonQuery,
     CommonQueryAPI,

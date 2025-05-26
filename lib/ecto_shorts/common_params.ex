@@ -26,7 +26,7 @@ defmodule EctoShorts.CommonParams do
   ## Example
 
       iex> params = [
-      ...>   %{name: "Fira", slug: "alice"},
+      ...>   %{name: "example", slug: "alice"},
       ...>   %{name: "Bob", slug: nil}
       ...> ]
 
@@ -38,7 +38,7 @@ defmodule EctoShorts.CommonParams do
 
       iex> EctoShorts.CommonParams.convert_to_insert_all_params(MyApp.User, params, opts)
       {:ok, [
-        %{name: "Fira", slug: "alice", inserted_at: ..., updated_at: ...},
+        %{name: "example", slug: "alice", inserted_at: ..., updated_at: ...},
         %{name: "Bob", slug: {:placeholder, :slug}, inserted_at: ..., updated_at: ...}
       ]}
   """

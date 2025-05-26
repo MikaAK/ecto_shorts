@@ -277,22 +277,23 @@ defmodule EctoShorts.CommonQuery do
     case lookup_binding_expr(query, 0, binding_alias) do
       nil ->
         raise ArgumentError,
-          """
-          binding not found in query.
+              """
+              binding not found in query.
 
-          alias:
+              alias:
 
-          #{inspect(binding_alias)}
+              #{inspect(binding_alias)}
 
-          query:
+              query:
 
-          #{inspect(query)}
-          """
+              #{inspect(query)}
+              """
 
       {from_expr, binding_position} when is_struct(from_expr, Ecto.Query.FromExpr) ->
         {get_base_expr(from_expr), binding_position}
 
-      val -> val
+      val ->
+        val
     end
   end
 
