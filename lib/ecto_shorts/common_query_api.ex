@@ -96,9 +96,9 @@ defmodule EctoShorts.CommonQueryAPI do
   @spec dynamic(binding_alias() | nil, value()) :: dynamic_expr()
   def dynamic(binding_alias, value) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], ^value)
+      Query.dynamic([{^binding_alias, d}], ^value)
     else
-      Query.dynamic([q], ^value)
+      Query.dynamic([d], ^value)
     end
   end
 
@@ -113,6 +113,8 @@ defmodule EctoShorts.CommonQueryAPI do
 
       iex> EctoShorts.CommonQueryAPI.dynamic(EctoShorts.Schemas.Post, nil, %{id: 1}, [])
   """
+  def dynamic(binding_alias, source, params, opts \\ [])
+
   def dynamic(binding_alias, source, params, opts) when is_list(params) do
     dynamic(binding_alias, source, Map.new(params), opts)
   end
@@ -137,12 +139,14 @@ defmodule EctoShorts.CommonQueryAPI do
       iex> EctoShorts.CommonQueryAPI.from(EctoShorts.Schemas.Post, :post)
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, as: :post>
   """
-  @spec from(query_source(), binding_alias()) :: query()
-  @spec from(query_source(), binding_alias() | nil, params()) :: query()
-  def from(query, binding_alias, params \\ %{}) do
-    prefix = params[:prefix]
+  def from(query, binding_alias, opts \\ [])
 
-    opts = params[:options] || []
+  def from(query, binding_alias, opts) when is_map(opts) do
+    from(query, binding_alias, Map.to_list(opts))
+  end
+
+  def from(query, binding_alias, opts) do
+    prefix = opts[:prefix]
 
     if binding_alias do
       query
@@ -290,29 +294,6 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
-  @doc """
-  Dynamically selects fields or associations.
-
-  ## Examples
-
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, true)
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: p0>
-
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, [:title])
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:title])>
-
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, %{map: [:title]})
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:title])>
-
-      iex> EctoShorts.CommonQueryAPI.select(EctoShorts.Schemas.Post, nil, %{struct: [:title]})
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: struct(p0, [:title])>
-
-      iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schemas.Post
-      ...> expr = quote do: [:id, :title]
-      ...> EctoShorts.CommonQueryAPI.select(query, nil, %{expression: expr})
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: [:id, :title]>
-  """
   @spec select(query_source(), binding_alias() | nil, params() | true, opts()) :: query()
   def select(query, binding_alias, value, opts \\ [])
 
@@ -329,8 +310,8 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   def select(query, binding_alias, params, opts) do
-    if Map.has_key?(params, :expression) do
-      query_select(query, binding_alias, params[:expression])
+    if Map.has_key?(params, :value) do
+      query_select(query, binding_alias, params[:value])
     else
       Utils.apply_expressions(
         query,
@@ -375,32 +356,8 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
-  @doc """
-  Dynamically merges fields into an existing select.
-
-  ## Examples
-
-      iex> EctoShorts.CommonQueryAPI.select_merge(EctoShorts.Schemas.Post, nil, true)
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: p0>
-
-      iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schemas.Post, select: map(p, [:id])
-      ...> EctoShorts.CommonQueryAPI.select_merge(query, nil, [:title])
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:id, :title])>
-
-      # select using a quoted expression
-      iex> import Ecto.Query
-      ...> query = from p in EctoShorts.Schemas.Post, select: map(p, [:id])
-      ...> expr = quote do: [:title]
-      ...> EctoShorts.CommonQueryAPI.select_merge(query, nil, %{expression: expr})
-      #Ecto.Query<from p0 in EctoShorts.Schemas.Post, select: map(p0, [:id, :title])>
-  """
   @spec select_merge(query_source(), binding_alias() | nil, params() | true, opts()) :: query()
   def select_merge(query, binding_alias, value, opts \\ [])
-
-  def select_merge(query, binding_alias, true, _opts) do
-    query_select_merge(query, binding_alias, true)
-  end
 
   def select_merge(query, binding_alias, values, opts) when is_list(values) do
     if Keyword.keyword?(values) do
@@ -410,9 +367,9 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
-  def select_merge(query, binding_alias, params, opts) do
-    if Map.has_key?(params, :expression) do
-      query_select_merge(query, binding_alias, params[:expression])
+  def select_merge(query, binding_alias, params, opts) when is_map(params) do
+    if Map.has_key?(params, :value) do
+      query_select_merge(query, binding_alias, params[:value])
     else
       Utils.apply_expressions(
         query,
@@ -425,11 +382,31 @@ defmodule EctoShorts.CommonQueryAPI do
     end
   end
 
+  def select_merge(query, binding_alias, value, _opts) do
+    query_select_merge(query, binding_alias, value)
+  end
+
   defp query_select_merge(query, binding_alias, true) do
     if binding_alias do
       Query.select_merge(query, [{^binding_alias, q}], q)
     else
       Query.select_merge(query, [q], q)
+    end
+  end
+
+  defp query_select_merge(query, binding_alias, {:map, keys}) do
+    if binding_alias do
+      Query.select_merge(query, [{^binding_alias, q}], map(q, ^keys))
+    else
+      Query.select_merge(query, [q], map(q, ^keys))
+    end
+  end
+
+  defp query_select_merge(query, binding_alias, {:struct, keys}) do
+    if binding_alias do
+      Query.select_merge(query, [{^binding_alias, q}], struct(q, ^keys))
+    else
+      Query.select_merge(query, [q], struct(q, ^keys))
     end
   end
 
@@ -673,6 +650,8 @@ defmodule EctoShorts.CommonQueryAPI do
     true
   end
 
+  def or_where(query, binding_alias, values, opts \\ [])
+
   def or_where(query, binding_alias, values, opts) when is_list(values) do
     if Keyword.keyword?(values) do
       or_where(query, binding_alias, Map.new(values), opts)
@@ -684,7 +663,7 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   def or_where(query, binding_alias, params, opts) do
-    {expression, params} = Map.pop(params, :expression)
+    {expression, params} = Map.pop(params, :value)
 
     {source, params} = Map.pop(params, :source)
 
@@ -723,7 +702,7 @@ defmodule EctoShorts.CommonQueryAPI do
   end
 
   def where(query, binding_alias, params, opts) do
-    {expression, params} = Map.pop(params, :expression)
+    {expression, params} = Map.pop(params, :value)
 
     {source, params} = Map.pop(params, :source)
 

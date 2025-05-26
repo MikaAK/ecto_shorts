@@ -6,25 +6,32 @@ defmodule EctoShorts.Schemas.PostAbstract do
   schema "abstract table: posts" do
     belongs_to :author, EctoShorts.Schemas.User
 
+    many_to_many :authors, EctoShorts.Schemas.User,
+      join_through: EctoShorts.Schemas.PostAuthor,
+      join_keys: [post_id: :id, author_id: :id],
+      unique: true
+
+    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :post_id
+
+    has_many :comments_authors, through: [:comments, :author]
+
     field :title, :string
     field :body, :string
     field :published, :boolean
+    field :notes, :string, source: :custom_string_field
     field :tags, {:array, :string}
     field :views, :integer
     field :permalink, :string
-
-    field :notes, :string, source: :custom_string_field
-
-    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :post_id
 
     timestamps()
   end
 
   @available_fields [
-    :title,
     :body,
     :notes,
     :permalink,
+    :published,
+    :title,
     :tags,
     :author_id,
     :views

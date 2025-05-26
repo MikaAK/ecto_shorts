@@ -9,26 +9,26 @@ defmodule EctoShorts.DynamicExpressions.Postgres.ArrayTest do
 
   describe "create_dynamic/4 with operator :==" do
     test "with scalar left side" do
-      assert_dynamic dynamic([q], ^1 in q.tags),
+      assert_dynamic dynamic([d], ^1 in d.tags),
                      Array.build_dynamic(nil, 1, :==, :tags)
     end
 
     test "with array on right side" do
-      assert_dynamic dynamic([q], q.tags == ^["example"]),
+      assert_dynamic dynamic([d], d.tags == ^["example"]),
                      Array.build_dynamic(nil, :tags, :==, ["example"])
     end
 
     test "with nil comparison" do
-      assert_dynamic dynamic([q], is_nil(q.tags)),
+      assert_dynamic dynamic([d], is_nil(d.tags)),
                      Array.build_dynamic(nil, :tags, :==, nil)
     end
 
     test "with upper fragment" do
       assert_dynamic dynamic(
-                       [q],
+                       [d],
                        fragment(
                          "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE UPPER(value) = UPPER(?))",
-                         q.tags,
+                         d.tags,
                          ^"example"
                        )
                      ),
@@ -38,26 +38,26 @@ defmodule EctoShorts.DynamicExpressions.Postgres.ArrayTest do
 
   describe "create_dynamic/4 with operator :!=" do
     test "with scalar left side" do
-      assert_dynamic dynamic([q], ^1 not in q.tags),
+      assert_dynamic dynamic([d], ^1 not in d.tags),
                      Array.build_dynamic(nil, 1, :!=, :tags)
     end
 
     test "with array on right side" do
-      assert_dynamic dynamic([q], q.tags != ^["example"]),
+      assert_dynamic dynamic([d], d.tags != ^["example"]),
                      Array.build_dynamic(nil, :tags, :!=, ["example"])
     end
 
     test "with nil comparison" do
-      assert_dynamic dynamic([q], not is_nil(q.tags)),
+      assert_dynamic dynamic([d], not is_nil(d.tags)),
                      Array.build_dynamic(nil, :tags, :!=, nil)
     end
 
     test "with upper fragment" do
       assert_dynamic dynamic(
-                       [q],
+                       [d],
                        fragment(
                          "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE UPPER(value) != UPPER(?))",
-                         q.tags,
+                         d.tags,
                          ^"example"
                        )
                      ),
@@ -67,69 +67,69 @@ defmodule EctoShorts.DynamicExpressions.Postgres.ArrayTest do
 
   describe "create_dynamic/4 with operator :>" do
     test "field on left" do
-      assert_dynamic dynamic([q], q.tags > ^["example"]),
+      assert_dynamic dynamic([d], d.tags > ^["example"]),
                      Array.build_dynamic(nil, :tags, :>, ["example"])
     end
 
     test "value on left with ANY(fragment)" do
-      assert_dynamic dynamic([q], fragment("? > ANY(?)", ^["example"], q.tags)),
+      assert_dynamic dynamic([d], fragment("? > ANY(?)", ^["example"], d.tags)),
                      Array.build_dynamic(nil, ["example"], :>, :tags)
     end
   end
 
   describe "create_dynamic/4 with operator :<" do
     test "field on left" do
-      assert_dynamic dynamic([q], q.tags < ^["example"]),
+      assert_dynamic dynamic([d], d.tags < ^["example"]),
                      Array.build_dynamic(nil, :tags, :<, ["example"])
     end
 
     test "value on left with ANY(fragment)" do
-      assert_dynamic dynamic([q], fragment("? < ANY(?)", ^["example"], q.tags)),
+      assert_dynamic dynamic([d], fragment("? < ANY(?)", ^["example"], d.tags)),
                      Array.build_dynamic(nil, ["example"], :<, :tags)
     end
   end
 
   describe "create_dynamic/4 with operator :>=" do
     test "field on left" do
-      assert_dynamic dynamic([q], q.tags >= ^["example"]),
+      assert_dynamic dynamic([d], d.tags >= ^["example"]),
                      Array.build_dynamic(nil, :tags, :>=, ["example"])
     end
 
     test "value on left with ANY(fragment)" do
-      assert_dynamic dynamic([q], fragment("? >= ANY(?)", ^["example"], q.tags)),
+      assert_dynamic dynamic([d], fragment("? >= ANY(?)", ^["example"], d.tags)),
                      Array.build_dynamic(nil, ["example"], :>=, :tags)
     end
   end
 
   describe "create_dynamic/4 with operator :<=" do
     test "field on left" do
-      assert_dynamic dynamic([q], q.tags <= ^["example"]),
+      assert_dynamic dynamic([d], d.tags <= ^["example"]),
                      Array.build_dynamic(nil, :tags, :<=, ["example"])
     end
 
     test "value on left with ANY(fragment)" do
-      assert_dynamic dynamic([q], fragment("? <= ANY(?)", ^["example"], q.tags)),
+      assert_dynamic dynamic([d], fragment("? <= ANY(?)", ^["example"], d.tags)),
                      Array.build_dynamic(nil, ["example"], :<=, :tags)
     end
   end
 
   describe "create_dynamic/4 with operator :ilike" do
     test "with ILIKE ANY fragment" do
-      assert_dynamic dynamic([q], fragment("? ILIKE ANY(?)", ^"%example%", q.tags)),
+      assert_dynamic dynamic([d], fragment("? ILIKE ANY(?)", ^"%example%", d.tags)),
                      Array.build_dynamic(nil, "example", :ilike, :tags)
     end
   end
 
   describe "create_dynamic/4 with operator :like" do
     test "with LIKE ANY fragment" do
-      assert_dynamic dynamic([q], fragment("? LIKE ANY(?)", ^"%example%", q.tags)),
+      assert_dynamic dynamic([d], fragment("? LIKE ANY(?)", ^"%example%", d.tags)),
                      Array.build_dynamic(nil, "example", :like, :tags)
     end
   end
 
   describe "create_dynamic/4 with operator :=~ (regex match)" do
     test "with ~* ANY fragment" do
-      assert_dynamic dynamic([q], fragment("? ~* ANY(?)", ^"example", q.tags)),
+      assert_dynamic dynamic([d], fragment("? ~* ANY(?)", ^"example", d.tags)),
                      Array.build_dynamic(nil, "example", :=~, :tags)
     end
   end

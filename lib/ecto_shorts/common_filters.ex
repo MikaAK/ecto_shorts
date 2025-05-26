@@ -138,27 +138,24 @@ defmodule EctoShorts.CommonFilters do
   end
 
   def convert_params_to_filter(params, opts) do
-    query_input =
-      if Map.has_key?(params, :query) do
-        params[:query]
-      else
-        raise KeyError, "key :query not found: #{inspect(params)}"
-      end
+    {query, params} = Map.pop(params, :query)
+
+    if is_nil(query) do
+      raise KeyError, "key :query not found"
+    end
 
     schema =
       case params[:schema] do
-        nil -> query_input |> CommonSchema.get_schema_source() |> elem(1)
+        nil -> query |> CommonSchema.get_schema_source() |> elem(1)
         module -> module
       end
 
-    binding_alias = params[:as]
+    {binding_alias, params} = Map.pop(params, :as)
 
-    from_opts = Map.take(params, [:as, :prefix, :options])
+    params = Map.drop(params, [:as, :prefix, :query_prefix])
 
-    params = Map.drop(params, [:as, :prefix, :query, :schema, :options])
-
-    query_input
-    |> CommonQueryAPI.from(binding_alias, from_opts)
+    query
+    |> CommonQueryAPI.from(binding_alias, params)
     |> reduce_params(binding_alias, schema, params, opts)
   end
 

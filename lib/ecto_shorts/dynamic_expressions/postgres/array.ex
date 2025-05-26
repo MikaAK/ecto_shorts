@@ -79,11 +79,11 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
   def build_dynamic(binding_alias, value, :=~, key) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? ~* ANY(?)", ^value, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? ~* ANY(?)", ^value, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? ~* ANY(?)", ^value, field(q, ^key)))
+      Query.dynamic([d], fragment("? ~* ANY(?)", ^value, field(d, ^key)))
     end
   end
 
@@ -92,11 +92,11 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
 
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? ILIKE ANY(?)", ^pattern, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? ILIKE ANY(?)", ^pattern, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? ILIKE ANY(?)", ^pattern, field(q, ^key)))
+      Query.dynamic([d], fragment("? ILIKE ANY(?)", ^pattern, field(d, ^key)))
     end
   end
 
@@ -105,106 +105,106 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
 
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? LIKE ANY(?)", ^pattern, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? LIKE ANY(?)", ^pattern, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? LIKE ANY(?)", ^pattern, field(q, ^key)))
+      Query.dynamic([d], fragment("? LIKE ANY(?)", ^pattern, field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :<, values) when is_list(values) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], field(q, ^key) < ^values)
+      Query.dynamic([{^binding_alias, d}], field(d, ^key) < ^values)
     else
-      Query.dynamic([q], field(q, ^key) < ^values)
+      Query.dynamic([d], field(d, ^key) < ^values)
     end
   end
 
   def build_dynamic(binding_alias, value, :<, key) when is_atom(key) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? < ANY(?)", ^value, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? < ANY(?)", ^value, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? < ANY(?)", ^value, field(q, ^key)))
+      Query.dynamic([d], fragment("? < ANY(?)", ^value, field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :>, values) when is_list(values) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], field(q, ^key) > ^values)
+      Query.dynamic([{^binding_alias, d}], field(d, ^key) > ^values)
     else
-      Query.dynamic([q], field(q, ^key) > ^values)
+      Query.dynamic([d], field(d, ^key) > ^values)
     end
   end
 
   def build_dynamic(binding_alias, value, :>, key) when is_atom(key) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? > ANY(?)", ^value, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? > ANY(?)", ^value, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? > ANY(?)", ^value, field(q, ^key)))
+      Query.dynamic([d], fragment("? > ANY(?)", ^value, field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :<=, values) when is_list(values) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], field(q, ^key) <= ^values)
+      Query.dynamic([{^binding_alias, d}], field(d, ^key) <= ^values)
     else
-      Query.dynamic([q], field(q, ^key) <= ^values)
+      Query.dynamic([d], field(d, ^key) <= ^values)
     end
   end
 
   def build_dynamic(binding_alias, value, :<=, key) when is_atom(key) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? <= ANY(?)", ^value, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? <= ANY(?)", ^value, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? <= ANY(?)", ^value, field(q, ^key)))
+      Query.dynamic([d], fragment("? <= ANY(?)", ^value, field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :>=, values) when is_list(values) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], field(q, ^key) >= ^values)
+      Query.dynamic([{^binding_alias, d}], field(d, ^key) >= ^values)
     else
-      Query.dynamic([q], field(q, ^key) >= ^values)
+      Query.dynamic([d], field(d, ^key) >= ^values)
     end
   end
 
   def build_dynamic(binding_alias, value, :>=, key) when is_atom(key) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
-        fragment("? >= ANY(?)", ^value, field(q, ^key))
+        [{^binding_alias, d}],
+        fragment("? >= ANY(?)", ^value, field(d, ^key))
       )
     else
-      Query.dynamic([q], fragment("? >= ANY(?)", ^value, field(q, ^key)))
+      Query.dynamic([d], fragment("? >= ANY(?)", ^value, field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :!=, {:lower, value}) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
+        [{^binding_alias, d}],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE LOWER(value) != LOWER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
     else
       Query.dynamic(
-        [q],
+        [d],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE LOWER(value) != LOWER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
@@ -214,19 +214,19 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
   def build_dynamic(binding_alias, key, :!=, {:upper, value}) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
+        [{^binding_alias, d}],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE UPPER(value) != UPPER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
     else
       Query.dynamic(
-        [q],
+        [d],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE UPPER(value) != UPPER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
@@ -235,44 +235,44 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
 
   def build_dynamic(binding_alias, key, :!=, nil) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], not is_nil(field(q, ^key)))
+      Query.dynamic([{^binding_alias, d}], not is_nil(field(d, ^key)))
     else
-      Query.dynamic([q], not is_nil(field(q, ^key)))
+      Query.dynamic([d], not is_nil(field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :!=, values) when is_list(values) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], field(q, ^key) != ^values)
+      Query.dynamic([{^binding_alias, d}], field(d, ^key) != ^values)
     else
-      Query.dynamic([q], field(q, ^key) != ^values)
+      Query.dynamic([d], field(d, ^key) != ^values)
     end
   end
 
   def build_dynamic(binding_alias, value, :!=, key) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], ^value not in field(q, ^key))
+      Query.dynamic([{^binding_alias, d}], ^value not in field(d, ^key))
     else
-      Query.dynamic([q], ^value not in field(q, ^key))
+      Query.dynamic([d], ^value not in field(d, ^key))
     end
   end
 
   def build_dynamic(binding_alias, key, :==, {:lower, value}) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
+        [{^binding_alias, d}],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE LOWER(value) = LOWER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
     else
       Query.dynamic(
-        [q],
+        [d],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE LOWER(value) = LOWER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
@@ -282,19 +282,19 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
   def build_dynamic(binding_alias, key, :==, {:upper, value}) do
     if binding_alias do
       Query.dynamic(
-        [{^binding_alias, q}],
+        [{^binding_alias, d}],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE UPPER(value) = UPPER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
     else
       Query.dynamic(
-        [q],
+        [d],
         fragment(
           "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE UPPER(value) = UPPER(?))",
-          field(q, ^key),
+          field(d, ^key),
           ^value
         )
       )
@@ -303,25 +303,25 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Array do
 
   def build_dynamic(binding_alias, key, :==, nil) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], is_nil(field(q, ^key)))
+      Query.dynamic([{^binding_alias, d}], is_nil(field(d, ^key)))
     else
-      Query.dynamic([q], is_nil(field(q, ^key)))
+      Query.dynamic([d], is_nil(field(d, ^key)))
     end
   end
 
   def build_dynamic(binding_alias, key, :==, values) when is_list(values) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], field(q, ^key) == ^values)
+      Query.dynamic([{^binding_alias, d}], field(d, ^key) == ^values)
     else
-      Query.dynamic([q], field(q, ^key) == ^values)
+      Query.dynamic([d], field(d, ^key) == ^values)
     end
   end
 
   def build_dynamic(binding_alias, value, :==, key) do
     if binding_alias do
-      Query.dynamic([{^binding_alias, q}], ^value in field(q, ^key))
+      Query.dynamic([{^binding_alias, d}], ^value in field(d, ^key))
     else
-      Query.dynamic([q], ^value in field(q, ^key))
+      Query.dynamic([d], ^value in field(d, ^key))
     end
   end
 end

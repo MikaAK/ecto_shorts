@@ -22,25 +22,6 @@ defmodule EctoShorts.CommonParams do
   updates, ensuring consistent timestamp handling, optional
   schema validation, and support for placeholder values across
   your application.
-
-  ## Example
-
-      iex> params = [
-      ...>   %{name: "example", slug: "alice"},
-      ...>   %{name: "Bob", slug: nil}
-      ...> ]
-
-      iex> opts = [
-      ...>   placeholders: %{slug: nil},
-      ...>   on_placeholder_conflict: {:replace, [:slug]},
-      ...>   validate: true
-      ...> ]
-
-      iex> EctoShorts.CommonParams.convert_to_insert_all_params(MyApp.User, params, opts)
-      {:ok, [
-        %{name: "example", slug: "alice", inserted_at: ..., updated_at: ...},
-        %{name: "Bob", slug: {:placeholder, :slug}, inserted_at: ..., updated_at: ...}
-      ]}
   """
 
   alias Ecto.Changeset
@@ -76,21 +57,6 @@ defmodule EctoShorts.CommonParams do
     * `updated_at_timestamp_type` – Override the format of the `updated_at` field
       (for example, UTC or naive datetime).
     * `timestamp_type` – Fallback timestamp format type if the above is not provided.
-
-  ## Examples
-
-      iex> EctoShorts.CommonParams.convert_to_update_all_params(User, %{name: "John"})
-      [set: [name: "John", updated_at: ~U[2024-04-21 10:00:00Z]]]
-
-      iex> EctoShorts.CommonParams.convert_to_update_all_params(User, %{
-      ...>   age: {:inc, 1},
-      ...>   roles: {:push, ["admin"]}
-      ...> })
-      [
-        inc: [age: 1],
-        push: [roles: ["admin"]],
-        set: [updated_at: ~U[2024-04-21 10:00:00Z]]
-      ]
   """
   @spec convert_to_update_all_params(schema(), params()) :: update_all_params()
   @spec convert_to_update_all_params(schema(), params(), opts()) :: update_all_params()
@@ -238,11 +204,6 @@ defmodule EctoShorts.CommonParams do
     * `validate`: If `true`, each entry is passed through the schema’s
       `changeset/2` function for validation. If `false`, raw structs are
       constructed without validation.
-
-  ## Examples
-
-      iex> EctoShorts.CommonParams.convert_to_insert_all_params(User, [%{name: "John"}])
-      {:ok, [%{name: "John", inserted_at: ~U[2024-04-21 10:00:00Z], updated_at: ~U[2024-04-21 10:00:00Z]}]}
   """
   @spec convert_to_insert_all_params(schema(), list(params())) ::
           {:ok, list(insert_all_params()), opts()} | {:error, changesets()}

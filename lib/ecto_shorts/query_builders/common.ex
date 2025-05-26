@@ -132,12 +132,12 @@ defmodule EctoShorts.QueryBuilders.Common do
     CommonQueryAPI.limit(query, binding_alias, value)
   end
 
-  def build_query(query, binding_alias, _schema, :last, value, opts) do
+  def build_query(query, binding_alias, _schema, :last, value, _opts) do
     query
     |> CommonQueryAPI.exclude(:order_by)
-    |> CommonQueryAPI.order_by(binding_alias, order_by: [desc: :inserted_at])
+    |> CommonQueryAPI.order_by(binding_alias, desc: :inserted_at)
     |> CommonQueryAPI.limit(binding_alias, value)
-    |> CommonQueryAPI.subquery(opts[:subquery_options] || [])
+    |> CommonQueryAPI.subquery([])
     |> CommonQueryAPI.order_by(binding_alias, :id)
   end
 

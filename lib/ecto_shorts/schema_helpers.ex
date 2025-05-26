@@ -524,7 +524,7 @@ defmodule EctoShorts.SchemaHelpers do
   end
 
   def has_primary_key?(schema, schema_data_or_params) do
-    all_keys_exists_and_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
+    all_keys_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
   end
 
   def primary_key_count(schema) do
@@ -554,17 +554,17 @@ defmodule EctoShorts.SchemaHelpers do
     schema.__schema__(:primary_key)
   end
 
-  defp all_keys_exists_and_not_nil?(_, []) do
+  defp all_keys_not_nil?(_, []) do
     false
   end
 
-  defp all_keys_exists_and_not_nil?(%_{} = schema_data, keys) do
+  defp all_keys_not_nil?(%_{} = schema_data, keys) do
     Enum.all?(keys, fn key ->
       Map.has_key?(schema_data, key) and not (schema_data |> Map.fetch!(key) |> is_nil())
     end)
   end
 
-  defp all_keys_exists_and_not_nil?(params, keys) do
+  defp all_keys_not_nil?(params, keys) do
     Enum.all?(keys, fn key ->
       (Map.has_key?(params, key) and Map.get(params, key) !== nil) or
         (Map.has_key?(params, to_string(key)) and Map.get(params, to_string(key)) !== nil)

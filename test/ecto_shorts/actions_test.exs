@@ -755,7 +755,7 @@ defmodule EctoShorts.ActionsTest do
     end
   end
 
-  describe "all/1" do
+  describe "all" do
     test "returns records matching params" do
       post =
         Testing.insert!(Repo, Post, %{
@@ -913,7 +913,7 @@ defmodule EctoShorts.ActionsTest do
     end
   end
 
-  describe "delete/1" do
+  describe "delete" do
     test "can delete record by struct" do
       post = Testing.insert!(Repo, Post, %{title: "post_title"})
 
