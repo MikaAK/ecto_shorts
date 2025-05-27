@@ -51,22 +51,6 @@ defmodule EctoShorts.CommonFiltersTest do
       assert_query actual_query, expected_query
     end
 
-    test "4" do
-      expected_query =
-        from p in {"posts", PostAbstract},
-          join: a in assoc(p, :comments_authors),
-          as: :ecto_shorts_comments_authors,
-          where: a.id == ^1
-
-      actual_query =
-        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{
-          comments_authors: %{id: 1}
-        })
-
-      assert_query actual_query, expected_query
-    end
-
-    # ---
     test "belongs_to relationship" do
       expected_query =
         from p in Post, join: a in assoc(p, :author), as: :ecto_shorts_author, where: a.id == ^1
@@ -94,15 +78,59 @@ defmodule EctoShorts.CommonFiltersTest do
       assert_query actual_query, expected_query
     end
 
-    test "has_through relationship" do
-      expected_query =
+    test "nested association" do
+      query =
         from p in Post,
-          join: a in assoc(p, :comments_authors),
-          as: :ecto_shorts_comments_authors,
-          where: a.id == ^1
+          join: c in assoc(p, :comments),
+          as: :ecto_shorts_comments,
+          join: a in assoc(c, :author),
+          as: :ecto_shorts_author,
+          where: a.age == ^1
 
-      actual_query = CommonFilters.convert_params_to_filter(Post, %{comments_authors: %{id: 1}})
-      assert_query actual_query, expected_query
+      assert_query query,
+                   CommonFilters.convert_params_to_filter(Post, %{comments: %{author: %{age: 1}}})
+    end
+
+     test "raises when given a non-direct association like has_through" do
+      expected_message =
+        """
+        Expected a direct association with a `:related` key, but got
+        an association that does not support direct Ecto operations.
+
+        This likely happens when using a `:through` association,
+        which cannot be used with functions like `put_assoc` or
+        `cast_assoc`.
+
+        Supported associations include: `belongs_to`, `has_one`, and `has_many`.
+
+        key:
+
+        :comments_authors
+
+        association:
+
+        %Ecto.Association.HasThrough{
+          cardinality: :many,
+          field: :comments_authors,
+          owner: EctoShorts.Schemas.PostAbstract,
+          owner_key: :id,
+          through: [:comments, :author],
+          on_cast: nil,
+          relationship: :child,
+          unique: true,
+          ordered: false
+        }
+
+        schema:
+
+        EctoShorts.Schemas.PostAbstract
+        """
+
+      assert_raise ArgumentError, expected_message, fn ->
+        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{
+          comments_authors: %{id: 1}
+        })
+      end
     end
 
     #

@@ -289,10 +289,8 @@ defmodule EctoShorts.QueryBuilders.Schema do
     build_join_query_filter(query, binding_alias, params, opts)
   end
 
-  defp build_assoc_filter(query, binding_alias, schema, key, params, opts) do
+  defp build_assoc_filter(query, binding_alias, schema, key, params, opts) do\
     {as, params} = Map.pop(params, :as)
-
-    {schema, params} = Map.pop(params, :schema, schema)
 
     as =
       if is_nil(as) do
@@ -303,10 +301,25 @@ defmodule EctoShorts.QueryBuilders.Schema do
         as
       end
 
+    {assoc_schema, params} = Map.pop(params, :schema)
+
+    assoc_schema =
+      if assoc_schema !== nil do
+        assoc_schema
+      else
+        assoc = schema.__schema__(:association, key)
+
+        if related_assoc?(assoc) do
+          assoc.related
+        else
+          raise_not_related_assoc!(schema, key, assoc)
+        end
+      end
+
     join_params =
       params
       |> Map.take(@join_keys)
-      |> Map.put(:schema, schema)
+      |> Map.put(:schema, assoc_schema)
 
     filter_params = Map.drop(params, @join_keys)
 
@@ -318,7 +331,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       join_params,
       opts
     )
-    |> convert_params_to_filter(as, schema, filter_params, opts)
+    |> convert_params_to_filter(as, assoc_schema, filter_params, opts)
   end
 
   defp build_subquery_filter(query, binding_alias, params, opts) do
@@ -361,7 +374,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
   defp build_join_query_filter(query, binding_alias, params, opts) do
     if not Map.has_key?(params, :source) and not Map.has_key?(params, :schema) do
-      raise ArgumentError, raise("key :source or :schema is required, got: #{inspect(params)}")
+      raise ArgumentError, "key :source or :schema is required, got: #{inspect(params)}"
     end
 
     {as, params} = Map.pop(params, :as)
@@ -406,6 +419,35 @@ defmodule EctoShorts.QueryBuilders.Schema do
       opts
     )
     |> convert_params_to_filter(as, schema, filter_params, opts)
+  end
+
+  defp related_assoc?(%{related: _}), do: true
+  defp related_assoc?(_), do: false
+
+  defp raise_not_related_assoc!(schema, key, assoc) do
+    raise ArgumentError,
+          """
+          Expected a direct association with a `:related` key, but got
+          an association that does not support direct Ecto operations.
+
+          This likely happens when using a `:through` association,
+          which cannot be used with functions like `put_assoc` or
+          `cast_assoc`.
+
+          Supported associations include: `belongs_to`, `has_one`, and `has_many`.
+
+          key:
+
+          #{inspect(key)}
+
+          association:
+
+          #{inspect(assoc, pretty: true)}
+
+          schema:
+
+          #{inspect(schema, pretty: true)}
+          """
   end
 
   defp unrecognized_filter_key_message(schema, key) do

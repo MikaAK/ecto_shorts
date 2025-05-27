@@ -5,6 +5,8 @@ defmodule EctoShorts.Schemas.User do
 
   schema "users" do
     field :first_name, :string
+    field :last_name, :string
+    field :age, :integer
 
     many_to_many :posts, EctoShorts.Schemas.Post,
       join_through: EctoShorts.Schemas.PostAuthor,
@@ -16,7 +18,7 @@ defmodule EctoShorts.Schemas.User do
     timestamps()
   end
 
-  @available_fields [:first_name]
+  @available_fields [:age, :first_name, :last_name]
 
   def changeset(model_or_changeset, attrs \\ %{}) do
     cast(model_or_changeset, attrs, @available_fields)
