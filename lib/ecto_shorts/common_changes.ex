@@ -388,7 +388,8 @@ defmodule EctoShorts.CommonChanges do
     else
       changeset = preload_association(changeset, key, opts)
 
-      records = actions_all(assoc_schema, query_params, opts)
+      # assoc :queryable is the real query to use for querying associations
+      records = actions_all(assoc.queryable, query_params, opts)
 
       Changeset.put_assoc(changeset, key, records, opts)
     end
@@ -421,7 +422,7 @@ defmodule EctoShorts.CommonChanges do
       changeset
     else
       changeset
-      |> load_association(key, assoc_schema, query_params, opts)
+      |> load_association(assoc_schema, key, query_params, opts)
       |> Changeset.cast_assoc(key, opts)
     end
   end
@@ -484,8 +485,8 @@ defmodule EctoShorts.CommonChanges do
   end
 
   @doc false
-  def load_association(changeset, key, assoc_schema, query_params, opts) do
-    records = actions_all(assoc_schema, query_params, opts)
+  def load_association(changeset, source, key, query_params, opts) do
+    records = actions_all(source, query_params, opts)
 
     put_loaded_association(changeset, key, records, opts)
   end

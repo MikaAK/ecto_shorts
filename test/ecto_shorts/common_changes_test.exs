@@ -108,6 +108,23 @@ alias EctoShorts.Schemas.PostAbstract
     end
   end
 
+  describe "preload_change_assoc" do
+    test "preloads a has_many association where the field on the schema is represented by a {source, schema} tuple" do
+      post = Testing.insert!(Repo, {"posts", PostAbstract}, %{title: "title"})
+
+      comment = Testing.insert!(Repo, {"comments", CommentAbstract}, %{post_id: post.id})
+
+      assert %PostAbstract{comments: %Ecto.Association.NotLoaded{}} = post
+
+      assert %Ecto.Changeset{data: changeset_post, valid?: true} =
+        post
+        |> PostAbstract.changeset(%{comments: [%{id: comment.id}]})
+        |> CommonChanges.preload_change_assoc(:comments)
+
+      assert %PostAbstract{comments: [^comment]} = changeset_post
+    end
+  end
+
   describe "preload_changeset_assoc: " do
     test "can preload belongs_to relationship" do
       post = Testing.insert!(Repo, Post, %{title: "title"})
