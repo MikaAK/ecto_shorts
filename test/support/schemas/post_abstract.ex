@@ -11,7 +11,7 @@ defmodule EctoShorts.Schemas.PostAbstract do
       join_keys: [post_id: :id, author_id: :id],
       unique: true
 
-    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :post_id
+    has_many :comments, {"comments", EctoShorts.Schemas.CommentAbstract}, foreign_key: :post_id
 
     has_many :comments_authors, through: [:comments, :author]
 

@@ -1,4 +1,6 @@
 defmodule EctoShorts.CommonChangesTest do
+alias EctoShorts.Schemas.CommentAbstract
+alias EctoShorts.Schemas.PostAbstract
   use EctoShorts.DataCase, async: true
   doctest EctoShorts.CommonChanges
 
@@ -219,6 +221,21 @@ defmodule EctoShorts.CommonChangesTest do
                },
                valid?: true
              } = changeset
+    end
+
+    test "preloads a has_many association where the field on the schema is represented by a {source, schema} tuple" do
+      post = Testing.insert!(Repo, {"posts", PostAbstract}, %{title: "title"})
+
+      comment = Testing.insert!(Repo, {"comments", CommentAbstract}, %{post_id: post.id})
+
+      assert %PostAbstract{comments: %Ecto.Association.NotLoaded{}} = post
+
+      assert %Ecto.Changeset{data: changeset_post, valid?: true} =
+        post
+        |> PostAbstract.changeset(%{comments: [%{id: comment.id}]})
+        |> CommonChanges.preload_changeset_assoc(:comments)
+
+      assert %PostAbstract{comments: [^comment]} = changeset_post
     end
 
     test "when option :ids set can preload has_many relationship" do

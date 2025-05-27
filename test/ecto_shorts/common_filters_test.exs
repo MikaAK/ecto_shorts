@@ -12,15 +12,28 @@ defmodule EctoShorts.CommonFiltersTest do
   import EctoShorts.Testing, only: [assert_query: 2]
 
   describe "&convert_params_to_filter/3" do
+    test "field on schema has an query source tuple {source, schema}" do
+      expected_query =
+        from p in {"posts", PostAbstract},
+          join: c in assoc(p, :comments),
+          as: :ecto_shorts_comments,
+          where: c.id == ^1
+
+      actual_query =
+        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{comments: %{id: 1}})
+
+      assert_query actual_query, expected_query
+    end
+
     test "1" do
       expected_query =
         from p in {"posts", PostAbstract},
           join: a in assoc(p, :author),
           as: :ecto_shorts_author,
-          where: a.id == ^1
+          where: a.age == ^0
 
       actual_query =
-        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{author: %{id: 1}})
+        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{author: %{age: 0}})
 
       assert_query actual_query, expected_query
     end
@@ -30,10 +43,10 @@ defmodule EctoShorts.CommonFiltersTest do
         from p in {"posts", PostAbstract},
           join: a in assoc(p, :authors),
           as: :ecto_shorts_authors,
-          where: a.id == ^1
+          where: a.age == ^0
 
       actual_query =
-        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{authors: %{id: 1}})
+        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{authors: %{age: 0}})
 
       assert_query actual_query, expected_query
     end
@@ -85,10 +98,10 @@ defmodule EctoShorts.CommonFiltersTest do
           as: :ecto_shorts_comments,
           join: a in assoc(c, :author),
           as: :ecto_shorts_author,
-          where: a.age == ^1
+          where: a.age == ^0
 
       assert_query query,
-                   CommonFilters.convert_params_to_filter(Post, %{comments: %{author: %{age: 1}}})
+                   CommonFilters.convert_params_to_filter(Post, %{comments: %{author: %{age: 0}}})
     end
 
      test "raises when given a non-direct association like has_through" do
