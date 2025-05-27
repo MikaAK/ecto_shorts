@@ -8,7 +8,7 @@ defmodule EctoShorts.Utils do
 
   @ordered_expressions false
 
-  def atomize_keys(enum, opts \\ []) do
+  def keys_to_atom(enum, opts \\ []) do
     transform_keys(enum, &string_to_atom(&1, opts))
   end
 
@@ -129,16 +129,16 @@ defmodule EctoShorts.Utils do
   def apply_expressions(acc, input, fun, opts \\ []) when is_function(fun, 2) do
     input
     |> flatten_input(opts)
-    |> apply_transformer(acc, fun)
+    |> apply_transform_fun(acc, fun)
   end
 
-  defp apply_transformer([], acc, _fun) do
+  defp apply_transform_fun([], acc, _fun) do
     acc
   end
 
-  defp apply_transformer([head | todo], acc, fun) do
+  defp apply_transform_fun([head | todo], acc, fun) do
     with acc <- fun.(head, acc) do
-      apply_transformer(todo, acc, fun)
+      apply_transform_fun(todo, acc, fun)
     end
   end
 

@@ -84,14 +84,14 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
     schema_source? = SchemaHelpers.schema_source?(source)
 
     cond do
-      schema_source? and field_type_of_array?(source, key) and is_list(value) ->
+      schema_source? and field_type_array?(source, key) and is_list(value) ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
           Array.build_dynamic(binding_alias, key, operator, value)
         )
 
-      schema_source? and field_type_of_array?(source, key) ->
+      schema_source? and field_type_array?(source, key) ->
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
@@ -107,9 +107,9 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
     end
   end
 
-  defp field_type_of_array?(source, key) do
+  defp field_type_array?(source, key) do
     source
     |> SchemaHelpers.schema_from_source()
-    |> SchemaHelpers.field_type_of_array?(key)
+    |> SchemaHelpers.field_type_array?(key)
   end
 end

@@ -63,98 +63,118 @@ defmodule EctoShorts.CommonParams do
   def convert_to_update_all_params(schema, params, opts \\ []) do
     utc_now = datetime_utc_now()
 
-    params
-    |> normalize_update_commands(schema)
-    |> group_update_commands_by_action()
-    |> flatten_update_commands()
-    |> put_update_command_set_updated_at(utc_now, schema, opts)
+    schema
+    |> build_updates(params, [])
+    |> flatten_updates()
+    |> set_timestamp_updated_at(utc_now, schema, opts)
+    |> Enum.map(fn {key, values} -> {key, Enum.sort(values)} end)
+    |> Enum.sort()
   end
 
-  @doc false
-  def put_update_command_set_updated_at(keyword, datetime, schema, opts) do
+  defp set_timestamp_updated_at(updates, datetime, schema, opts) do
     updated_at_source = opts[:updated_at] || opts[:updated_at_source] || @updated_at
 
-    datetime = prepare_timestamp_updated_at(datetime, updated_at_source, schema, opts)
+    datetime = serialize_timestamp_updated_at(datetime, updated_at_source, schema, opts)
 
     Keyword.update(
-      keyword,
+      updates,
       :set,
       [{updated_at_source, datetime}],
       &Keyword.put(&1, updated_at_source, datetime)
     )
   end
 
-  @doc false
-  def flatten_update_commands(grouped_tuples) do
-    Enum.map(grouped_tuples, fn {action, tuples} ->
-      {action, Keyword.new(tuples, fn {_action, field, value} -> {field, value} end)}
+  defp flatten_updates(normalized_updates) do
+    normalized_updates
+    |> Enum.group_by(fn {operator, _key, _value} -> operator end)
+    |> Enum.map(fn {operator, updates} ->
+      {operator, Enum.map(updates, fn {_, key, value} -> {key, value} end)}
     end)
   end
 
-  @doc false
-  def group_update_commands_by_action(tuples) do
-    Enum.group_by(tuples, fn {action, _field, _value} -> action end)
+  defp build_updates(schema, params, acc) when is_map(params) do
+    build_updates(schema, Map.to_list(params), acc)
   end
 
-  @doc false
-  def normalize_update_commands(params, schema) do
-    Enum.reduce(params, [], &normalize_update_commands(&1, schema, &2))
+  defp build_updates(_schema, [], acc) do
+    acc
   end
 
-  defp normalize_update_commands({field, params}, schema, acc)
-       when is_list(params) or is_map(params) do
-    if field in schema.__schema__(:query_fields) do
-      params
-      |> Enum.reduce(acc, fn {action, value}, acc ->
-        [update_command_tuple(action, field, value) | acc]
+  defp build_updates(schema, [head | tail], acc) do
+    with acc <- build_updates(schema, head, acc) do
+      build_updates(schema, tail, acc)
+    end
+  end
+
+  defp build_updates(schema, {key, value}, acc) do
+    if key in schema.__schema__(:query_fields) do
+      EctoShorts.Utils.apply_expressions(acc, value, fn value, acc ->
+        normalize_update(schema, key, value, acc)
       end)
-      |> Enum.reverse()
     else
-      EctoShorts.Utils.Logger.warning(
-        __MODULE__,
-        "key not found on schema #{inspect(schema)}, got: #{inspect(field)}"
-      )
-
       acc
     end
   end
 
-  defp normalize_update_commands({field, {action, value}}, schema, acc) do
-    if field in schema.__schema__(:query_fields) do
-      [update_command_tuple(action, field, value) | acc]
-    else
-      EctoShorts.Utils.Logger.warning(
-        __MODULE__,
-        "key not found on schema #{inspect(schema)}, got: #{inspect(field)}"
-      )
+  defp normalize_update(schema, key, {operator, value}, acc) when operator in [:pull, :push] do
+    case validate_field_type_array(schema, key) do
+      :ok ->
+        value
+        |> List.wrap()
+        |> Enum.reduce(acc, fn value, acc ->
+          [{operator, key, value} | acc]
+        end)
 
-      acc
+      {:error, actual_type} ->
+        raise ArgumentError,
+          """
+          Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
+          `array` type for the Ecto.Query update operator `#{operator}`, but
+          got: `#{inspect(actual_type)}`
+          """
     end
   end
 
-  defp normalize_update_commands({field, value}, schema, acc) do
-    if field in schema.__schema__(:query_fields) do
-      [update_command_tuple(:set, field, value) | acc]
-    else
-      EctoShorts.Utils.Logger.warning(
-        __MODULE__,
-        "key not found on schema #{inspect(schema)}, got: #{inspect(field)}"
-      )
+  defp normalize_update(schema, key, {:inc, value}, acc) do
+    case validate_field_type_integer(schema, key) do
+      :ok ->
+        if is_integer(value) do
+          [{:inc, key, value} | acc]
+        else
+          raise ArgumentError, "Expected the value of key #{inspect(key)} to be an integer, got: #{inspect(value)}"
+        end
 
-      acc
+      {:error, actual_type} ->
+        raise ArgumentError,
+          """
+          Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
+          `integer` type for the Ecto.Query update operator `:inc`, but
+          got: `#{inspect(actual_type)}`
+          """
     end
   end
 
-  defp update_command_tuple(:inc, field, value) when is_integer(value),
-    do: {:inc, field, value}
+  defp normalize_update(_schema, key, {:set, value}, acc) do
+    [{:set, key, value} | acc]
+  end
 
-  defp update_command_tuple(:push, field, value) when is_list(value),
-    do: {:push, field, value}
+  defp normalize_update(_schema, key, value, acc) do
+    [{:set, key, value} | acc]
+  end
 
-  defp update_command_tuple(:pull, field, value) when is_list(value),
-    do: {:pull, field, value}
+  defp validate_field_type_integer(schema, key) do
+    case schema.__schema__(:type, key) do
+      :integer -> :ok
+      val -> {:error, val}
+    end
+  end
 
-  defp update_command_tuple(:set, field, value), do: {:set, field, value}
+  defp validate_field_type_array(schema, key) do
+    case schema.__schema__(:type, key) do
+      {:array, _} -> :ok
+      val -> {:error, val}
+    end
+  end
 
   @doc """
   Converts a list of parameters or structs into the format
@@ -206,9 +226,9 @@ defmodule EctoShorts.CommonParams do
       constructed without validation.
   """
   @spec convert_to_insert_all_params(schema(), list(params())) ::
-          {:ok, list(insert_all_params()), opts()} | {:error, changesets()}
+          {:ok, {list(insert_all_params()), opts()}} | {:error, changesets()}
   @spec convert_to_insert_all_params(schema(), list(params()), opts()) ::
-          {:ok, list(insert_all_params()), opts()} | {:error, changesets()}
+          {:ok, {list(insert_all_params()), opts()}} | {:error, changesets()}
   def convert_to_insert_all_params(schema, params_list, opts \\ []) do
     utc_now = datetime_utc_now()
 
@@ -220,9 +240,9 @@ defmodule EctoShorts.CommonParams do
              opts
            ) do
       if action === :upsert do
-        {:ok, inserts, on_conflict_options(schema, changed_keys)}
+        {:ok, {inserts, on_conflict_options(schema, changed_keys)}}
       else
-        {:ok, inserts, []}
+        {:ok, {inserts, []}}
       end
     end
   end
@@ -419,7 +439,7 @@ defmodule EctoShorts.CommonParams do
   @doc false
   def get_params_changed_keys(params, schema, opts) do
     params
-    |> Utils.atomize_keys(opts)
+    |> Utils.keys_to_atom(opts)
     |> Map.keys()
     |> filter_supported_insert_fields(schema, opts)
   end
@@ -437,16 +457,14 @@ defmodule EctoShorts.CommonParams do
     if function_exported?(schema, :on_conflict_options, 0) do
       schema.on_conflict_options()
     else
-      insert_opts = [
-        conflict_target: schema.__schema__(:primary_key)
-      ]
+      opts = [conflict_target: schema.__schema__(:primary_key)]
 
       # setting on_conflict to {:replace, []} causes an ecto error
       # so don't add that option if changed keys is empty.
       if changed_keys === [] do
-        insert_opts
+        opts
       else
-        Keyword.put(insert_opts, :on_conflict, {:replace, changed_keys})
+        Keyword.put(opts, :on_conflict, {:replace, changed_keys})
       end
     end
   end
@@ -462,17 +480,15 @@ defmodule EctoShorts.CommonParams do
     Enum.reduce(placeholders, data, &put_placeholder(&1, &2, opts))
   end
 
-  def put_placeholder({key, placeholder}, data, opts) do
-    case Map.get(data, key) do
-      nil ->
+  def put_placeholder({key, placeholder_value}, data, opts) do
+    if Map.has_key?(data, key) do
+      if Map.get(data, key) === placeholder_value do
         put_placeholder(data, key)
-
-      existing_value ->
-        if existing_value === placeholder do
-          put_placeholder(data, key)
-        else
-          on_placeholder_conflict(data, key, opts)
-        end
+      else
+        on_placeholder_conflict(data, key, opts)
+      end
+    else
+      data
     end
   end
 
@@ -504,7 +520,7 @@ defmodule EctoShorts.CommonParams do
           Map.put(
             data,
             inserted_at_source,
-            prepare_timestamp_inserted_at(datetime, inserted_at_source, schema, opts)
+            serialize_timestamp_inserted_at(datetime, inserted_at_source, schema, opts)
           )
 
         _ ->
@@ -522,18 +538,18 @@ defmodule EctoShorts.CommonParams do
       Map.put(
         data,
         updated_at_source,
-        prepare_timestamp_updated_at(datetime, updated_at_source, schema, opts)
+        serialize_timestamp_updated_at(datetime, updated_at_source, schema, opts)
       )
     end
   end
 
-  defp prepare_timestamp_inserted_at(datetime, inserted_at_source, schema, opts) do
+  defp serialize_timestamp_inserted_at(datetime, inserted_at_source, schema, opts) do
     datetime
     |> maybe_to_naive_datetime(timestamp_type(opts, :inserted_at, inserted_at_source, schema))
     |> truncate_datetime()
   end
 
-  defp prepare_timestamp_updated_at(datetime, updated_at_source, schema, opts) do
+  defp serialize_timestamp_updated_at(datetime, updated_at_source, schema, opts) do
     datetime
     |> maybe_to_naive_datetime(timestamp_type(opts, :updated_at, updated_at_source, schema))
     |> truncate_datetime()

@@ -599,7 +599,7 @@ defmodule EctoShorts.Actions do
   def insert_all(query_input, params_list, opts \\ []) do
     {_, schema} = CommonSchema.get_schema_source(query_input)
 
-    with {:ok, inserts, insert_opts} <-
+    with {:ok, {inserts, insert_opts}} <-
            CommonParams.convert_to_insert_all_params(
              schema,
              maybe_batch_load(query_input, params_list, opts),

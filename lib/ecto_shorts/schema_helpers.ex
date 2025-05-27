@@ -121,15 +121,15 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.field_type_of_array?(EctoShorts.Schemas.Post, :tags)
+      iex> EctoShorts.SchemaHelpers.field_type_array?(EctoShorts.Schemas.Post, :tags)
       true
 
-      iex> EctoShorts.SchemaHelpers.field_type_of_array?(EctoShorts.Schemas.Post, :title)
+      iex> EctoShorts.SchemaHelpers.field_type_array?(EctoShorts.Schemas.Post, :title)
       false
 
   """
-  @spec field_type_of_array?(schema(), key()) :: boolean()
-  def field_type_of_array?(schema, key) do
+  @spec field_type_array?(schema(), key()) :: boolean()
+  def field_type_array?(schema, key) do
     case field_type(schema, key) do
       {:array, _} -> true
       _ -> false

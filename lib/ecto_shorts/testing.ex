@@ -15,18 +15,31 @@ defmodule EctoShorts.Testing do
     * `refute_*/2` versions – Inverse assertions to confirm inequality.
   """
 
-  def insert!(repo, schema_source, params \\ %{}, opts \\ [])
+  def insert!(repo, query_source, params \\ %{}, opts \\ [])
 
   def insert!(repo, source, params, opts) when is_binary(source) do
     params = params |> Map.to_list() |> Enum.sort()
 
-    keys = params |> Keyword.keys() |> Enum.map_join(", ", &to_string/1)
+    keys = Keyword.keys(params)
     values = Keyword.values(params)
-    placeholders = Enum.map(0..Enum.count(keys), fn idx -> "$#{idx + 1}" end)
+
+    sql_keys = Enum.map_join(keys, ", ", &to_string/1)
+
+    sql_placeholders =
+      1..Enum.count(keys)
+      |> Enum.map(fn idx -> "$#{idx}" end)
+      |> Enum.map_join(", ", &to_string/1)
+
+    sql_returning =
+      if opts[:returning] === true do
+        "RETURNING *"
+      else
+        ""
+      end
 
     Ecto.Adapters.SQL.query!(
       repo,
-      "INSERT INTO #{source} (#{keys}) VALUES (#{placeholders})",
+      "INSERT INTO #{source} (#{sql_keys}) VALUES (#{sql_placeholders}) #{sql_returning}",
       values,
       opts
     )
