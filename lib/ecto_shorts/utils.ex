@@ -188,6 +188,11 @@ defmodule EctoShorts.Utils do
     [{key, val} | acc]
   end
 
+  # return structs as-is
+  defp do_flatten(%_{} = struct, acc) do
+    [struct | acc]
+  end
+
   # flatten top-level maps
   defp do_flatten(map, acc) when is_map(map) do
     map
