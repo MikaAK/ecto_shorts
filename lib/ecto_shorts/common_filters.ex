@@ -88,7 +88,6 @@ defmodule EctoShorts.CommonFilters do
 
   @filters Enum.sort(@common_filters ++ @schema_filters)
 
-
   @doc group: "Filter API"
   @doc """
   Converts a map or keyword list of parameters into an Ecto query.

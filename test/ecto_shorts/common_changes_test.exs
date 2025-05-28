@@ -1,6 +1,6 @@
 defmodule EctoShorts.CommonChangesTest do
-alias EctoShorts.Schemas.CommentAbstract
-alias EctoShorts.Schemas.PostAbstract
+  alias EctoShorts.Schemas.CommentAbstract
+  alias EctoShorts.Schemas.PostAbstract
   use EctoShorts.DataCase, async: true
   doctest EctoShorts.CommonChanges
 
@@ -117,9 +117,9 @@ alias EctoShorts.Schemas.PostAbstract
       assert %PostAbstract{comments: %Ecto.Association.NotLoaded{}} = post
 
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
-        post
-        |> PostAbstract.changeset(%{comments: [%{id: comment.id}]})
-        |> CommonChanges.preload_change_assoc(:comments)
+               post
+               |> PostAbstract.changeset(%{comments: [%{id: comment.id}]})
+               |> CommonChanges.preload_change_assoc(:comments)
 
       assert %PostAbstract{comments: [^comment]} = changeset_post
     end
@@ -248,9 +248,9 @@ alias EctoShorts.Schemas.PostAbstract
       assert %PostAbstract{comments: %Ecto.Association.NotLoaded{}} = post
 
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
-        post
-        |> PostAbstract.changeset(%{comments: [%{id: comment.id}]})
-        |> CommonChanges.preload_changeset_assoc(:comments)
+               post
+               |> PostAbstract.changeset(%{comments: [%{id: comment.id}]})
+               |> CommonChanges.preload_changeset_assoc(:comments)
 
       assert %PostAbstract{comments: [^comment]} = changeset_post
     end

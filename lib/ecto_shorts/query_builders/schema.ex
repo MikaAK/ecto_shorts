@@ -289,7 +289,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
     build_join_query_filter(query, binding_alias, params, opts)
   end
 
-  defp build_assoc_filter(query, binding_alias, schema, key, params, opts) do\
+  defp build_assoc_filter(query, binding_alias, schema, key, params, opts) do
     {as, params} = Map.pop(params, :as)
 
     as =

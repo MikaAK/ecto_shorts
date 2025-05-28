@@ -5,7 +5,8 @@ defmodule EctoShorts.CommonFiltersTest do
   alias EctoShorts.{
     CommonFilters,
     Schemas.PostAbstract,
-    Schemas.Post
+    Schemas.Post,
+    Schemas.User
   }
 
   import Ecto.Query, only: [from: 2]
@@ -93,18 +94,33 @@ defmodule EctoShorts.CommonFiltersTest do
 
     test "nested association" do
       query =
-        from p in Post,
-          join: c in assoc(p, :comments),
+        from u in User,
+          join: c in assoc(u, :comments),
           as: :ecto_shorts_comments,
-          join: a in assoc(c, :author),
-          as: :ecto_shorts_author,
-          where: a.age == ^0
+          join: p in assoc(c, :post),
+          as: :ecto_shorts_post,
+          where: p.title == ^"example"
 
       assert_query query,
-                   CommonFilters.convert_params_to_filter(Post, %{comments: %{author: %{age: 0}}})
+                   CommonFilters.convert_params_to_filter(User, %{
+                     comments: %{post: %{title: "example"}}
+                   })
     end
 
-     test "raises when given a non-direct association like has_through" do
+    test "11" do
+      query =
+        from p in EctoShorts.Schemas.Post,
+          join: c in assoc(p, :comments),
+          on: c.post_id == p.id,
+          as: :comments,
+          join: u in assoc(p, :author),
+          as: :author,
+          on: u.id == c.author_id
+
+      assert {nil, EctoShorts.Schemas.User} = EctoShorts.CommonQuery.get_binding_source(query, :author)
+    end
+
+    test "raises when given a non-direct association like has_through" do
       expected_message =
         """
         Expected a direct association with a `:related` key, but got

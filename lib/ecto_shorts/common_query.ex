@@ -87,58 +87,23 @@ defmodule EctoShorts.CommonQuery do
           | join_expr()
         ) :: expr_source() | nil
   def get_source(query_or_expr) do
-    with nil <- lookup_source(query_or_expr) do
+    with nil <- extract_source(query_or_expr) do
       raise ArgumentError, "source not found, got: #{inspect(query_or_expr)}"
     end
   end
 
-  defp lookup_source(%{from: from_expr}), do: lookup_source(from_expr)
-  defp lookup_source(%{query: query}), do: lookup_source(query)
-  defp lookup_source(%{source: source}), do: lookup_source(source)
-  defp lookup_source({_, _} = source), do: source
-  defp lookup_source(source) when is_binary(source), do: source
-  defp lookup_source(_), do: nil
-
-  # def validate_binding_schema_source(query) do
-  #   validate_binding_schema_source(query, nil)
-  # end
-
-  # @doc """
-  # Validates that the source associated with a given binding is a tuple
-  # containing a table name and a schema module.
-
-  # Returns a tuple `{source, schema}` if the source is a tuple with a
-  # schema module otherwise `{:error, term}`
-  # """
-  # def validate_binding_schema_source(query, binding_alias) do
-  #   source = get_binding_source(query, binding_alias)
-
-  #   if SchemaHelpers.schema_source?(source) do
-  #     {:ok, source}
-  #   else
-  #     {:error, source}
-  #   end
-  # end
+  defp extract_source(%{from: from_expr}), do: extract_source(from_expr)
+  defp extract_source(%{query: query}), do: extract_source(query)
+  defp extract_source(%{source: source}), do: extract_source(source)
+  defp extract_source({_, _} = source), do: source
+  defp extract_source(source) when is_binary(source), do: source
+  defp extract_source(_), do: nil
 
   @doc """
-  Returns the `source` of the binding in the given `query`.
-
-  ## Examples
-
-      iex> import Ecto.Query
-      ...> query =
-      ...>  from p in EctoShorts.Schemas.Post,
-      ...>    join: c in assoc(p, :comments),
-      ...>    on: c.post_id == p.id,
-      ...>    as: :comments,
-      ...>    join: u in assoc(p, :author),
-      ...>    as: :author,
-      ...>    on: u.id == c.author_id
-      ...> EctoShorts.CommonQuery.get_binding_source(query, :author)
-      {nil, EctoShorts.Schemas.User}
+  Returns the `source` of a binding in the given `query`.
   """
   def get_binding_source(query, binding_alias) do
-    with nil <- lookup_binding_source(query, binding_alias) do
+    with nil <- extract_binding_source(query, binding_alias) do
       raise ArgumentError,
             """
             binding source not found in query.
@@ -154,87 +119,93 @@ defmodule EctoShorts.CommonQuery do
     end
   end
 
-  defp lookup_binding_source(query, binding_alias) do
+  defp extract_binding_source(query, binding_alias) do
     case get_binding(query, binding_alias) do
       {join_expr, _} when is_struct(join_expr, Ecto.Query.JoinExpr) ->
-        lookup_join_expr_source(join_expr, query)
+        get_join_expr_source(join_expr, query)
 
       {%{source: source} = _from_expr, _binding_position} ->
         source
     end
   end
 
-  defp lookup_join_expr_source(
-         %{assoc: {parent_binding_position, parent_key}} = join_expr,
+  defp get_join_expr_source(
+         %{assoc: {binding_position, key}} = join_expr,
          %{from: from_expr, joins: joins} = query
        ) do
-    if parent_binding_position === 0 do
-      with {_, parent_schema} <- get_source(from_expr) do
-        {nil, SchemaHelpers.fetch_schema_association_module!(parent_schema, parent_key)}
-      end
-    else
-      case Enum.at(joins, parent_binding_position) do
-        nil ->
-          # If the parent binding for the join expr does not exist in the
-          # top level of the query if might exist in a subquery so we
-          # have to continue searching.
+    case get_in(joins, [Access.at(binding_position)]) do
+      nil ->
+        if has_subquery?(from_expr) do
+          inner_query = get_inner_query(query)
+          get_join_expr_source(join_expr, inner_query)
+        else
+          raise_parent_assoc_not_found!(binding_position, key, query)
+        end
+
+      %{assoc: {^binding_position, ^key}} = _join_expr ->
+        if binding_position === 0 do
+          # self referencing join which has the binding position 0 meaning its the first
+          # join expr in the query so the parent is the base from expression
           if has_subquery?(from_expr) do
-            lookup_join_expr_source(join_expr, get_inner_query(query))
+            inner_query = get_inner_query(query)
+            get_join_expr_source(join_expr, inner_query)
           else
-            raise ArgumentError,
-                  """
-                  binding not found in query at position #{parent_binding_position}.
-
-                  query:
-
-                  #{inspect(query, pretty: true)}
-                  """
+            from_expr
+            |> get_source()
+            |> resolve_schema_source_assoc(key)
           end
+        else
+          # binding position is not 0 and this is self referenced which means that the binding
+          # we are looking for is the one before this. We need to resolve the parent schema
+          # here first to find the association.
+          joins
+          |> get_in([Access.at!(binding_position - 1)])
+          |> get_join_expr_source(query)
+          |> resolve_schema_source_assoc(key)
+        end
 
-        %{assoc: {^parent_binding_position, ^parent_key}} ->
-          # If the join expr's assoc refers to the same binding position
-          # it's at, it means the association is actually relative to the `from`
-          # source so we terminate here to prevent infinite recursion.
-          with {_, parent_schema} <- get_source(from_expr) do
-            {nil, SchemaHelpers.fetch_schema_association_module!(parent_schema, parent_key)}
-          end
+      %{assoc: {_, _}} = join_expr ->
+        # not a self referenced join expression
+        join_expr
+        |> get_join_expr_source(query)
+        |> resolve_schema_source_assoc(key)
 
-        %{source: {source, nil}} = _parent_join_expr when is_binary(source) ->
-          source
+      %{source: {_, parent_schema}} when not is_nil(parent_schema) ->
+        assoc = parent_schema.__schema__(:association, key)
 
-        %{source: {_, parent_schema}} = _parent_join_expr ->
-          assoc = parent_schema.__schema__(:association, parent_key)
-
-          assoc_schema =
-            if related_assoc?(assoc) do
-              assoc.related
-            else
-              # only direct associations are supported (has_through won't work)
-              raise_not_related_assoc!(query, parent_key, assoc)
-            end
-
-          {nil, assoc_schema}
-
-        parent_join_expr ->
-          {_, parent_schema} = lookup_join_expr_source(parent_join_expr, query)
-
-          assoc = parent_schema.__schema__(:association, parent_key)
-
-          assoc_schema =
-            if related_assoc?(assoc) do
-              assoc.related
-            else
-              # only direct associations are supported (has_through won't work)
-              raise_not_related_assoc!(query, parent_key, assoc)
-            end
-
-          {nil, assoc_schema}
-      end
+        if related_assoc?(assoc) do
+          {nil, assoc.related}
+        else
+          raise_not_related_assoc!(query, key, assoc)
+        end
     end
   end
 
-  defp lookup_join_expr_source(%{source: source} = _join_expr, _query) do
+  defp get_join_expr_source(%{source: source} = _join_expr, _query) do
     get_source(source)
+  end
+
+  defp get_join_expr_source(_, _) do
+    nil
+  end
+
+  defp resolve_schema_source_assoc({_, parent_schema}, key) when is_atom(parent_schema) do
+    {nil, SchemaHelpers.fetch_schema_association_module!(parent_schema, key)}
+  end
+
+  defp resolve_schema_source_assoc(term, _key) do
+    term
+  end
+
+  defp raise_parent_assoc_not_found!(binding_position, key, query) do
+    raise ArgumentError,
+          """
+          association binding #{inspect(key)} not found at position #{binding_position} in query.
+
+          query:
+
+          #{inspect(query, pretty: true)}
+          """
   end
 
   defp related_assoc?(%{related: _}), do: true
@@ -274,7 +245,7 @@ defmodule EctoShorts.CommonQuery do
   expression of the given `query`.
   """
   def get_binding(query, binding_alias) when is_struct(query, Ecto.Query) do
-    case lookup_binding_expr(query, 0, binding_alias) do
+    case extract_binding(query, 0, binding_alias) do
       nil ->
         raise ArgumentError,
               """
@@ -303,49 +274,49 @@ defmodule EctoShorts.CommonQuery do
     |> get_binding(binding_alias)
   end
 
-  defp lookup_binding_expr(%{from: from_expr, joins: join_exprs} = query, pos, binding_alias)
+  defp extract_binding(%{from: from_expr, joins: joins} = query, pos, binding_alias)
        when is_struct(query, Ecto.Query) do
     if is_nil(binding_alias) do
       {get_base_expr(from_expr), 0}
     else
-      with nil <- lookup_binding_expr(from_expr, pos, binding_alias) do
-        lookup_binding_expr(join_exprs, pos, binding_alias)
+      with nil <- extract_binding(from_expr, pos, binding_alias) do
+        extract_binding(joins, pos, binding_alias)
       end
     end
   end
 
-  defp lookup_binding_expr(%{query: query} = subquery, pos, binding_alias)
+  defp extract_binding(%{query: query} = subquery, pos, binding_alias)
        when is_struct(subquery, Ecto.SubQuery) do
-    lookup_binding_expr(query, pos, binding_alias)
+    extract_binding(query, pos, binding_alias)
   end
 
-  defp lookup_binding_expr(%{as: as, source: source} = join_expr, pos, binding_alias)
+  defp extract_binding(%{as: as, source: source} = join_expr, pos, binding_alias)
        when is_struct(join_expr, Ecto.Query.JoinExpr) do
     if as === binding_alias do
       {join_expr, pos}
     else
-      lookup_binding_expr(source, pos, binding_alias)
+      extract_binding(source, pos, binding_alias)
     end
   end
 
-  defp lookup_binding_expr(%{as: as, source: source} = from_expr, _pos, binding_alias)
+  defp extract_binding(%{as: as, source: source} = from_expr, _pos, binding_alias)
        when is_struct(from_expr, Ecto.Query.FromExpr) do
     if as === binding_alias do
       {from_expr, 0}
     else
-      lookup_binding_expr(source, 0, binding_alias)
+      extract_binding(source, 0, binding_alias)
     end
   end
 
-  defp lookup_binding_expr([], _pos, _binding_alias), do: nil
+  defp extract_binding([], _pos, _binding_alias), do: nil
 
-  defp lookup_binding_expr([join_expr | join_exprs], pos, binding_alias) do
-    with nil <- lookup_binding_expr(join_expr, pos + 1, binding_alias) do
-      lookup_binding_expr(join_exprs, pos + 1, binding_alias)
+  defp extract_binding([join_expr | joins], pos, binding_alias) do
+    with nil <- extract_binding(join_expr, pos + 1, binding_alias) do
+      extract_binding(joins, pos + 1, binding_alias)
     end
   end
 
-  defp lookup_binding_expr(_, _, _), do: nil
+  defp extract_binding(_, _, _), do: nil
 
   @doc """
   Returns the root binding expression that defines the query’s data source.
@@ -358,7 +329,7 @@ defmodule EctoShorts.CommonQuery do
   """
   @spec get_base_expr(query() | subquery() | from_expr()) :: from_expr()
   def get_base_expr(query_or_expr) do
-    case lookup_base_from_expr(query_or_expr) || query_or_expr do
+    case extract_base_from_expr(query_or_expr) || query_or_expr do
       %{source: {_, _}} = base_expr ->
         base_expr
 
@@ -378,10 +349,10 @@ defmodule EctoShorts.CommonQuery do
     end
   end
 
-  defp lookup_base_from_expr(%{source: {_, _}} = expr), do: expr
-  defp lookup_base_from_expr(%{source: source} = expr) when is_binary(source), do: expr
-  defp lookup_base_from_expr(%{source: source}), do: lookup_base_from_expr(source)
-  defp lookup_base_from_expr(%{query: query}), do: lookup_base_from_expr(query)
-  defp lookup_base_from_expr(%{from: from_expr}), do: lookup_base_from_expr(from_expr)
-  defp lookup_base_from_expr(_), do: nil
+  defp extract_base_from_expr(%{source: {_, _}} = expr), do: expr
+  defp extract_base_from_expr(%{source: source} = expr) when is_binary(source), do: expr
+  defp extract_base_from_expr(%{source: source}), do: extract_base_from_expr(source)
+  defp extract_base_from_expr(%{query: query}), do: extract_base_from_expr(query)
+  defp extract_base_from_expr(%{from: from_expr}), do: extract_base_from_expr(from_expr)
+  defp extract_base_from_expr(_), do: nil
 end

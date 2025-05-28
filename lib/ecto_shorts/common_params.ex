@@ -127,11 +127,11 @@ defmodule EctoShorts.CommonParams do
 
       {:error, actual_type} ->
         raise ArgumentError,
-          """
-          Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
-          `array` type for the Ecto.Query update operator `#{operator}`, but
-          got: `#{inspect(actual_type)}`
-          """
+              """
+              Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
+              `array` type for the Ecto.Query update operator `#{operator}`, but
+              got: `#{inspect(actual_type)}`
+              """
     end
   end
 
@@ -141,16 +141,17 @@ defmodule EctoShorts.CommonParams do
         if is_integer(value) do
           [{:inc, key, value} | acc]
         else
-          raise ArgumentError, "Expected the value of key #{inspect(key)} to be an integer, got: #{inspect(value)}"
+          raise ArgumentError,
+                "Expected the value of key #{inspect(key)} to be an integer, got: #{inspect(value)}"
         end
 
       {:error, actual_type} ->
         raise ArgumentError,
-          """
-          Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
-          `integer` type for the Ecto.Query update operator `:inc`, but
-          got: `#{inspect(actual_type)}`
-          """
+              """
+              Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
+              `integer` type for the Ecto.Query update operator `:inc`, but
+              got: `#{inspect(actual_type)}`
+              """
     end
   end
 
