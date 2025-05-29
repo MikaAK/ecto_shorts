@@ -148,7 +148,7 @@ defmodule EctoShorts.Testing do
   """
   defmacro assert_query(query_a, query_b) do
     quote do
-      assert inspect(unquote(query_a), pretty: true) === inspect(unquote(query_b), pretty: true)
+      assert inspect(unquote(query_a)) === inspect(unquote(query_b))
     end
   end
 
@@ -166,7 +166,7 @@ defmodule EctoShorts.Testing do
   """
   defmacro refute_query(query_a, query_b) do
     quote do
-      refute inspect(unquote(query_a), pretty: true) === inspect(unquote(query_b), pretty: true)
+      refute inspect(unquote(query_a)) === inspect(unquote(query_b))
     end
   end
 end

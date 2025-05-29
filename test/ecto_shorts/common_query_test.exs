@@ -287,5 +287,18 @@ defmodule EctoShorts.CommonQueryTest do
       query = from p in Post, join: c in subquery(subquery), on: c.post_id == p.id
       assert {"comments", nil} = CommonQuery.get_binding_source(query, :comments)
     end
+
+    test "11" do
+      query =
+        from p in Post,
+          join: c in assoc(p, :comments),
+          on: c.post_id == p.id,
+          as: :comments,
+          join: u in assoc(p, :author),
+          as: :author,
+          on: u.id == c.author_id
+
+      assert {nil, EctoShorts.Schemas.User} = CommonQuery.get_binding_source(query, :author)
+    end
   end
 end

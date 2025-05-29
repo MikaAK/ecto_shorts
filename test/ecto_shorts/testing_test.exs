@@ -148,8 +148,8 @@ defmodule EctoShorts.TestingTest do
 
       expected_ast =
         quote do
-          assert inspect(from(p in Post), pretty: true) ===
-                   inspect(from(p in Post), pretty: true)
+          assert inspect(from(p in Post)) ===
+                   inspect(from(p in Post))
         end
 
       assert Macro.to_string(expanded) === Macro.to_string(expected_ast)
@@ -180,8 +180,8 @@ defmodule EctoShorts.TestingTest do
 
       expected_ast =
         quote do
-          refute inspect(from(p in Post), pretty: true) ===
-                   inspect(from(c in Comment), pretty: true)
+          refute inspect(from(p in Post)) ===
+                   inspect(from(c in Comment))
         end
 
       assert Macro.to_string(expanded) === Macro.to_string(expected_ast)

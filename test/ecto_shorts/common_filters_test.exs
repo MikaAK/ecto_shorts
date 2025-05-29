@@ -107,17 +107,27 @@ defmodule EctoShorts.CommonFiltersTest do
                    })
     end
 
-    test "11" do
+    test "14" do
       query =
-        from p in EctoShorts.Schemas.Post,
+        from p in Post,
+          join: a in assoc(p, :author),
+          as: :ecto_shorts_author,
           join: c in assoc(p, :comments),
-          on: c.post_id == p.id,
-          as: :comments,
-          join: u in assoc(p, :author),
-          as: :author,
-          on: u.id == c.author_id
+          as: :ecto_shorts_comments,
+          join: cp in assoc(c, :post),
+          as: :ecto_shorts_post,
+          join: a2 in assoc(p, :authors),
+          as: :ecto_shorts_authors,
+          where: a.id == ^1,
+          where: cp.title == ^"example",
+          where: a2.age >= ^0
 
-      assert {nil, EctoShorts.Schemas.User} = EctoShorts.CommonQuery.get_binding_source(query, :author)
+      assert_query query,
+                   CommonFilters.convert_params_to_filter(Post, %{
+                     author: %{id: 1},
+                     authors: %{age: %{>=: 0}},
+                     comments: %{post: %{title: "example"}}
+                   })
     end
 
     test "raises when given a non-direct association like has_through" do
