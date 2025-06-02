@@ -674,7 +674,7 @@ defmodule EctoShorts.CommonQueryAPI do
         CommonQuery.get_binding_expr_source(query, binding_alias)
       end
 
-    if !is_nil(expression) do
+    if expression !== nil do
       query_or_where(query, binding_alias, expression)
     else
       query_or_where(query, nil, dynamic(binding_alias, source, params, opts))
@@ -713,7 +713,7 @@ defmodule EctoShorts.CommonQueryAPI do
         CommonQuery.get_binding_expr_source(query, binding_alias)
       end
 
-    if !is_nil(expression) do
+    if expression !== nil do
       query_where(query, binding_alias, expression)
     else
       query_where(query, nil, dynamic(binding_alias, source, params, opts))

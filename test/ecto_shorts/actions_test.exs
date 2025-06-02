@@ -1,6 +1,6 @@
 defmodule EctoShorts.ActionsTest do
   @moduledoc false
-  use EctoShorts.DataCase, async: true
+  use EctoShorts.DataCase
   doctest EctoShorts.Actions
 
   alias EctoShorts.{

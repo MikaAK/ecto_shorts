@@ -375,6 +375,7 @@ defmodule EctoShorts.CommonChanges do
     assoc = fetch_changeset_association!(changeset, key)
 
     assoc_queryable = assoc.queryable
+
     assoc_schema =
       if related_assoc?(assoc) do
         assoc.related
@@ -411,6 +412,7 @@ defmodule EctoShorts.CommonChanges do
     assoc = fetch_changeset_association!(changeset, key)
 
     assoc_queryable = assoc.queryable
+
     assoc_schema =
       if related_assoc?(assoc) do
         assoc.related
