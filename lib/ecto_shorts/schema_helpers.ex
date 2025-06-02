@@ -23,48 +23,48 @@ defmodule EctoShorts.SchemaHelpers do
   def schema_from_source(schema), do: schema
 
   @doc """
-  This is a simple wrapper function for `get_schema_association_module/2`
+  This is a simple wrapper function for `get_schema_assoc_module/2`
   that returns the atom `:error` if the association key is not found on
   the given Ecto schema module.
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module!(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_assoc_module!(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module!(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_assoc_module!(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module!(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_assoc_module!(EctoShorts.Schemas.Post, :does_not_exist)
       ** (ArgumentError) association key not found for the schema EctoShorts.Schemas.Post, got: :does_not_exist
   """
-  @spec fetch_schema_association_module!(schema(), key()) :: schema()
-  def fetch_schema_association_module!(schema, key) do
-    with :error <- fetch_schema_association_module(schema, key) do
+  @spec fetch_schema_assoc_module!(schema(), key()) :: schema()
+  def fetch_schema_assoc_module!(schema, key) do
+    with :error <- fetch_schema_assoc_module(schema, key) do
       raise ArgumentError,
             "association key not found for the schema #{inspect(schema)}, got: #{inspect(key)}"
     end
   end
 
   @doc """
-  This is a simple wrapper function for `get_schema_association_module/2`
+  This is a simple wrapper function for `get_schema_assoc_module/2`
   that returns the atom `:error` if the association key is not found on
   the given Ecto schema module.
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_assoc_module(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_assoc_module(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.fetch_schema_association_module(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.fetch_schema_assoc_module(EctoShorts.Schemas.Post, :does_not_exist)
       :error
   """
-  @spec fetch_schema_association_module(schema(), key()) :: schema() | :error
-  def fetch_schema_association_module(schema, key) do
-    with nil <- get_schema_association_module(schema, key) do
+  @spec fetch_schema_assoc_module(schema(), key()) :: schema() | :error
+  def fetch_schema_assoc_module(schema, key) do
+    with nil <- get_schema_assoc_module(schema, key) do
       :error
     end
   end
@@ -79,17 +79,17 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.get_schema_association_module(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.get_schema_assoc_module(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.get_schema_association_module(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.get_schema_assoc_module(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.get_schema_association_module(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.get_schema_assoc_module(EctoShorts.Schemas.Post, :does_not_exist)
       nil
   """
-  @spec get_schema_association_module(schema(), key()) :: schema() | nil
-  def get_schema_association_module(schema, key) do
+  @spec get_schema_assoc_module(schema(), key()) :: schema() | nil
+  def get_schema_assoc_module(schema, key) do
     get_related_schema(schema, key)
   end
 
@@ -524,7 +524,7 @@ defmodule EctoShorts.SchemaHelpers do
   end
 
   def has_primary_key?(schema, schema_data_or_params) do
-    all_keys_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
+    has_all_non_nil_keys?(schema_data_or_params, schema.__schema__(:primary_key))
   end
 
   def primary_key_count(schema) do
@@ -554,17 +554,17 @@ defmodule EctoShorts.SchemaHelpers do
     schema.__schema__(:primary_key)
   end
 
-  defp all_keys_not_nil?(_, []) do
+  defp has_all_non_nil_keys?(_, []) do
     false
   end
 
-  defp all_keys_not_nil?(%_{} = schema_data, keys) do
+  defp has_all_non_nil_keys?(%_{} = schema_data, keys) do
     Enum.all?(keys, fn key ->
       Map.has_key?(schema_data, key) and not (schema_data |> Map.fetch!(key) |> is_nil())
     end)
   end
 
-  defp all_keys_not_nil?(params, keys) do
+  defp has_all_non_nil_keys?(params, keys) do
     Enum.all?(keys, fn key ->
       (Map.has_key?(params, key) and Map.get(params, key) !== nil) or
         (Map.has_key?(params, to_string(key)) and Map.get(params, to_string(key)) !== nil)

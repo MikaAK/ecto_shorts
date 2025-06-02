@@ -1,17 +1,17 @@
-defmodule EctoShorts.Schemas.PostAbstract do
+defmodule EctoShorts.Schemas.PostHasAbstractFieldSource do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "abstract table: posts" do
-    belongs_to :author, EctoShorts.Schemas.User
+  schema "posts" do
+    belongs_to :author, {"users", EctoShorts.Schemas.UserAbstract}
 
-    many_to_many :authors, EctoShorts.Schemas.User,
+    many_to_many :authors, {"users", EctoShorts.Schemas.UserAbstract},
       join_through: EctoShorts.Schemas.PostAuthor,
       join_keys: [post_id: :id, author_id: :id],
       unique: true
 
-    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :post_id
+    has_many :comments, {"comments", EctoShorts.Schemas.CommentAbstract}, foreign_key: :post_id
 
     has_many :comments_authors, through: [:comments, :author]
 

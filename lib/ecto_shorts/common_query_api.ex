@@ -451,7 +451,7 @@ defmodule EctoShorts.CommonQueryAPI do
       if source !== nil do
         source
       else
-        CommonQuery.get_binding_source(query, binding_alias)
+        CommonQuery.get_binding_expr_source(query, binding_alias)
       end
 
     qual = params[:qualifier] || :inner
@@ -470,7 +470,7 @@ defmodule EctoShorts.CommonQueryAPI do
       if source !== nil do
         source
       else
-        CommonQuery.get_binding_source(query, binding_alias)
+        CommonQuery.get_binding_expr_source(query, binding_alias)
       end
 
     qual = params[:qualifier] || :inner
@@ -671,7 +671,7 @@ defmodule EctoShorts.CommonQueryAPI do
       if source !== nil do
         source
       else
-        CommonQuery.get_binding_source(query, binding_alias)
+        CommonQuery.get_binding_expr_source(query, binding_alias)
       end
 
     if !is_nil(expression) do
@@ -710,7 +710,7 @@ defmodule EctoShorts.CommonQueryAPI do
       if source !== nil do
         source
       else
-        CommonQuery.get_binding_source(query, binding_alias)
+        CommonQuery.get_binding_expr_source(query, binding_alias)
       end
 
     if !is_nil(expression) do

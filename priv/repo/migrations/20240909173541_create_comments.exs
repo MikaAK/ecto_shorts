@@ -6,7 +6,7 @@ defmodule EctoShorts.Repo.Migrations.CreateComments do
       add :body, :text
       add :tags, {:array, :string}
       add :replies, :integer
-
+      add :published, :boolean
       add :post_id, references(:posts,
         on_delete: :restrict,
         on_update: :update_all

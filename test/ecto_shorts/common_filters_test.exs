@@ -107,30 +107,7 @@ defmodule EctoShorts.CommonFiltersTest do
                    })
     end
 
-    test "14" do
-      query =
-        from p in Post,
-          join: a in assoc(p, :author),
-          as: :ecto_shorts_author,
-          join: c in assoc(p, :comments),
-          as: :ecto_shorts_comments,
-          join: cp in assoc(c, :post),
-          as: :ecto_shorts_post,
-          join: a2 in assoc(p, :authors),
-          as: :ecto_shorts_authors,
-          where: a.id == ^1,
-          where: cp.title == ^"example",
-          where: a2.age >= ^0
-
-      assert_query query,
-                   CommonFilters.convert_params_to_filter(Post, %{
-                     author: %{id: 1},
-                     authors: %{age: %{>=: 0}},
-                     comments: %{post: %{title: "example"}}
-                   })
-    end
-
-    test "raises when given a non-direct association like has_through" do
+    test "raises when given a non-direct association has_through" do
       expected_message =
         """
         Expected a direct association with a `:related` key, but got

@@ -8,6 +8,7 @@ defmodule EctoShorts.Schemas.Comment do
     belongs_to :post, EctoShorts.Schemas.Post
 
     field :body, :string
+    field :published, :boolean
     field :replies, :integer
     field :tags, {:array, :string}
 
@@ -20,6 +21,7 @@ defmodule EctoShorts.Schemas.Comment do
     :author_id,
     :body,
     :post_id,
+    :published,
     :replies,
     :tags
   ]

@@ -1,9 +1,9 @@
-defmodule EctoShorts.Schemas.User do
+defmodule EctoShorts.Schemas.UserAbstract do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "abstract table: users" do
+  schema "users" do
     field :first_name, :string
     field :last_name, :string
     field :age, :integer
