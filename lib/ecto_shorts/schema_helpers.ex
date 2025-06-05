@@ -15,9 +15,9 @@ defmodule EctoShorts.SchemaHelpers do
   def schema_module?(module) when is_atom(module), do: function_exported?(module, :__schema__, 2)
   def schema_module?(_), do: false
 
-  def schema_source?({_source, schema}), do: schema_module?(schema)
-  def schema_source?(schema) when is_atom(schema), do: schema_module?(schema)
-  def schema_source?(_), do: false
+  def source_has_schema?({_source, schema}), do: schema_module?(schema)
+  def source_has_schema?(schema) when is_atom(schema), do: schema_module?(schema)
+  def source_has_schema?(_), do: false
 
   def schema_from_source({_, schema}), do: schema
   def schema_from_source(schema), do: schema

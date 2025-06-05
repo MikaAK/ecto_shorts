@@ -38,11 +38,9 @@ defmodule EctoShorts.DynamicExpressions do
   @type value :: any()
   @type opts :: keyword()
 
-  @default_adapter EctoShorts.DynamicExpressions.Postgres
-
-  @default_adapters [
-    {Ecto.Adapters.Postgres, adapter: EctoShorts.DynamicExpressions.Postgres}
-  ]
+  @default_adapters %{
+    Ecto.Adapters.Postgres => EctoShorts.DynamicExpressions.Postgres
+  }
 
   @doc false
   def default_adapters, do: @default_adapters
@@ -134,22 +132,53 @@ defmodule EctoShorts.DynamicExpressions do
     if Keyword.has_key?(opts, :dynamic_expression_adapter) do
       opts[:dynamic_expression_adapter]
     else
-      case adapter_for_repo(Config.repo!(opts).__adapter__(), opts) do
-        nil -> @default_adapter
-        {_, adapter_config} -> Keyword.fetch!(adapter_config, :adapter)
-      end
+      adapter_for_repo!(opts)
     end
   end
 
-  defp adapter_for_repo(repo_adapter, opts) do
-    opts
-    |> adapters()
-    |> Enum.find(fn {key, _} -> key === repo_adapter end)
-  end
+  defp adapter_for_repo!(opts) do
+    dynamic_expression_adapters =
+      opts[:dynamic_expression_adapters] ||
+        Config.dynamic_expression_adapters() ||
+        @default_adapters
 
-  defp adapters(opts) do
-    opts[:dynamic_expression_adapters] ||
-      Config.dynamic_expression_adapters() ||
-      @default_adapters
+    repo = Config.repo!(opts)
+    repo_adapter = repo.__adapter__()
+
+    case Enum.find(dynamic_expression_adapters, fn {key, _} -> key === repo_adapter end) do
+      {_, adapter} ->
+        adapter
+
+      _ ->
+        raise ArgumentError,
+              """
+              Unable to determine a dynamic expression adapter for the given Ecto repo's adapter.
+
+              Repo:
+                #{inspect(repo)}
+
+              Adapter:
+                #{inspect(repo_adapter)}
+
+              To fix this error, please provide the adapter configuration using one of the following approaches:
+
+              1. Pass the adapter options at runtime via the `:dynamic_expression_adapters` key:
+
+                  EctoShorts.Actions.all(MyApp.Post, %{published: true},
+                    dynamic_expression_adapters: %{
+                      Ecto.Adapters.Postgres => [adapter: EctoShorts.DynamicExpressions.Postgres]
+                    }
+                  )
+
+              2. Configure the adapter in your application environment:
+
+                  config :my_app, :dynamic_expression_adapters,
+                    %{
+                      Ecto.Adapters.Postgres => [adapter: EctoShorts.DynamicExpressions.Postgres]
+                    }
+
+              Without this configuration, EctoShorts cannot convert your parameters to an Ecto query.
+              """
+    end
   end
 end

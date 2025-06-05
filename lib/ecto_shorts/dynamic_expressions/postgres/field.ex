@@ -22,21 +22,6 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     * Special support for case-based comparison: `{:lower, val}`, `{:upper, val}`
     * List values: translated to `IN (...)` or `NOT IN (...)`
     * `nil` values: translated to `IS NULL` or `IS NOT NULL`
-
-  ## Example Usage
-
-      # field == value
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :title, :==, "Hello")
-
-      # field ILIKE '%value%'
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :title, :ilike, "hello")
-
-      # field IN list
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :id, :==, [1, 2, 3])
-
-      # field IS NOT NULL
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:binding_name, :deleted_at, :!=, nil)
-
   """
 
   alias Ecto.Query
@@ -58,57 +43,38 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
   This function is typically used by higher-level dynamic
   filtering modules, like `EctoShorts.DynamicExpressions.Postgres`,
   to generate `where` and `or_where` clauses dynamically.
-
-  ## Parameters
-
-    * `binding_alias` — an optional atom representing the binding alias for the schema in the query (e.g., `:p`). If `nil`, uses positional binding.
-    * `key` — the field name (atom) to build the expression for.
-    * `operator` — the comparison operator (`:==`, `:!=`, `:<`, `:>`, `:<=`, `:>=`, `:like`, `:ilike`, `:=~`).
-    * `value` — the value to compare the field against. Can be a literal, a list, `nil`, or a case-wrapped value like `{:lower, val}`.
-
-  ## Examples
-
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:p, :title, :==, "hello")
-
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(nil, :tags, :!=, nil)
-
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:post, :views, :>=, 100)
-
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:post, :title, :=~, "regex")
-
-      iex> EctoShorts.DynamicExpressions.Postgres.Field.build_dynamic(:post, :title, :==, {:lower, "hello"})
-
   """
   @spec build_dynamic(binding_alias() | nil, any(), operator(), any()) :: dynamic_expr()
-  def build_dynamic(binding_alias, key, :eq, value) do
-    build_dynamic(binding_alias, key, :==, value)
-  end
+  def build_dynamic(binding_alias, key, :eq, value),
+    do: build_dynamic(binding_alias, key, :==, value)
 
-  def build_dynamic(binding_alias, key, :not, value) do
-    build_dynamic(binding_alias, key, :!=, value)
-  end
+  def build_dynamic(binding_alias, key, :not, value),
+    do: build_dynamic(binding_alias, key, :!=, value)
 
-  def build_dynamic(binding_alias, key, :lt, value) do
-    build_dynamic(binding_alias, key, :<, value)
-  end
+  def build_dynamic(binding_alias, key, :lt, value),
+    do: build_dynamic(binding_alias, key, :<, value)
 
-  def build_dynamic(binding_alias, key, :gt, value) do
-    build_dynamic(binding_alias, key, :>, value)
-  end
+  def build_dynamic(binding_alias, key, :gt, value),
+    do: build_dynamic(binding_alias, key, :>, value)
 
-  def build_dynamic(binding_alias, key, :lte, value) do
-    build_dynamic(binding_alias, key, :<=, value)
-  end
+  def build_dynamic(binding_alias, key, :lte, value),
+    do: build_dynamic(binding_alias, key, :<=, value)
 
-  def build_dynamic(binding_alias, key, :gte, value) do
-    build_dynamic(binding_alias, key, :>=, value)
-  end
+  def build_dynamic(binding_alias, key, :gte, value),
+    do: build_dynamic(binding_alias, key, :>=, value)
 
-  def build_dynamic(binding_alias, key, :=~, value) do
+  # ---
+
+  def build_dynamic(binding_alias, key, :ilike, values) when is_list(values) do
+    patterns = Enum.map(values, &"%#{&1}%")
+
     if binding_alias do
-      Query.dynamic([{^binding_alias, d}], fragment("? ~* ?", field(d, ^key), ^value))
+      Query.dynamic(
+        [{^binding_alias, d}],
+        fragment("? ILIKE ANY(SELECT unnest(?))", field(d, ^key), ^patterns)
+      )
     else
-      Query.dynamic([d], fragment("? ~* ?", field(d, ^key), ^value))
+      Query.dynamic([d], fragment("? ILIKE ANY(SELECT unnest(?))", field(d, ^key), ^patterns))
     end
   end
 
@@ -122,6 +88,21 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
+  # ---
+
+  def build_dynamic(binding_alias, key, :like, values) when is_list(values) do
+    patterns = Enum.map(values, &"%#{&1}%")
+
+    if binding_alias do
+      Query.dynamic(
+        [{^binding_alias, d}],
+        fragment("? LIKE ANY(SELECT unnest(?))", field(d, ^key), ^patterns)
+      )
+    else
+      Query.dynamic([d], fragment("? LIKE ANY(SELECT unnest(?))", field(d, ^key), ^patterns))
+    end
+  end
+
   def build_dynamic(binding_alias, key, :like, value) do
     pattern = "%#{value}%"
 
@@ -129,6 +110,32 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
       Query.dynamic([{^binding_alias, d}], like(field(d, ^key), ^pattern))
     else
       Query.dynamic([d], like(field(d, ^key), ^pattern))
+    end
+  end
+
+  # ---
+
+  def build_dynamic(binding_alias, key, :=~, values) when is_list(values) do
+    Enum.reduce(values, nil, fn value, dyn_a ->
+      or_dynamic(dyn_a, build_dynamic(binding_alias, key, :=~, value))
+    end)
+  end
+
+  def build_dynamic(binding_alias, key, :=~, value) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("? ~* ?", field(d, ^key), ^value))
+    else
+      Query.dynamic([d], fragment("? ~* ?", field(d, ^key), ^value))
+    end
+  end
+
+  # ---
+
+  def build_dynamic(binding_alias, key, :<, values) when is_list(values) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("? < ANY(?)", field(d, ^key), ^values))
+    else
+      Query.dynamic([d], fragment("? < ANY(?)", field(d, ^key), ^values))
     end
   end
 
@@ -140,11 +147,31 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
+  # ---
+
+  def build_dynamic(binding_alias, key, :>, values) when is_list(values) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("? > ANY(?)", field(d, ^key), ^values))
+    else
+      Query.dynamic([d], fragment("? > ANY(?)", field(d, ^key), ^values))
+    end
+  end
+
   def build_dynamic(binding_alias, key, :>, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, d}], field(d, ^key) > ^value)
     else
       Query.dynamic([d], field(d, ^key) > ^value)
+    end
+  end
+
+  # ---
+
+  def build_dynamic(binding_alias, key, :<=, values) when is_list(values) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("? <= ANY(?)", field(d, ^key), ^values))
+    else
+      Query.dynamic([d], fragment("? <= ANY(?)", field(d, ^key), ^values))
     end
   end
 
@@ -156,11 +183,34 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
+  # ---
+
+  def build_dynamic(binding_alias, key, :>=, values) when is_list(values) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("? >= ANY(?)", field(d, ^key), ^values))
+    else
+      Query.dynamic([d], fragment("? >= ANY(?)", field(d, ^key), ^values))
+    end
+  end
+
   def build_dynamic(binding_alias, key, :>=, value) do
     if binding_alias do
       Query.dynamic([{^binding_alias, d}], field(d, ^key) >= ^value)
     else
       Query.dynamic([d], field(d, ^key) >= ^value)
+    end
+  end
+
+  # ---
+
+  def build_dynamic(binding_alias, key, :!=, {:lower, values}) when is_list(values) do
+    if binding_alias do
+      Query.dynamic(
+        [{^binding_alias, d}],
+        fragment("LOWER(?)", field(d, ^key)) not in ^values
+      )
+    else
+      Query.dynamic([d], fragment("LOWER(?)", field(d, ^key)) not in ^values)
     end
   end
 
@@ -175,6 +225,19 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
+  # ---
+
+  def build_dynamic(binding_alias, key, :!=, {:upper, values}) when is_list(values) do
+    if binding_alias do
+      Query.dynamic(
+        [{^binding_alias, d}],
+        fragment("UPPER(?)", field(d, ^key)) not in ^values
+      )
+    else
+      Query.dynamic([d], fragment("UPPER(?)", field(d, ^key)) not in ^values)
+    end
+  end
+
   def build_dynamic(binding_alias, key, :!=, {:upper, value}) do
     if binding_alias do
       Query.dynamic(
@@ -185,6 +248,8 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
       Query.dynamic([d], fragment("UPPER(?)", field(d, ^key)) != ^value)
     end
   end
+
+  # ---
 
   def build_dynamic(binding_alias, key, :!=, nil) do
     if binding_alias do
@@ -210,6 +275,16 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
     end
   end
 
+  # ---
+
+  def build_dynamic(binding_alias, key, :==, {:lower, values}) when is_list(values) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("LOWER(?)", field(d, ^key)) in ^values)
+    else
+      Query.dynamic([d], fragment("LOWER(?)", field(d, ^key)) in ^values)
+    end
+  end
+
   def build_dynamic(binding_alias, key, :==, {:lower, value}) do
     if binding_alias do
       Query.dynamic(
@@ -218,6 +293,16 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
       )
     else
       Query.dynamic([d], fragment("LOWER(?)", field(d, ^key)) == ^value)
+    end
+  end
+
+  # ---
+
+  def build_dynamic(binding_alias, key, :==, {:upper, values}) when is_list(values) do
+    if binding_alias do
+      Query.dynamic([{^binding_alias, d}], fragment("UPPER(?)", field(d, ^key)) in ^values)
+    else
+      Query.dynamic([d], fragment("UPPER(?)", field(d, ^key)) in ^values)
     end
   end
 
@@ -231,6 +316,8 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
       Query.dynamic([d], fragment("UPPER(?)", field(d, ^key)) == ^value)
     end
   end
+
+  # ---
 
   def build_dynamic(binding_alias, key, :==, nil) do
     if binding_alias do
@@ -255,4 +342,7 @@ defmodule EctoShorts.DynamicExpressions.Postgres.Field do
       Query.dynamic([d], field(d, ^key) == ^value)
     end
   end
+
+  defp or_dynamic(nil, dyn_b), do: dyn_b
+  defp or_dynamic(dyn_a, dyn_b), do: Query.dynamic(^dyn_a or ^dyn_b)
 end

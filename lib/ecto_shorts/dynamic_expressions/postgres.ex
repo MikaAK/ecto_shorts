@@ -35,6 +35,16 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
   @type operator :: any()
   @type params :: map()
 
+  @sql_string_match_operators ~w(like ilike)a
+  @symbolic_comparison_operators ~w(=~ == != < > <= >=)a
+  @named_comparison_operator_aliases ~w(re eq not lt gt lte gte)a
+
+  @operators @sql_string_match_operators ++
+               @symbolic_comparison_operators ++ @named_comparison_operator_aliases
+
+  @doc false
+  def operators, do: @operators
+
   @impl EctoShorts.DynamicExpression
   @doc """
   Builds a dynamic expression for a single filter condition
@@ -73,39 +83,53 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
         condition,
         source,
         key,
-        value
-      ) do
-    {operator, value} =
-      case value do
-        {operator, value} -> {operator, value}
-        value -> {:==, value}
-      end
-
-    schema_source? = SchemaHelpers.schema_source?(source)
-
-    cond do
-      schema_source? and field_type_array?(source, key) and is_list(value) ->
+        {operator, value}
+      )
+      when operator in @operators do
+    if SchemaHelpers.source_has_schema?(source) and field_type_array?(source, key) do
+      if list_value?(value) do
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
           Array.build_dynamic(binding_alias, key, operator, value)
         )
-
-      schema_source? and field_type_array?(source, key) ->
+      else
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
           Array.build_dynamic(binding_alias, value, operator, key)
         )
-
-      true ->
-        CommonQueryAPI.merge_dynamic(
-          dyn,
-          condition,
-          Field.build_dynamic(binding_alias, key, operator, value)
-        )
+      end
+    else
+      CommonQueryAPI.merge_dynamic(
+        dyn,
+        condition,
+        Field.build_dynamic(binding_alias, key, operator, value)
+      )
     end
   end
+
+  def build_dynamic(
+        dyn,
+        binding_alias,
+        condition,
+        source,
+        key,
+        value
+      ) do
+    build_dynamic(
+      dyn,
+      binding_alias,
+      condition,
+      source,
+      key,
+      {:==, value}
+    )
+  end
+
+  defp list_value?({_, value}) when is_list(value), do: true
+  defp list_value?(value) when is_list(value), do: true
+  defp list_value?(_), do: false
 
   defp field_type_array?(source, key) do
     source
