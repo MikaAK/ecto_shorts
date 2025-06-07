@@ -9,7 +9,7 @@ defmodule EctoShorts.CommonChangesTest do
     Repo,
     Schemas.Comment,
     Schemas.CommentAbstract,
-    Schemas.PostHasAbstractFieldSource,
+    Schemas.PostHasTupleFieldSource,
     Schemas.Post,
     Schemas.User,
     Testing
@@ -110,23 +110,23 @@ defmodule EctoShorts.CommonChangesTest do
 
   describe "preload_change_assoc" do
     test "can preload and put associations if change exists" do
-      post = Testing.insert!(Repo, PostHasAbstractFieldSource, %{title: "title"})
+      post = Testing.insert!(Repo, PostHasTupleFieldSource, %{title: "title"})
 
       comment = Testing.insert!(Repo, {"comments", CommentAbstract}, %{post_id: post.id})
 
-      assert %PostHasAbstractFieldSource{comments: %Ecto.Association.NotLoaded{}} = post
+      assert %PostHasTupleFieldSource{comments: %Ecto.Association.NotLoaded{}} = post
 
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
                post
-               |> PostHasAbstractFieldSource.changeset(%{comments: [%{id: comment.id}]})
+               |> PostHasTupleFieldSource.changeset(%{comments: [%{id: comment.id}]})
                |> CommonChanges.preload_change_assoc(:comments)
 
-      assert %PostHasAbstractFieldSource{comments: [^comment]} = changeset_post
+      assert %PostHasTupleFieldSource{comments: [^comment]} = changeset_post
     end
 
     test "can preload and cast associations if change exists" do
       assert %Ecto.Changeset{valid?: true} =
-               %PostHasAbstractFieldSource{}
+               %PostHasTupleFieldSource{}
                |> Ecto.Changeset.cast(%{comments: [%{id: 123_456, body: "comment_body"}]}, [
                  :title
                ])
@@ -250,18 +250,18 @@ defmodule EctoShorts.CommonChangesTest do
     end
 
     test "can put associations" do
-      post = Testing.insert!(Repo, PostHasAbstractFieldSource, %{title: "title"})
+      post = Testing.insert!(Repo, PostHasTupleFieldSource, %{title: "title"})
 
       comment = Testing.insert!(Repo, {"comments", CommentAbstract}, %{post_id: post.id})
 
-      assert %PostHasAbstractFieldSource{comments: %Ecto.Association.NotLoaded{}} = post
+      assert %PostHasTupleFieldSource{comments: %Ecto.Association.NotLoaded{}} = post
 
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
                post
-               |> PostHasAbstractFieldSource.changeset(%{comments: [%{id: comment.id}]})
+               |> PostHasTupleFieldSource.changeset(%{comments: [%{id: comment.id}]})
                |> CommonChanges.preload_changeset_assoc(:comments)
 
-      assert %PostHasAbstractFieldSource{comments: [^comment]} = changeset_post
+      assert %PostHasTupleFieldSource{comments: [^comment]} = changeset_post
     end
 
     test "when option :ids set can preload has_many relationship" do

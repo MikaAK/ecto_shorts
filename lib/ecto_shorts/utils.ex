@@ -8,7 +8,7 @@ defmodule EctoShorts.Utils do
 
   @ordered_expressions false
 
-  def keys_to_atom(enum, opts \\ []) do
+  def atomize_keys(enum, opts \\ []) do
     transform_keys(enum, &string_to_atom(&1, opts))
   end
 

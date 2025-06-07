@@ -1,17 +1,20 @@
-defmodule EctoShorts.Schemas.PostHasTupleFieldSource do
+defmodule EctoShorts.Schemas.PostHasQueryBuilder do
   @moduledoc false
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "posts" do
-    belongs_to :author, {"users", EctoShorts.Schemas.UserAbstract}
+  alias Ecto.Query
+  require Ecto.Query
 
-    many_to_many :authors, {"users", EctoShorts.Schemas.UserAbstract},
+  schema "posts" do
+    belongs_to :author, EctoShorts.Schemas.User
+
+    many_to_many :authors, EctoShorts.Schemas.User,
       join_through: EctoShorts.Schemas.PostAuthor,
       join_keys: [post_id: :id, author_id: :id],
       unique: true
 
-    has_many :comments, {"comments", EctoShorts.Schemas.CommentAbstract}, foreign_key: :post_id
+    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :post_id
 
     has_many :comments_authors, through: [:comments, :author]
 
@@ -40,7 +43,16 @@ defmodule EctoShorts.Schemas.PostHasTupleFieldSource do
   def changeset(model_or_changeset, attrs \\ %{}) do
     model_or_changeset
     |> cast(attrs, @available_fields)
+    |> foreign_key_constraint(:author_id)
     |> no_assoc_constraint(:comments)
     |> unique_constraint(:permalink)
+  end
+
+  @filters ~w(custom_schema_filter)a
+
+  def filters, do: @filters
+
+  def build_query(query, _binding_alias, :custom_schema_filter, value, _opts) do
+    Query.where(query, ^[published: value])
   end
 end

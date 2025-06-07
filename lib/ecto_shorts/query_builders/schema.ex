@@ -5,7 +5,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
   expressions.
 
   This module acts as the core filter engine for structuring queries that are
-  dynamically composed from maps or keyword lists. It determines whether each
+  dynamically buildd from maps or keyword lists. It determines whether each
   filter key corresponds to a known schema field, association, or supported DSL
   extension (e.g., `:join`, `:select`, `:where`) and routes each one to the
   appropriate query builder logic.
@@ -109,13 +109,6 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
   @join_keys [:qualifier, :on, :prefix]
 
-  @doc false
-  def convert_params_to_filter(query, binding_alias, source, params, opts) do
-    Enum.reduce(params, query, fn {key, value}, query ->
-      build_query(query, binding_alias, source, key, value, opts)
-    end)
-  end
-
   @impl EctoShorts.QueryBuilder
   @doc """
   Returns the list of supported filters that can be used in schema-aware queries.
@@ -188,17 +181,28 @@ defmodule EctoShorts.QueryBuilders.Schema do
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, join: c1 in subquery(from c0 in EctoShorts.Schemas.Comment), as: :ecto_shorts_comment, on: true, where: c1.id == ^2>
   """
   def build_query(query, binding_alias, schema, key, value, opts \\ []) when is_atom(schema) do
+    apply_filter(query, binding_alias, schema, key, value, [], opts)
+  end
+
+  defp reduce_filter_params(query, binding_alias, source, params, path, opts) do
+    Enum.reduce(params, query, fn {key, value}, query ->
+      apply_filter(query, binding_alias, source, key, value, path, opts)
+    end)
+  end
+
+  defp apply_filter(query, binding_alias, schema, key, value, path, opts) do
     cond do
       key in @query_filters ->
-        build_query_filter(query, binding_alias, schema, key, value, opts)
+        build_query_filter(query, binding_alias, schema, key, value, path, opts)
 
       key in schema.__schema__(:associations) ->
-        build_assoc_filter(
+        join_assoc(
           query,
           binding_alias,
           schema,
           key,
           value,
+          path,
           opts
         )
 
@@ -206,7 +210,48 @@ defmodule EctoShorts.QueryBuilders.Schema do
         build_schema_filter(query, binding_alias, schema, key, value, opts)
 
       true ->
-        EctoShorts.Utils.Logger.warning(__MODULE__, unrecognized_filter_key_message(schema, key))
+        message =
+          """
+          The given key is not a valid field or supported query filter for the schema.
+
+          schema:
+
+          #{inspect(schema)}
+
+          key:
+
+          #{inspect(key)}
+
+          This key has been skipped and the query will be returned as-is.
+
+          To resolve this, you can:
+
+          - Remove the key if it’s unnecessary.
+
+          - Use a supported custom filter, such as:
+
+          #{Enum.map_join(@query_filters, "\n", &"* #{&1}")}
+
+          - Use a valid schema field, such as:
+
+          #{Enum.map_join(schema.__schema__(:query_fields), "\n", &"* #{&1}")}
+
+          """
+
+        assoc_message =
+          if schema.__schema__(:associations) !== [] do
+            """
+            - Use a valid association, such as:
+
+            #{Enum.map_join(schema.__schema__(:associations), "\n", &"* #{&1}")}
+            """
+          else
+            ""
+          end
+
+        message = message <> assoc_message
+
+        EctoShorts.Utils.Logger.warning(__MODULE__, message)
 
         query
     end
@@ -232,69 +277,79 @@ defmodule EctoShorts.QueryBuilders.Schema do
     )
   end
 
-  defp build_query_filter(query, binding_alias, _schema, :select, value, _opts) do
+  defp build_query_filter(query, binding_alias, _schema, :select, value, _path, _opts) do
     CommonQueryAPI.select(query, binding_alias, value)
   end
 
-  defp build_query_filter(query, binding_alias, _schema, :select_merge, value, _opts) do
+  defp build_query_filter(query, binding_alias, _schema, :select_merge, value, _path, _opts) do
     CommonQueryAPI.select_merge(query, binding_alias, value)
   end
 
-  defp build_query_filter(query, binding_alias, _schema, :or, value, opts) do
+  defp build_query_filter(query, binding_alias, _schema, :or, value, _path, opts) do
     CommonQueryAPI.or_where(query, binding_alias, value, opts)
   end
 
-  defp build_query_filter(query, binding_alias, _schema, :or_where, value, opts) do
+  defp build_query_filter(query, binding_alias, _schema, :or_where, value, _path, opts) do
     CommonQueryAPI.or_where(query, binding_alias, value, opts)
   end
 
-  defp build_query_filter(query, binding_alias, _schema, :where, value, opts) do
+  defp build_query_filter(query, binding_alias, _schema, :where, value, _path, opts) do
     CommonQueryAPI.where(query, binding_alias, value, opts)
   end
 
-  defp build_query_filter(query, binding_alias, schema, :join, params, opts) do
+  defp build_query_filter(query, binding_alias, schema, :join, params, path, opts) do
+    build_join_filters(query, binding_alias, schema, params, path, opts)
+  end
+
+  defp build_join_filters(query, binding_alias, schema, params, path, opts) do
     Enum.reduce(params, query, fn {key, value}, query ->
-      build_join_filter(query, binding_alias, schema, key, value, opts)
+      build_join_filter(query, binding_alias, schema, key, value, path, opts)
     end)
   end
 
-  defp build_join_filter(query, binding_alias, schema, op, values, opts) when is_list(values) do
+  defp build_join_filter(query, binding_alias, schema, op, values, path, opts)
+       when is_list(values) do
     if Keyword.keyword?(values) do
-      build_join_filter(query, binding_alias, schema, op, Map.new(values), opts)
+      build_join_filter(query, binding_alias, schema, op, Map.new(values), path, opts)
     else
       Enum.reduce(values, query, fn value, query ->
-        build_join_filter(query, binding_alias, schema, op, value, opts)
+        build_join_filter(query, binding_alias, schema, op, value, path, opts)
       end)
     end
   end
 
-  defp build_join_filter(query, binding_alias, schema, :association, params, opts) do
+  defp build_join_filter(query, binding_alias, schema, :association, params, path, opts) do
     Enum.reduce(params, query, fn {key, value}, query ->
-      build_assoc_filter(
+      join_assoc(
         query,
         binding_alias,
         schema,
         key,
         value,
+        path,
         opts
       )
     end)
   end
 
-  defp build_join_filter(query, binding_alias, _schema, :subquery, params, opts) do
-    build_subquery_filter(query, binding_alias, params, opts)
+  defp build_join_filter(query, binding_alias, _schema, :subquery, params, path, opts) do
+    join_subquery(query, binding_alias, params, path, opts)
   end
 
-  defp build_join_filter(query, binding_alias, _schema, :query, params, opts) do
-    build_join_query_filter(query, binding_alias, params, opts)
+  defp build_join_filter(query, binding_alias, _schema, :query, params, path, opts) do
+    join_query(query, binding_alias, params, path, opts)
   end
 
-  defp build_assoc_filter(query, binding_alias, schema, key, params, opts) do
+  defp join_assoc(query, binding_alias, schema, key, params, path, opts) do
+    path = [key | path]
+
     {as, params} = Map.pop(params, :as)
 
     as =
       if is_nil(as) do
-        key
+        path
+        |> Enum.reverse()
+        |> Enum.join("_")
         |> named_binding()
         |> String.to_atom()
       else
@@ -309,10 +364,32 @@ defmodule EctoShorts.QueryBuilders.Schema do
       else
         assoc = schema.__schema__(:association, key)
 
-        if related_assoc?(assoc) do
+        if Map.has_key?(assoc, :related) do
           assoc.related
         else
-          raise_not_related_assoc!(schema, key, assoc)
+          raise ArgumentError,
+                """
+                Expected a direct association with a `:related` key, but got
+                an association that does not support direct Ecto operations.
+
+                This likely happens when using a `:through` association,
+                which cannot be used with functions like `put_assoc` or
+                `cast_assoc`.
+
+                Supported associations include: `belongs_to`, `has_one`, and `has_many`.
+
+                key:
+
+                #{inspect(key)}
+
+                association:
+
+                #{inspect(assoc, pretty: true)}
+
+                schema:
+
+                #{inspect(schema, pretty: true)}
+                """
         end
       end
 
@@ -331,17 +408,18 @@ defmodule EctoShorts.QueryBuilders.Schema do
       join_params,
       opts
     )
-    |> convert_params_to_filter(as, assoc_schema, filter_params, opts)
+    |> reduce_filter_params(as, assoc_schema, filter_params, path, opts)
   end
 
-  defp build_subquery_filter(query, binding_alias, params, opts) do
-    if not Map.has_key?(params, :schema) do
-      raise KeyError, "key :schema not found, got: #{inspect(params)}"
-    end
-
+  defp join_subquery(query, binding_alias, params, path, opts) do
     {as, params} = Map.pop(params, :as)
 
-    {schema, params} = Map.pop(params, :schema)
+    {schema, params} =
+      if Map.has_key?(params, :schema) do
+        Map.pop(params, :schema)
+      else
+        raise KeyError, "key :schema not found, got: #{inspect(params)}"
+      end
 
     {inner_query, params} = Map.pop(params, :query, schema)
 
@@ -369,10 +447,10 @@ defmodule EctoShorts.QueryBuilders.Schema do
       join_params,
       opts
     )
-    |> convert_params_to_filter(as, schema, filter_params, opts)
+    |> reduce_filter_params(as, schema, filter_params, path, opts)
   end
 
-  defp build_join_query_filter(query, binding_alias, params, opts) do
+  defp join_query(query, binding_alias, params, path, opts) do
     if not Map.has_key?(params, :source) and not Map.has_key?(params, :schema) do
       raise ArgumentError, "key :source or :schema is required, got: #{inspect(params)}"
     end
@@ -418,79 +496,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       join_params,
       opts
     )
-    |> convert_params_to_filter(as, schema, filter_params, opts)
-  end
-
-  defp related_assoc?(%{related: _}), do: true
-  defp related_assoc?(_), do: false
-
-  defp raise_not_related_assoc!(schema, key, assoc) do
-    raise ArgumentError,
-          """
-          Expected a direct association with a `:related` key, but got
-          an association that does not support direct Ecto operations.
-
-          This likely happens when using a `:through` association,
-          which cannot be used with functions like `put_assoc` or
-          `cast_assoc`.
-
-          Supported associations include: `belongs_to`, `has_one`, and `has_many`.
-
-          key:
-
-          #{inspect(key)}
-
-          association:
-
-          #{inspect(assoc, pretty: true)}
-
-          schema:
-
-          #{inspect(schema, pretty: true)}
-          """
-  end
-
-  defp unrecognized_filter_key_message(schema, key) do
-    message =
-      """
-      The given key is not a valid field or supported query filter for the schema.
-
-      schema:
-
-      #{inspect(schema)}
-
-      key:
-
-      #{inspect(key)}
-
-      This key has been skipped and the query will be returned as-is.
-
-      To resolve this, you can:
-
-      - Remove the key if it’s unnecessary.
-
-      - Use a supported custom filter, such as:
-
-      #{Enum.map_join(@query_filters, "\n", &"* #{&1}")}
-
-      - Use a valid schema field, such as:
-
-      #{Enum.map_join(schema.__schema__(:query_fields), "\n", &"* #{&1}")}
-
-      """
-
-    assoc_warning_message =
-      if schema.__schema__(:associations) !== [] do
-        """
-        - Use a valid association, such as:
-
-        #{Enum.map_join(schema.__schema__(:associations), "\n", &"* #{&1}")}
-        """
-      else
-        ""
-      end
-
-    message <> assoc_warning_message
+    |> reduce_filter_params(as, schema, filter_params, path, opts)
   end
 
   @doc false

@@ -10,7 +10,7 @@ defmodule EctoShorts.CommonParams do
   validating records, generating timestamps, handling placeholder
   values, and preparing conflict resolution behavior.
 
-  It works by normalizing input data (such as maps or structs),
+  It works by normalizing params data (such as maps or structs),
   optionally validating it through the schema’s `changeset/2`,
   and then generating the appropriate keyword lists or maps used
   by Ecto’s insert and update functions. If configured, it also
@@ -61,14 +61,18 @@ defmodule EctoShorts.CommonParams do
   @spec convert_to_update_all_params(schema(), params()) :: update_all_params()
   @spec convert_to_update_all_params(schema(), params(), opts()) :: update_all_params()
   def convert_to_update_all_params(schema, params, opts \\ []) do
-    utc_now = datetime_utc_now()
+    utc_now = DateTime.utc_now()
 
-    schema
-    |> build_updates(params, [])
-    |> flatten_updates()
-    |> set_timestamp_updated_at(utc_now, schema, opts)
-    |> Enum.map(fn {key, values} -> {key, Enum.sort(values)} end)
-    |> Enum.sort()
+    updates = schema |> build_updates(params, []) |> flatten_updates()
+
+    if updates === [] do
+      []
+    else
+      updates
+      |> set_timestamp_updated_at(utc_now, schema, opts)
+      |> Enum.map(fn {key, values} -> {key, Enum.sort(values)} end)
+      |> Enum.sort()
+    end
   end
 
   defp set_timestamp_updated_at(updates, datetime, schema, opts) do
@@ -117,7 +121,7 @@ defmodule EctoShorts.CommonParams do
   end
 
   defp normalize_update(schema, key, {operator, value}, acc) when operator in [:pull, :push] do
-    case validate_field_type_array(schema, key) do
+    case validate_field_type_of_array(schema, key) do
       :ok ->
         value
         |> List.wrap()
@@ -128,29 +132,33 @@ defmodule EctoShorts.CommonParams do
       {:error, actual_type} ->
         raise ArgumentError,
               """
-              Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
-              `array` type for the Ecto.Query update operator `#{operator}`, but
-              got: `#{inspect(actual_type)}`
+              The field `#{inspect(key)}` on schema `#{inspect(schema)}` is not a type of `:array`
+              and cannot be used with the `Ecto.Query` update operator `#{inspect(operator)}`.
+
+              actual type:
+              #{inspect(actual_type)}
               """
     end
   end
 
   defp normalize_update(schema, key, {:inc, value}, acc) do
-    case validate_field_type_integer(schema, key) do
+    case validate_field_type_of_integer(schema, key) do
       :ok ->
         if is_integer(value) do
           [{:inc, key, value} | acc]
         else
           raise ArgumentError,
-                "Expected the value of key #{inspect(key)} to be an integer, got: #{inspect(value)}"
+                "Expected value for key `#{inspect(key)}` to be an integer, got: #{inspect(value)}"
         end
 
       {:error, actual_type} ->
         raise ArgumentError,
               """
-              Expected the key `#{key}` in schema `#{inspect(schema)}` to be of
-              `integer` type for the Ecto.Query update operator `:inc`, but
-              got: `#{inspect(actual_type)}`
+              The field `#{inspect(key)}` on schema `#{inspect(schema)}` is not a type of `:integer`
+              and cannot be used with the `Ecto.Query` update operator `:inc`.
+
+              actual type:
+              #{inspect(actual_type)}
               """
     end
   end
@@ -163,14 +171,14 @@ defmodule EctoShorts.CommonParams do
     [{:set, key, value} | acc]
   end
 
-  defp validate_field_type_integer(schema, key) do
+  defp validate_field_type_of_integer(schema, key) do
     case schema.__schema__(:type, key) do
       :integer -> :ok
       val -> {:error, val}
     end
   end
 
-  defp validate_field_type_array(schema, key) do
+  defp validate_field_type_of_array(schema, key) do
     case schema.__schema__(:type, key) do
       {:array, _} -> :ok
       val -> {:error, val}
@@ -230,258 +238,211 @@ defmodule EctoShorts.CommonParams do
           {:ok, {list(insert_all_params()), opts()}} | {:error, changesets()}
   @spec convert_to_insert_all_params(schema(), list(params()), opts()) ::
           {:ok, {list(insert_all_params()), opts()}} | {:error, changesets()}
-  def convert_to_insert_all_params(schema, params_list, opts \\ []) do
-    utc_now = datetime_utc_now()
-
-    with {:ok, inserts, action, changed_keys} <-
-           apply_insert_changes(
-             params_list,
-             schema,
-             utc_now,
-             opts
-           ) do
-      if action === :upsert do
-        {:ok, {inserts, on_conflict_options(schema, changed_keys)}}
-      else
-        {:ok, {inserts, []}}
-      end
-    end
-  end
-
-  @doc false
-  def serialize_insert(schema, data, changed_keys, utc_now, opts) do
-    data
-    |> Map.take(schema.__schema__(:query_fields))
-    |> drop_if_value_nil_and_not_a_change(changed_keys)
-    |> put_placeholders(opts[:placeholders] || %{}, opts)
-    |> put_timestamps(utc_now, schema, opts)
-  end
-
-  defp apply_insert_changes(params_list, schema, utc_now, opts) do
-    results =
-      Enum.reduce(
-        params_list,
-        {[], [], :insert, MapSet.new()},
-        fn params, {oks, errors, action, changed_keys_map_set} ->
-          case apply_insert_change(schema, params, opts) do
-            {:ok, schema_data, changed_keys} ->
-              data =
-                serialize_insert(
-                  schema,
-                  schema_data,
-                  changed_keys,
-                  utc_now,
-                  opts
-                )
-
-              action =
-                if action === :upsert or
-                     SchemaHelpers.has_primary_key?(schema, data) do
-                  :upsert
-                else
-                  action
-                end
-
-              changed_keys_map_set =
-                Enum.reduce(changed_keys, changed_keys_map_set, fn key, acc ->
-                  MapSet.put(acc, key)
-                end)
-
-              {[data | oks], errors, action, changed_keys_map_set}
-
-            {:error, e} ->
-              {oks, [e | errors], action, changed_keys_map_set}
-          end
+  def convert_to_insert_all_params(schema, params_list \\ [], opts \\ []) do
+    with {:ok, inserts, changed_keys, has_primary_key?} <-
+           build_insert_params(params_list, schema, opts) do
+      insert_opts =
+        if has_primary_key? do
+          on_conflict_options(schema, changed_keys)
+        else
+          []
         end
-      )
 
-    case results do
-      {inserts, [], action, changed_keys_map_set} ->
-        {:ok, inserts, action, MapSet.to_list(changed_keys_map_set)}
-
-      {_oks, errors, _action, _changed_keys_map_set} ->
-        {:error, errors}
+      {:ok, {inserts, insert_opts}}
     end
   end
 
-  defp apply_insert_change(
-         schema,
-         {%{data: %{__meta__: _} = schema_data} = changeset, params},
-         opts
-       ) do
-    if opts[:validate] === false do
-      changed_keys = get_params_changed_keys(params, schema, opts)
+  defp build_insert_params(inputs, schema, opts) do
+    case reduce_insert_params(inputs, schema, opts) do
+      {entries, [], changed_key_set, has_primary_key?} ->
+        changed_keys =
+          changed_key_set
+          |> MapSet.to_list()
+          |> Enum.sort()
 
+        {:ok, Enum.reverse(entries), changed_keys, has_primary_key?}
+
+      {_entries, errors, _changed_key_set, _has_primary_key?} ->
+        {:error, Enum.reverse(errors)}
+    end
+  end
+
+  defp reduce_insert_params(inputs, schema, opts) do
+    utc_now = DateTime.utc_now()
+
+    Enum.reduce(
+      inputs,
+      {[], [], MapSet.new(), false},
+      fn input, {entries, errors, changed_key_set, has_primary_key?} ->
+        case change_insert_params(schema, input, opts) do
+          {:ok, schema_data, changed_keys} ->
+            changed_key_set = Enum.reduce(changed_keys, changed_key_set, &MapSet.put(&2, &1))
+
+            entry = serialize_insert(schema, schema_data, utc_now, changed_keys, opts)
+
+            has_primary_key? =
+              if has_primary_key? do
+                has_primary_key?
+              else
+                SchemaHelpers.has_primary_key?(schema, entry)
+              end
+
+            {[entry | entries], errors, changed_key_set, has_primary_key?}
+
+          {:error, e} ->
+            {entries, [e | errors], changed_key_set, has_primary_key?}
+        end
+      end
+    )
+  end
+
+  defp change_insert_params(schema, {%{data: schema_data} = _changeset, params}, opts) do
+    params = Map.take(params, schema.__schema__(:query_fields))
+
+    changed_keys = extract_changed_keys(schema_data, params)
+
+    if opts[:validate] === false do
       {:ok, struct(schema_data, params), changed_keys}
     else
-      changeset = CommonChanges.changeset(schema, changeset, params)
-
-      changed_keys = get_params_changed_keys(params, schema, opts)
-
-      with {:ok, schema_data} <-
-             Changeset.apply_action(
-               changeset,
-               changeset_action(schema, schema_data)
-             ) do
-        {:ok, schema_data, changed_keys}
+      with {:ok, new_schema_data} <-
+             schema_data
+             |> CommonChanges.changeset(params)
+             |> Changeset.apply_action(changeset_action(schema, schema_data)) do
+        {:ok, new_schema_data, changed_keys}
       end
     end
   end
 
-  defp apply_insert_change(schema, {%{__meta__: _} = schema_data, params}, opts) do
-    if opts[:validate] === false do
-      changed_keys = get_params_changed_keys(params, schema, opts)
+  defp change_insert_params(schema, {%_{} = schema_data, params}, opts) do
+    params = Map.take(params, schema.__schema__(:query_fields))
 
+    changed_keys = extract_changed_keys(schema_data, params) |> IO.inspect()
+
+    if opts[:validate] === false do
       {:ok, struct(schema_data, params), changed_keys}
     else
-      changeset = CommonChanges.changeset(schema, schema_data, params)
-
-      changed_keys = get_params_changed_keys(params, schema, opts)
-
-      with {:ok, schema_data} <-
-             Changeset.apply_action(
-               changeset,
-               changeset_action(schema, schema_data)
-             ) do
-        {:ok, schema_data, changed_keys}
+      with {:ok, new_schema_data} <-
+             schema_data
+             |> CommonChanges.changeset(params)
+             |> Changeset.apply_action(changeset_action(schema, schema_data)) do
+        {:ok, new_schema_data, changed_keys}
       end
     end
   end
 
-  defp apply_insert_change(
-         schema,
-         %{data: %{__meta__: _} = schema_data} = changeset,
-         opts
-       ) do
-    changed_keys = get_struct_changed_keys(schema_data, schema, opts)
+  defp change_insert_params(schema, %{data: schema_data} = changeset, opts) do
+    params =
+      changeset.params
+      |> Utils.atomize_keys(opts)
+      |> Map.take(schema.__schema__(:query_fields))
+
+    changed_keys = extract_changed_keys(schema_data, params)
 
     if opts[:validate] === false do
       {:ok, schema_data, changed_keys}
     else
-      changeset = CommonChanges.changeset(schema, changeset, %{})
-
-      with {:ok, schema_data} <-
-             Changeset.apply_action(
-               changeset,
-               changeset_action(schema, schema_data)
-             ) do
-        {:ok, schema_data, changed_keys}
+      with {:ok, new_schema_data} <-
+             Changeset.apply_action(changeset, changeset_action(schema, schema_data)) do
+        {:ok, new_schema_data, changed_keys}
       end
     end
   end
 
-  defp apply_insert_change(schema, %{__meta__: _} = schema_data, opts) do
+  defp change_insert_params(schema, %_{} = schema_data, opts) do
+    changed_keys = schema.__schema__(:query_fields)
+
+    if opts[:validate] === false do
+      {:ok, schema_data, changed_keys}
+    else
+      with {:ok, new_schema_data} <-
+             schema_data
+             |> CommonChanges.changeset(%{})
+             |> Changeset.apply_action(changeset_action(schema, schema_data)) do
+        {:ok, new_schema_data, changed_keys}
+      end
+    end
+  end
+
+  defp change_insert_params(schema, params, opts) do
+    params = Map.take(params, schema.__schema__(:query_fields))
+
     changed_keys =
-      schema
-      |> struct()
-      |> get_struct_changed_keys(schema, opts)
+      Enum.reduce(schema.__schema__(:query_fields), [], fn query_field, acc ->
+        if Map.has_key?(params, query_field) do
+          [query_field | acc]
+        else
+          acc
+        end
+      end)
 
     if opts[:validate] === false do
-      {:ok, schema_data, changed_keys}
-    else
-      changeset = CommonChanges.changeset(schema, schema_data, %{})
-
-      with {:ok, schema_data} <-
-             Changeset.apply_action(
-               changeset,
-               changeset_action(schema, schema_data)
-             ) do
-        {:ok, schema_data, changed_keys}
-      end
-    end
-  end
-
-  defp apply_insert_change(schema, params, opts) do
-    if opts[:validate] === false do
-      schema_data = struct(schema, params)
-
-      changed_keys = get_params_changed_keys(params, schema, opts)
-
-      {:ok, schema_data, changed_keys}
+      {:ok, struct(schema, params), changed_keys}
     else
       created_data =
         if SchemaHelpers.has_primary_key?(schema, params) do
-          Map.take(params, SchemaHelpers.primary_key(schema))
+          struct!(schema, Map.take(params, SchemaHelpers.primary_key(schema)))
         else
-          %{}
+          struct!(schema, %{})
         end
 
-      changeset = CommonChanges.changeset(schema, struct!(schema, created_data), params)
-
-      changed_keys = get_params_changed_keys(params, schema, opts)
-
-      with {:ok, schema_data} <-
-             Changeset.apply_action(
-               changeset,
-               changeset_action(schema, params)
-             ) do
-        {:ok, schema_data, changed_keys}
+      with {:ok, new_schema_data} <-
+             schema
+             |> CommonChanges.changeset(created_data, params)
+             |> Changeset.apply_action(:insert) do
+        {:ok, new_schema_data, changed_keys}
       end
     end
   end
 
-  @doc false
-  def changeset_action(schema, data) do
-    if SchemaHelpers.has_primary_key?(schema, data) do
+  defp changeset_action(schema, schema_data) do
+    if SchemaHelpers.has_primary_key?(schema, schema_data) do
       :update
     else
       :insert
     end
   end
 
-  @doc false
-  def get_struct_changed_keys(struct, schema, opts) do
-    struct
-    |> Utils.to_jsonable_map()
-    |> Map.keys()
-    |> filter_supported_insert_fields(schema, opts)
-  end
-
-  @doc false
-  def get_params_changed_keys(params, schema, opts) do
-    params
-    |> Utils.keys_to_atom(opts)
-    |> Map.keys()
-    |> filter_supported_insert_fields(schema, opts)
-  end
-
-  @doc false
-  def filter_supported_insert_fields(keys, schema, opts) do
-    keys
-    |> Enum.filter(&(&1 in schema.__schema__(:query_fields)))
-    |> Kernel.--(schema.__schema__(:primary_key))
-    |> Kernel.--([inserted_at_source(opts)])
-  end
-
-  @doc false
-  def on_conflict_options(schema, changed_keys) do
-    if function_exported?(schema, :on_conflict_options, 0) do
-      schema.on_conflict_options()
+  defp on_conflict_options(schema, replace_fields) do
+    if replace_fields === [] do
+      [conflict_target: schema.__schema__(:primary_key)]
     else
-      opts = [conflict_target: schema.__schema__(:primary_key)]
-
-      # setting on_conflict to {:replace, []} causes an ecto error
-      # so don't add that option if changed keys is empty.
-      if changed_keys === [] do
-        opts
-      else
-        Keyword.put(opts, :on_conflict, {:replace, changed_keys})
-      end
+      [conflict_target: schema.__schema__(:primary_key), on_conflict: {:replace, replace_fields}]
     end
   end
 
-  defp drop_if_value_nil_and_not_a_change(data, changed_keys) do
-    data
-    |> Enum.reject(fn {key, val} -> is_nil(val) and key not in changed_keys end)
-    |> Map.new()
+  defp serialize_insert(schema, schema_data, utc_now, changed_keys, opts) do
+    schema_data
+    |> Map.take(schema.__schema__(:query_fields))
+    |> filter_nil_changes(changed_keys)
+    |> put_placeholders(opts[:placeholders] || %{}, opts)
+    |> put_timestamps(utc_now, schema, opts)
   end
 
-  @doc false
-  def put_placeholders(data, placeholders, opts) do
+  defp filter_nil_changes(schema_data, changed_keys) do
+    Enum.reduce(schema_data, %{}, fn {key, value}, acc ->
+      if is_nil(value) and not Enum.member?(changed_keys, key) do
+        acc
+      else
+        Map.put(acc, key, value)
+      end
+    end)
+  end
+
+  defp extract_changed_keys(map_a, map_b) do
+    Enum.reduce(map_b, [], fn {key, val}, acc ->
+      if Map.get(map_a, key) != val do
+        [key | acc]
+      else
+        acc
+      end
+    end)
+  end
+
+  defp put_placeholders(data, placeholders, opts) do
     Enum.reduce(placeholders, data, &put_placeholder(&1, &2, opts))
   end
 
-  def put_placeholder({key, placeholder_value}, data, opts) do
+  defp put_placeholder({key, placeholder_value}, data, opts) do
     if Map.has_key?(data, key) do
       if Map.get(data, key) === placeholder_value do
         put_placeholder(data, key)
@@ -493,54 +454,66 @@ defmodule EctoShorts.CommonParams do
     end
   end
 
-  defp on_placeholder_conflict(data, key, opts) do
+  defp on_placeholder_conflict(insert_data, key, opts) do
     case Keyword.get(opts, :on_placeholder_conflict, :nothing) do
-      {:replace, keys} -> if key in keys, do: put_placeholder(data, key), else: data
-      :replace_all -> put_placeholder(data, key)
-      :nothing -> data
+      {:replace, keys} ->
+        if Enum.member?(keys, key) do
+          put_placeholder(insert_data, key)
+        else
+          insert_data
+        end
+
+      :replace_all ->
+        put_placeholder(insert_data, key)
+
+      :nothing ->
+        insert_data
+
+      term ->
+        raise ArgumentError,
+              "Expected the value for option :on_placeholder_conflict to be one of " <>
+                "[:replace, :replace_all, :nothing], got: #{inspect(term)}"
     end
   end
 
-  defp put_placeholder(data, key), do: Map.put(data, key, {:placeholder, key})
+  defp put_placeholder(insert_data, key), do: Map.put(insert_data, key, {:placeholder, key})
 
-  @doc false
-  def put_timestamps(data, datetime, schema, opts) do
-    data
+  defp put_timestamps(insert_data, datetime, schema, opts) do
+    insert_data
     |> maybe_put_inserted_at(datetime, schema, opts)
     |> put_timestamp_updated_at(datetime, schema, opts)
   end
 
-  defp maybe_put_inserted_at(data, datetime, schema, opts) do
+  defp maybe_put_inserted_at(insert_data, datetime, schema, opts) do
     inserted_at_source = inserted_at_source(opts)
 
     if inserted_at_source === false do
-      data
+      insert_data
     else
-      case Map.get(data, inserted_at_source) do
+      case Map.get(insert_data, inserted_at_source) do
         nil ->
-          Map.put(
-            data,
-            inserted_at_source,
+          inserted_at =
             serialize_timestamp_inserted_at(datetime, inserted_at_source, schema, opts)
-          )
 
-        _ ->
-          data
+          Map.put(insert_data, inserted_at_source, inserted_at)
+
+        timestamp ->
+          timestamp = serialize_timestamp_inserted_at(timestamp, inserted_at_source, schema, opts)
+
+          Map.put(insert_data, inserted_at_source, timestamp)
       end
     end
   end
 
-  defp put_timestamp_updated_at(data, datetime, schema, opts) do
+  defp put_timestamp_updated_at(insert_data, datetime, schema, opts) do
     updated_at_source = updated_at_source(opts)
 
     if updated_at_source === false do
-      data
+      insert_data
     else
-      Map.put(
-        data,
-        updated_at_source,
-        serialize_timestamp_updated_at(datetime, updated_at_source, schema, opts)
-      )
+      updated_at = serialize_timestamp_updated_at(datetime, updated_at_source, schema, opts)
+
+      Map.put(insert_data, updated_at_source, updated_at)
     end
   end
 
@@ -557,11 +530,19 @@ defmodule EctoShorts.CommonParams do
   end
 
   defp inserted_at_source(opts) do
-    opts[:inserted_at] || opts[:inserted_at_source] || @inserted_at
+    cond do
+      Keyword.has_key?(opts, :inserted_at) -> opts[:inserted_at]
+      Keyword.has_key?(opts, :inserted_at_source) -> opts[:inserted_at_source]
+      true -> @inserted_at
+    end
   end
 
   defp updated_at_source(opts) do
-    opts[:updated_at] || opts[:updated_at_source] || @updated_at
+    cond do
+      Keyword.has_key?(opts, :updated_at) -> opts[:updated_at]
+      Keyword.has_key?(opts, :updated_at_source) -> opts[:updated_at_source]
+      true -> @updated_at
+    end
   end
 
   defp timestamp_type(opts, key, type_source, schema) do
@@ -571,8 +552,6 @@ defmodule EctoShorts.CommonParams do
       @utc_datetime
   end
 
-  defp datetime_utc_now, do: DateTime.utc_now()
-
   defp truncate_datetime(datetime) when is_struct(datetime, DateTime) do
     DateTime.truncate(datetime, :second)
   end
@@ -580,6 +559,9 @@ defmodule EctoShorts.CommonParams do
   defp truncate_datetime(naive_datetime) when is_struct(naive_datetime, NaiveDateTime) do
     NaiveDateTime.truncate(naive_datetime, :second)
   end
+
+  defp maybe_to_naive_datetime(naive_datetime, _) when is_struct(naive_datetime, NaiveDateTime),
+    do: naive_datetime
 
   defp maybe_to_naive_datetime(datetime, @naive_datetime), do: DateTime.to_naive(datetime)
   defp maybe_to_naive_datetime(datetime, @utc_datetime), do: datetime

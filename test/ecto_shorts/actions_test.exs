@@ -6,9 +6,9 @@ defmodule EctoShorts.ActionsTest do
   alias EctoShorts.{
     Actions,
     Repo,
-    Schemas.PostAbstract,
+    # Schemas.PostAbstract,
     Schemas.Post,
-    Schemas.PostNoPrimaryKey,
+    # Schemas.PostNoPrimaryKey,
     Testing
   }
 

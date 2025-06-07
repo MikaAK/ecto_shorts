@@ -83,9 +83,7 @@ defmodule EctoShorts.CommonFilters do
   @default_query_builder_adapter EctoShorts.CommonFilters
 
   @common_filters Common.filters()
-
   @schema_filters Schema.filters()
-
   @filters Enum.sort(@common_filters ++ @schema_filters)
 
   @doc group: "Filter API"
@@ -97,75 +95,53 @@ defmodule EctoShorts.CommonFilters do
       iex> EctoShorts.CommonFilters.convert_params_to_filter(EctoShorts.Schemas.Post, %{id: 1})
       #Ecto.Query<from p0 in EctoShorts.Schemas.Post, where: p0.id == ^1>
   """
+  @spec convert_params_to_filter(query_input()) :: query_input()
   @spec convert_params_to_filter(query_input(), params()) :: query_input()
   @spec convert_params_to_filter(query_input(), params(), opts()) :: query_input()
-  def convert_params_to_filter(query_input, params, opts \\ [])
+  def convert_params_to_filter(query, params \\ %{}, opts \\ [])
 
-  def convert_params_to_filter(query_input, params, opts) when is_map(params) do
-    convert_params_to_filter(query_input, Map.to_list(params), opts)
+  def convert_params_to_filter(query, params, opts) when is_map(params) do
+    convert_params_to_filter(query, Map.to_list(params), opts)
   end
 
-  def convert_params_to_filter(query_input, params, opts) do
-    {_, schema} = CommonSchema.get_schema_source(query_input)
+  def convert_params_to_filter(query, params, opts) do
+    {_, schema} = CommonSchema.get_schema_source(query)
 
     {binding_alias, params} = Keyword.pop(params, :as)
 
     params = ensure_last_is_final_filter(params)
 
-    reduce_params(query_input, binding_alias, schema, params, opts)
+    params_to_query(query, binding_alias, schema, params, opts)
   end
 
-  defp reduce_params(query_input, binding_alias, schema, params, opts) do
+  defp params_to_query(query, binding_alias, schema, params, opts) do
     Enum.reduce(
       params,
-      query_input,
+      query,
       &apply_query_builder(
         &2,
         binding_alias,
-        schema,
         &1,
+        schema,
         opts
       )
     )
   end
 
-  defp apply_query_builder(
-         query_input,
-         binding_alias,
-         schema,
-         {key, value},
-         opts
-       ) do
-    if schema_exports_filter?(schema, key) and Keyword.get(opts, :enable_schema_filters, true) do
-      if function_exported?(schema, :build_query, 4) do
-        schema.build_query(
-          query_input,
-          binding_alias,
-          key,
-          value
-        )
-      else
-        EctoShorts.Utils.Logger.warning(
-          __MODULE__,
-          "callback function build_query/4 not found in schema module #{inspect(schema)} for filter: #{inspect(key)}"
-        )
-
+  defp apply_query_builder(query, binding_alias, {key, value}, schema, opts) do
+    if schema_filter?(schema, key) and function_exported?(schema, :build_query, 5) do
+      schema.build_query(
+        query,
+        binding_alias,
+        key,
+        value,
         opts
-        |> query_builder_adapter()
-        |> QueryBuilder.build_query(
-          query_input,
-          binding_alias,
-          schema,
-          key,
-          value,
-          opts
-        )
-      end
+      )
     else
       opts
       |> query_builder_adapter()
       |> QueryBuilder.build_query(
-        query_input,
+        query,
         binding_alias,
         schema,
         key,
@@ -175,13 +151,12 @@ defmodule EctoShorts.CommonFilters do
     end
   end
 
-  @doc false
-  def schema_exports_filter?(schema, key) do
-    schema_has_filters?(schema) and key in schema.filters()
+  defp schema_filter?(schema, key) do
+    schema_filters_exported?(schema) and key in schema.filters()
   end
 
   @doc false
-  def schema_has_filters?(schema) do
+  defp schema_filters_exported?(schema) do
     function_exported?(schema, :filters, 0)
   end
 
@@ -276,13 +251,13 @@ defmodule EctoShorts.CommonFilters do
           value(),
           opts()
         ) :: query_input()
-  def build_query(query_input, binding_alias, schema, key, value, opts \\ [])
+  def build_query(query, binding_alias, schema, key, value, opts \\ [])
 
-  def build_query(query_input, binding_alias, schema, key, value, opts)
+  def build_query(query, binding_alias, schema, key, value, opts)
       when key in @common_filters do
     QueryBuilder.build_query(
       Common,
-      query_input,
+      query,
       binding_alias,
       schema,
       key,
@@ -291,10 +266,10 @@ defmodule EctoShorts.CommonFilters do
     )
   end
 
-  def build_query(query_input, binding_alias, schema, key, value, opts) do
+  def build_query(query, binding_alias, schema, key, value, opts) do
     QueryBuilder.build_query(
       Schema,
-      query_input,
+      query,
       binding_alias,
       schema,
       key,
