@@ -18,6 +18,7 @@ defmodule EctoShorts.Schemas.PostHasTupleFieldSource do
     field :title, :string
     field :body, :string
     field :published, :boolean
+    field :published_at, :utc_datetime
     field :notes, :string, source: :custom_string_field
     field :tags, {:array, :string}
     field :views, :integer
@@ -31,6 +32,7 @@ defmodule EctoShorts.Schemas.PostHasTupleFieldSource do
     :notes,
     :permalink,
     :published,
+    :published_at,
     :title,
     :tags,
     :author_id,

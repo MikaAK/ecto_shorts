@@ -306,7 +306,7 @@ defmodule EctoShorts.CommonParams do
     else
       with {:ok, new_schema_data} <-
              schema_data
-             |> CommonChanges.changeset(params)
+             |> CommonChanges.change(params)
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, new_schema_data, changed_keys}
       end
@@ -316,14 +316,14 @@ defmodule EctoShorts.CommonParams do
   defp change_insert_params(schema, {%_{} = schema_data, params}, opts) do
     params = Map.take(params, schema.__schema__(:query_fields))
 
-    changed_keys = extract_changed_keys(schema_data, params) |> IO.inspect()
+    changed_keys = extract_changed_keys(schema_data, params)
 
     if opts[:validate] === false do
       {:ok, struct(schema_data, params), changed_keys}
     else
       with {:ok, new_schema_data} <-
              schema_data
-             |> CommonChanges.changeset(params)
+             |> CommonChanges.change(params)
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, new_schema_data, changed_keys}
       end
@@ -356,7 +356,7 @@ defmodule EctoShorts.CommonParams do
     else
       with {:ok, new_schema_data} <-
              schema_data
-             |> CommonChanges.changeset(%{})
+             |> CommonChanges.change(%{})
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, new_schema_data, changed_keys}
       end
@@ -387,7 +387,7 @@ defmodule EctoShorts.CommonParams do
 
       with {:ok, new_schema_data} <-
              schema
-             |> CommonChanges.changeset(created_data, params)
+             |> CommonChanges.change(created_data, params)
              |> Changeset.apply_action(:insert) do
         {:ok, new_schema_data, changed_keys}
       end

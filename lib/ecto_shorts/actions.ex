@@ -1468,7 +1468,7 @@ defmodule EctoShorts.Actions do
 
       # Using a struct:
 
-      iex> {:ok, post} = EctoShorts.Actions.create({"posts", EctoShorts.Schemas.PostAbstract}, %{body: "example"})
+      iex> {:ok, post} = EctoShorts.Actions.create(EctoShorts.Schemas.Post, %{body: "example"})
       ...> EctoShorts.Actions.update(EctoShorts.Schemas.Post, post, %{body: "updated_body"})
 
       # Using a tuple source:

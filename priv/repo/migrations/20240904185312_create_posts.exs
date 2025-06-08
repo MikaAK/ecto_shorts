@@ -7,6 +7,7 @@ defmodule EctoShorts.Repo.Migrations.CreatePosts do
       add :body, :string
       add :permalink, :string
       add :published, :boolean
+      add :published_at, :naive_datetime
       add :tags, {:array, :string}
       add :views, :integer
       add :custom_string_field, :string

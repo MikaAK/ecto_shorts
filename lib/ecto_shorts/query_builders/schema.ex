@@ -107,6 +107,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
     where
   )a
 
+  @default_binding_alias_type :path
   @join_keys [:qualifier, :on, :prefix]
 
   @impl EctoShorts.QueryBuilder
@@ -347,11 +348,19 @@ defmodule EctoShorts.QueryBuilders.Schema do
 
     as =
       if is_nil(as) do
-        path
-        |> Enum.reverse()
-        |> Enum.join("_")
-        |> named_binding()
-        |> String.to_atom()
+        case Keyword.get(opts, :binding_alias_type, @default_binding_alias_type) do
+          :key ->
+            key
+            |> named_binding()
+            |> String.to_atom()
+
+          :path ->
+            path
+            |> Enum.reverse()
+            |> Enum.join("_")
+            |> named_binding()
+            |> String.to_atom()
+        end
       else
         as
       end

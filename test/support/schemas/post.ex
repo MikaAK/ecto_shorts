@@ -15,16 +15,18 @@ defmodule EctoShorts.Schemas.Post do
       unique: true
 
     has_many :comments, EctoShorts.Schemas.Comment
-
     has_many :comments_authors, through: [:comments, :author]
 
-    field :title, :string
+    has_many :composite_primary_keys, EctoShorts.Schemas.CompositePrimaryKey
+
     field :body, :string
-    field :published, :boolean
     field :notes, :string, source: :custom_string_field
+    field :permalink, :string
+    field :published_at, :utc_datetime
+    field :published, :boolean
+    field :title, :string
     field :tags, {:array, :string}
     field :views, :integer
-    field :permalink, :string
 
     timestamps()
   end
@@ -36,6 +38,7 @@ defmodule EctoShorts.Schemas.Post do
                       :notes,
                       :permalink,
                       :published,
+                      :published_at,
                       :tags,
                       :title,
                       :views

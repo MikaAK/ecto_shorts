@@ -60,36 +60,31 @@ defmodule EctoShorts.CommonChanges do
 
   ## Examples
 
-      EctoShorts.CommonChanges.truncate_naive_datetime_change(changeset, :started_at)
-  """
-  @spec truncate_naive_datetime_change(changeset(), key(), precision()) :: changeset()
-  def truncate_naive_datetime_change(changeset, key, precision \\ :second) do
-    Changeset.update_change(changeset, key, fn
-      datetime when is_struct(datetime, NaiveDateTime) ->
-        NaiveDateTime.truncate(datetime, precision)
-
-      term ->
-        term
-    end)
-  end
-
-  @doc since: "2.5.0"
-  @doc """
-  Truncates a `DateTime` value in a field to a specified precision.
-
-  ## Examples
-
-      EctoShorts.CommonChanges.truncate_datetime_change(changeset, :expires_at)
+      EctoShorts.CommonChanges.truncate_datetime_change(changeset, :started_at)
   """
   @spec truncate_datetime_change(changeset(), key(), precision()) :: changeset()
   def truncate_datetime_change(changeset, key, precision \\ :second) do
     Changeset.update_change(changeset, key, fn
+      datetime when is_struct(datetime, NaiveDateTime) ->
+        NaiveDateTime.truncate(datetime, precision)
+
       datetime when is_struct(datetime, DateTime) ->
         DateTime.truncate(datetime, precision)
 
-      term ->
-        term
+      value ->
+        value
     end)
+  end
+
+  def changes_has_key?(changeset, key) do
+    Map.has_key?(changeset.changes, key)
+  end
+
+  def params_has_key?(changeset, key) do
+    case changeset.params do
+      nil -> false
+      params -> Map.has_key?(params, to_string(key))
+    end
   end
 
   @doc since: "2.5.0"
@@ -97,16 +92,13 @@ defmodule EctoShorts.CommonChanges do
   Applies the given function if the field hasn’t already been changed.
 
   ## Example
-
-      EctoShorts.CommonChanges.put_new_change(changeset, :slug, fn cs ->
-        put_change(cs, :slug, generate_slug(cs))
-      end)
   """
   @spec put_new_change(changeset(), key(), function()) :: changeset()
   def put_new_change(changeset, key, fun) do
-    case Changeset.get_change(changeset, key) do
-      nil -> fun.(changeset)
-      _ -> changeset
+    if changes_has_key?(changeset, key) do
+      changeset
+    else
+      Changeset.put_change(changeset, key, fun.())
     end
   end
 
@@ -152,9 +144,7 @@ defmodule EctoShorts.CommonChanges do
   """
   @spec changeset_change_nil?(changeset(), key()) :: boolean()
   def changeset_change_nil?(changeset, key) do
-    changeset
-    |> Changeset.get_change(key)
-    |> is_nil()
+    changeset |> Changeset.get_change(key) |> is_nil()
   end
 
   @doc """
@@ -189,23 +179,6 @@ defmodule EctoShorts.CommonChanges do
   end
 
   @doc """
-  Shortcut version of `preload_change_assoc/3` that uses default options.
-
-  Only preloads and casts if the key is present in the params. Otherwise,
-  falls back to a regular `cast_assoc/3`.
-  """
-  @spec preload_change_assoc(changeset(), key()) :: changeset()
-  def preload_change_assoc(changeset, key) do
-    if changeset_params_has_key?(changeset, key) do
-      changeset
-      |> preload_changeset_assoc(key)
-      |> put_or_cast_assoc(key)
-    else
-      Changeset.cast_assoc(changeset, key)
-    end
-  end
-
-  @doc """
   Preloads an association if present in the changeset params and
   applies either `cast_assoc/3` or `put_assoc/3`, depending on
   the data shape.
@@ -230,10 +203,11 @@ defmodule EctoShorts.CommonChanges do
       EctoShorts.CommonChanges.preload_change_assoc(changeset, :settings, required_when_missing: :settings_id)
       EctoShorts.CommonChanges.preload_change_assoc(changeset, :tags, repo: MyApp.CustomRepo)
   """
+  @spec preload_change_assoc(changeset(), key()) :: changeset()
   @spec preload_change_assoc(changeset(), key(), opts()) :: changeset()
-  def preload_change_assoc(changeset, key, opts) do
+  def preload_change_assoc(changeset, key, opts \\ []) do
     required? =
-      if opts[:required_when_missing] do
+      if Keyword.has_key?(opts, :required_when_missing) do
         changeset_field_nil?(changeset, opts[:required_when_missing])
       else
         opts[:required] === true
@@ -241,12 +215,12 @@ defmodule EctoShorts.CommonChanges do
 
     opts = Keyword.put(opts, :required, required?)
 
-    if changeset_params_has_key?(changeset, key) do
+    if params_has_key?(changeset, key) do
       changeset
       |> preload_changeset_assoc(key, opts)
       |> put_or_cast_assoc(key, opts)
     else
-      Changeset.cast_assoc(changeset, key, opts)
+      cast_assoc(changeset, key, opts)
     end
   end
 
@@ -274,28 +248,34 @@ defmodule EctoShorts.CommonChanges do
     Map.update!(changeset, :data, &Actions.preload(&1, preloads, opts))
   end
 
+  @doc """
+  ...
+  """
   def association_not_loaded?(%{data: schema_data} = _changeset, key) do
     SchemaHelpers.association_not_loaded?(schema_data, key)
   end
 
-  def changeset(%{data: _} = changeset, params) when params === %{} or params === [] do
+  @doc """
+  ...
+  """
+  def change(%{data: _} = changeset, params) when params === %{} or params === [] do
     changeset
   end
 
-  def changeset(%{data: %{__meta__: %{schema: schema}}} = changeset, params) do
-    changeset(schema, changeset, params)
+  def change(%{data: %{__meta__: %{schema: schema}}} = changeset, params) do
+    change(schema, changeset, params)
   end
 
-  def changeset(%{__meta__: %{schema: schema}} = schema_data, params) do
-    changeset(schema, schema_data, params)
+  def change(%{__meta__: %{schema: schema}} = schema_data, params) do
+    change(schema, schema_data, params)
   end
 
-  def changeset(schema, params) when is_atom(schema) do
-    changeset(schema, struct(schema), params)
+  def change(schema, params) when is_atom(schema) do
+    change(schema, struct(schema), params)
   end
 
-  def changeset(schema, struct_or_changeset, params) do
-    if function_exported?(schema, :changeset, 2) do
+  def change(schema, struct_or_changeset, params) do
+    if function_exported?(schema, :__schema__, 1) do
       schema.changeset(struct_or_changeset, params)
     else
       Changeset.change(struct_or_changeset, params)
@@ -322,39 +302,11 @@ defmodule EctoShorts.CommonChanges do
 
       EctoShorts.CommonChanges.put_or_cast_assoc(changeset, :tags)
   """
-  @spec put_or_cast_assoc(changeset(), key()) :: changeset()
-  @spec put_or_cast_assoc(changeset(), key(), opts()) :: changeset()
-  def put_or_cast_assoc(%{data: %{__meta__: _}} = changeset, key, opts \\ []) do
-    params_data = get_changeset_params(changeset, key)
+  def put_or_cast_assoc(changeset, key, opts \\ [])
 
-    apply_put_or_cast_assoc(changeset, key, params_data, opts)
-  end
-
-  defp apply_put_or_cast_assoc(changeset, key, nil, opts) do
-    Changeset.cast_assoc(changeset, key, opts)
-  end
-
-  defp apply_put_or_cast_assoc(changeset, key, params_data, opts) when is_list(params_data) do
-    schema = get_changeset_schema(changeset)
-
-    cond do
-      SchemaHelpers.all_schema_struct?(params_data) ->
-        Changeset.put_assoc(changeset, key, params_data, opts)
-
-      SchemaHelpers.all_only_primary_key?(schema, params_data) ->
-        put_assoc(changeset, key, params_data, opts)
-
-      SchemaHelpers.any_created?(schema, params_data) ->
-        cast_assoc(changeset, key, params_data, opts)
-
-      true ->
-        Changeset.cast_assoc(changeset, key, opts)
-    end
-  end
-
-  defp apply_put_or_cast_assoc(changeset, key, params_data, opts) do
-    if SchemaHelpers.schema_struct?(params_data) do
-      Changeset.put_assoc(changeset, key, params_data, opts)
+  def put_or_cast_assoc(%{data: %{__meta__: _}} = changeset, key, opts) do
+    if params_has_key?(changeset, key) do
+      put_or_cast_assoc(changeset, key, get_changeset_params(changeset, key), opts)
     else
       Changeset.cast_assoc(changeset, key, opts)
     end
@@ -363,38 +315,86 @@ defmodule EctoShorts.CommonChanges do
   @doc """
   ...
   """
-  def put_assoc(changeset, key, opts) do
-    put_assoc(changeset, key, get_changeset_params(changeset, key), opts)
+  def put_or_cast_assoc(changeset, key, values, opts) when is_list(values) do
+    schema = get_changeset_schema_module(changeset)
+
+    cond do
+      SchemaHelpers.all_schema_struct?(values) ->
+        put_assoc(changeset, key, values, opts)
+
+      SchemaHelpers.all_only_primary_key?(schema, values) ->
+        put_assoc(changeset, key, values, opts)
+
+      SchemaHelpers.any_created?(schema, values) ->
+        cast_assoc(changeset, key, values, opts)
+
+      true ->
+        cast_assoc(changeset, key, values, opts)
+    end
   end
 
-  defp put_assoc(changeset, _key, nil, _opts) do
-    changeset
+  def put_or_cast_assoc(changeset, key, value, opts) do
+    if SchemaHelpers.schema_struct?(value) do
+      put_assoc(changeset, key, value, opts)
+    else
+      cast_assoc(changeset, key, value, opts)
+    end
   end
 
-  defp put_assoc(changeset, key, params_data, opts) do
+  @doc """
+  ...
+  """
+  def put_assoc(changeset, key, value, opts \\ [])
+
+  def put_assoc(changeset, key, params_list, opts) when is_list(params_list) do
     assoc = fetch_changeset_association!(changeset, key)
-
     assoc_queryable = assoc.queryable
+    assoc_schema = assoc.related
 
-    assoc_schema =
-      if related_assoc?(assoc) do
-        assoc.related
-      else
-        raise_not_related_assoc!(changeset, key, assoc)
-      end
+    {params_list, entries} = split_schema_data(params_list)
 
-    query_params = build_query_params(assoc_schema, params_data)
+    query_params =
+      params_list
+      |> filter_query_params(assoc_schema)
+      |> build_query_params(assoc_schema)
+
+    IO.inspect(query_params, label: "WOO")
 
     if query_params === %{} do
-      changeset
+      Changeset.put_assoc(changeset, key, entries, opts)
     else
       changeset = preload_association(changeset, key, opts)
 
-      # assoc :queryable is the real query to use for querying associations
-      records = actions_all(assoc_queryable, query_params, opts)
+      records = Actions.all(assoc_queryable, query_params, opts)
 
-      Changeset.put_assoc(changeset, key, records, opts)
+      Changeset.put_assoc(changeset, key, entries ++ records, opts)
     end
+  end
+
+  def put_assoc(changeset, key, %_{} = schema_data, opts) do
+    Changeset.put_assoc(changeset, key, schema_data, opts)
+  end
+
+  def put_assoc(changeset, key, params, opts) do
+    assoc = fetch_changeset_association!(changeset, key)
+    assoc_queryable = assoc.queryable
+    assoc_schema = assoc.related
+
+    changeset = preload_association(changeset, key, opts)
+
+    query_params = SchemaHelpers.filter_primary_key(params, assoc_schema)
+
+    case Actions.find(assoc_queryable, query_params, opts) do
+      {:ok, record} -> Changeset.put_assoc(changeset, key, record, opts)
+      {:error, _} -> changeset
+    end
+  end
+
+  defp split_schema_data(values) do
+    Enum.reduce(values, {[], []}, fn
+      %_{} = schema_data, {entries, acc} -> {entries, [schema_data | acc]}
+      value, {entries, acc} -> {[value | entries], acc}
+    end)
   end
 
   @doc """
@@ -404,67 +404,76 @@ defmodule EctoShorts.CommonChanges do
     cast_assoc(changeset, key, get_changeset_params(changeset, key), opts)
   end
 
-  defp cast_assoc(changeset, _key, nil, _opts) do
-    changeset
+  @doc """
+  ...
+  """
+  def cast_assoc(changeset, key, nil, opts) do
+    Changeset.cast_assoc(changeset, key, opts)
   end
 
-  defp cast_assoc(changeset, key, params_data, opts) do
+  def cast_assoc(changeset, key, params_list, opts) when is_list(params_list) do
     assoc = fetch_changeset_association!(changeset, key)
+    assoc_queryable = assoc.queryable
+    assoc_schema = assoc.related
 
+    query_params =
+      params_list
+      |> filter_query_params(assoc_schema)
+      |> build_query_params(assoc_schema)
+
+    changeset
+    |> load_association(assoc_queryable, key, query_params, opts)
+    |> Changeset.change(%{key => params_list})
+    |> Changeset.cast_assoc(key, opts)
+  end
+
+  def cast_assoc(changeset, key, params, opts) do
+    assoc = fetch_changeset_association!(changeset, key)
     assoc_queryable = assoc.queryable
 
-    assoc_schema =
-      if related_assoc?(assoc) do
-        assoc.related
-      else
-        raise_not_related_assoc!(changeset, key, assoc)
-      end
-
-    query_params = build_query_params(assoc_schema, params_data)
-
-    if query_params === %{} do
-      changeset
-    else
-      changeset
-      |> load_association(assoc_queryable, key, query_params, opts)
-      |> Changeset.cast_assoc(key, opts)
-    end
+    changeset
+    |> load_association(assoc_queryable, key, params, opts)
+    |> Changeset.change(%{key => params})
+    |> Changeset.cast_assoc(key, opts)
   end
 
-  @doc false
-  def build_query_params(schema, params) do
-    params_list =
-      params
-      |> List.wrap()
-      |> Enum.filter(&(is_map(&1) and not is_struct(&1)))
-      |> SchemaHelpers.filter_primary_key(schema)
-
-    if params_list === [] do
-      %{}
-    else
-      if SchemaHelpers.primary_key_count(schema) > 1 do
-        %{or_where: params_list}
-      else
-        flatten_query_params(params_list)
-      end
-    end
+  defp build_query_params([], _schema) do
+    %{}
   end
 
-  defp flatten_query_params(params_list) do
-    Enum.reduce(params_list, %{}, fn params, acc ->
-      Enum.reduce(params, acc, fn
-        {key, val}, acc when is_binary(val) or is_integer(val) ->
-          Map.update(acc, key, [val], &[val | &1])
+  defp build_query_params(params_list, schema) do
+    if SchemaHelpers.primary_key_count(schema) > 1 do
+      %{or_where: params_list}
+    else
+      Enum.reduce(params_list, %{}, fn params, acc ->
+        Enum.reduce(params, acc, fn
+          {key, val}, acc when is_binary(val) or is_integer(val) ->
+            Map.update(acc, key, [val], &[val | &1])
 
-        _, acc ->
-          acc
+          _, acc ->
+            acc
+        end)
       end)
+    end
+  end
+
+  defp filter_query_params(params_list, schema) do
+    Enum.reduce(params_list, [], fn
+      params, acc when is_map(params) and not is_struct(params) ->
+        if SchemaHelpers.has_primary_key?(schema, params) do
+          [SchemaHelpers.filter_primary_key(params, schema) | acc]
+        else
+          acc
+        end
+
+      _, acc ->
+        acc
     end)
   end
 
   @doc false
   def preload_association(changeset, key, opts) do
-    if association_not_loaded?(changeset, key) or opts[:force_preload] === true do
+    if association_not_loaded?(changeset, key) or opts[:force] === true do
       Map.update!(changeset, :data, fn schema_data ->
         Actions.preload(schema_data, key, opts)
       end)
@@ -473,13 +482,39 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  @doc false
-  def put_loaded_association(changeset, key, records, opts) do
+  def load_association(changeset, _source, _key, params, _opts) when params === %{} do
+    changeset
+  end
+
+  def load_association(changeset, source, key, params, opts) do
+    schema = schema_from_source(source)
+
+    assoc = fetch_changeset_association!(changeset, key)
+
+    params = SchemaHelpers.filter_primary_key(params, schema)
+
+    if params === %{} do
+      changeset
+    else
+      if assoc.cardinality === :many do
+        records = Actions.all(source, params, opts)
+
+        put_loaded_association(changeset, key, records, opts)
+      else
+        case Actions.find(source, params, opts) do
+          {:ok, record} -> put_loaded_association(changeset, key, record, opts)
+          {:error, _} -> changeset
+        end
+      end
+    end
+  end
+
+  defp put_loaded_association(changeset, key, records, opts) do
     Map.update!(changeset, :data, fn schema_data ->
       if SchemaHelpers.association_not_loaded?(schema_data, key) do
         Map.put(schema_data, key, records)
       else
-        if Keyword.get(opts, :replace_association, true) do
+        if opts[:force] === true do
           Map.put(schema_data, key, records)
         else
           schema_data
@@ -488,71 +523,14 @@ defmodule EctoShorts.CommonChanges do
     end)
   end
 
-  @doc false
-  def load_association(changeset, source, key, query_params, opts) do
-    records = actions_all(source, query_params, opts)
-
-    put_loaded_association(changeset, key, records, opts)
-  end
-
-  defp actions_all(schema, params, opts) do
-    extra_params =
-      if Keyword.has_key?(opts, :all) do
-        case opts[:all] do
-          nil -> %{}
-          fun when is_function(fun, 0) -> fun.()
-          params -> params
-        end
-      else
-        %{}
-      end
-
-    params = Map.merge(extra_params, params)
-
-    Actions.all(schema, params, opts)
-  end
-
-  defp changeset_params_has_key?(%{params: nil}, _key), do: false
-  defp changeset_params_has_key?(%{params: params}, key), do: Map.has_key?(params, to_string(key))
+  defp schema_from_source({_, schema}), do: schema
+  defp schema_from_source(schema), do: schema
 
   defp get_changeset_params(%{params: nil}, _key), do: nil
   defp get_changeset_params(%{params: params}, key), do: Map.get(params, to_string(key))
 
-  defp related_assoc?(%{related: _}), do: true
-  defp related_assoc?(_), do: false
-
-  defp raise_not_related_assoc!(%{data: %{__meta__: %{schema: schema}}} = changeset, key, assoc) do
-    raise ArgumentError,
-          """
-          Expected a direct association with a `:related` key, but got
-          an association that does not support direct Ecto operations.
-
-          This likely happens when using a `:through` association,
-          which cannot be used with functions like `put_assoc` or
-          `cast_assoc`.
-
-          Supported associations include: `belongs_to`, `has_one`, and `has_many`.
-
-          schema:
-
-          #{inspect(schema)}
-
-          key:
-
-          #{inspect(key)}
-
-          association:
-
-          #{inspect(assoc, pretty: true)}
-
-          changeset:
-
-          #{inspect(changeset, pretty: true)}
-          """
-  end
-
   defp fetch_changeset_association!(%{types: types} = changeset, key) do
-    schema = get_changeset_schema(changeset)
+    schema = get_changeset_schema_module(changeset)
 
     if Map.has_key?(types, key) do
       case Map.get(types, key) do
@@ -569,7 +547,7 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  defp get_changeset_schema(%{data: %{__meta__: %{schema: queryable}}}) do
+  defp get_changeset_schema_module(%{data: %{__meta__: %{schema: queryable}}}) do
     queryable
   end
 end

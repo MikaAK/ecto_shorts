@@ -9,6 +9,7 @@ defmodule EctoShorts.Schemas.CommentAbstract do
 
     field :body, :string
     field :published, :boolean
+    field :published_at, :naive_datetime
     field :replies, :integer
     field :tags, {:array, :string}
 
@@ -22,6 +23,7 @@ defmodule EctoShorts.Schemas.CommentAbstract do
     :body,
     :post_id,
     :published,
+    :published_at,
     :replies,
     :tags
   ]
