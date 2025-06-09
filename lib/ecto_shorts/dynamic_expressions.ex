@@ -74,16 +74,19 @@ defmodule EctoShorts.DynamicExpressions do
   end
 
   defp normalize_conditions(params) do
-    {cons, acc} =
+    {conditioned_params, base_params} =
       Enum.reduce(params, {[], []}, fn
-        {:and, params}, {cons, acc} -> {[{:and, params} | cons], acc}
-        {:or, params}, {cons, acc} -> {[{:or, params} | cons], acc}
-        {key, value}, {cons, acc} -> {cons, [{key, value} | acc]}
+        {:and, con}, {conditioned_params, acc} ->
+          {[{:and, con} | conditioned_params], acc}
+
+        {:or, con}, {conditioned_params, acc} ->
+          {[{:or, con} | conditioned_params], acc}
+
+        {key, value}, {conditioned_params, acc} ->
+          {conditioned_params, [{key, value} | acc]}
       end)
 
-    cons
-    |> Kernel.++(and: acc)
-    |> Enum.sort()
+    Enum.sort([and: base_params] ++ conditioned_params)
   end
 
   @doc """

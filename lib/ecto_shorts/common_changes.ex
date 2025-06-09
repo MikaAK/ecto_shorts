@@ -76,17 +76,6 @@ defmodule EctoShorts.CommonChanges do
     end)
   end
 
-  def changes_has_key?(changeset, key) do
-    Map.has_key?(changeset.changes, key)
-  end
-
-  def params_has_key?(changeset, key) do
-    case changeset.params do
-      nil -> false
-      params -> Map.has_key?(params, to_string(key))
-    end
-  end
-
   @doc since: "2.5.0"
   @doc """
   Applies the given function if the field hasn’t already been changed.
@@ -95,7 +84,7 @@ defmodule EctoShorts.CommonChanges do
   """
   @spec put_new_change(changeset(), key(), function()) :: changeset()
   def put_new_change(changeset, key, fun) do
-    if changes_has_key?(changeset, key) do
+    if Map.has_key?(changeset.changes, key) do
       changeset
     else
       Changeset.put_change(changeset, key, fun.())
@@ -326,10 +315,10 @@ defmodule EctoShorts.CommonChanges do
         put_assoc(changeset, key, values, opts)
 
       SchemaHelpers.any_created?(schema, values) ->
-        cast_assoc(changeset, key, values, opts)
+        apply_cast_assoc(changeset, key, values, opts)
 
       true ->
-        cast_assoc(changeset, key, values, opts)
+        apply_cast_assoc(changeset, key, values, opts)
     end
   end
 
@@ -337,7 +326,7 @@ defmodule EctoShorts.CommonChanges do
     if SchemaHelpers.schema_struct?(value) do
       put_assoc(changeset, key, value, opts)
     else
-      cast_assoc(changeset, key, value, opts)
+      apply_cast_assoc(changeset, key, value, opts)
     end
   end
 
@@ -355,10 +344,8 @@ defmodule EctoShorts.CommonChanges do
 
     query_params =
       params_list
-      |> filter_query_params(assoc_schema)
-      |> build_query_params(assoc_schema)
-
-    IO.inspect(query_params, label: "WOO")
+      |> filter_queryable_params(assoc_schema)
+      |> build_queryable_params(assoc_schema)
 
     if query_params === %{} do
       Changeset.put_assoc(changeset, key, entries, opts)
@@ -400,48 +387,43 @@ defmodule EctoShorts.CommonChanges do
   @doc """
   ...
   """
-  def cast_assoc(changeset, key, opts) do
-    cast_assoc(changeset, key, get_changeset_params(changeset, key), opts)
+  def cast_assoc(changeset, key, opts \\ []) do
+    apply_cast_assoc(changeset, key, get_changeset_params(changeset, key), opts)
   end
 
-  @doc """
-  ...
-  """
-  def cast_assoc(changeset, key, nil, opts) do
+  defp apply_cast_assoc(changeset, key, nil, opts) do
     Changeset.cast_assoc(changeset, key, opts)
   end
 
-  def cast_assoc(changeset, key, params_list, opts) when is_list(params_list) do
+  defp apply_cast_assoc(changeset, key, params_list, opts) when is_list(params_list) do
     assoc = fetch_changeset_association!(changeset, key)
-    assoc_queryable = assoc.queryable
     assoc_schema = assoc.related
 
     query_params =
       params_list
-      |> filter_query_params(assoc_schema)
-      |> build_query_params(assoc_schema)
+      |> filter_queryable_params(assoc_schema)
+      |> build_queryable_params(assoc_schema)
 
     changeset
-    |> load_association(assoc_queryable, key, query_params, opts)
+    |> load_association(assoc.queryable, key, query_params, opts)
     |> Changeset.change(%{key => params_list})
     |> Changeset.cast_assoc(key, opts)
   end
 
-  def cast_assoc(changeset, key, params, opts) do
+  defp apply_cast_assoc(changeset, key, params, opts) do
     assoc = fetch_changeset_association!(changeset, key)
-    assoc_queryable = assoc.queryable
 
     changeset
-    |> load_association(assoc_queryable, key, params, opts)
+    |> load_association(assoc.queryable, key, params, opts)
     |> Changeset.change(%{key => params})
     |> Changeset.cast_assoc(key, opts)
   end
 
-  defp build_query_params([], _schema) do
+  defp build_queryable_params([], _schema) do
     %{}
   end
 
-  defp build_query_params(params_list, schema) do
+  defp build_queryable_params(params_list, schema) do
     if SchemaHelpers.primary_key_count(schema) > 1 do
       %{or_where: params_list}
     else
@@ -449,26 +431,21 @@ defmodule EctoShorts.CommonChanges do
         Enum.reduce(params, acc, fn
           {key, val}, acc when is_binary(val) or is_integer(val) ->
             Map.update(acc, key, [val], &[val | &1])
-
-          _, acc ->
-            acc
         end)
       end)
     end
   end
 
-  defp filter_query_params(params_list, schema) do
-    Enum.reduce(params_list, [], fn
-      params, acc when is_map(params) and not is_struct(params) ->
-        if SchemaHelpers.has_primary_key?(schema, params) do
-          [SchemaHelpers.filter_primary_key(params, schema) | acc]
-        else
-          acc
-        end
-
-      _, acc ->
+  defp filter_queryable_params(params_list, schema) do
+    params_list
+    |> Enum.reduce([], fn params, acc ->
+      if SchemaHelpers.has_primary_key?(schema, params) do
+        [SchemaHelpers.filter_primary_key(params, schema) | acc]
+      else
         acc
+      end
     end)
+    |> Enum.reverse()
   end
 
   @doc false
@@ -499,27 +476,26 @@ defmodule EctoShorts.CommonChanges do
       if assoc.cardinality === :many do
         records = Actions.all(source, params, opts)
 
-        put_loaded_association(changeset, key, records, opts)
+        put_loaded_association(changeset, key, records)
       else
         case Actions.find(source, params, opts) do
-          {:ok, record} -> put_loaded_association(changeset, key, record, opts)
+          {:ok, record} -> put_loaded_association(changeset, key, record)
           {:error, _} -> changeset
         end
       end
     end
   end
 
-  defp put_loaded_association(changeset, key, records, opts) do
+  defp params_has_key?(changeset, key) do
+    case changeset.params do
+      nil -> false
+      params -> Map.has_key?(params, to_string(key))
+    end
+  end
+
+  defp put_loaded_association(changeset, key, records) do
     Map.update!(changeset, :data, fn schema_data ->
-      if SchemaHelpers.association_not_loaded?(schema_data, key) do
-        Map.put(schema_data, key, records)
-      else
-        if opts[:force] === true do
-          Map.put(schema_data, key, records)
-        else
-          schema_data
-        end
-      end
+      Map.put(schema_data, key, records)
     end)
   end
 

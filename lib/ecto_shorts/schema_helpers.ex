@@ -373,28 +373,24 @@ defmodule EctoShorts.SchemaHelpers do
   """
   @spec filter_primary_key(params() | list(params()), schema()) :: params() | list(params())
   def filter_primary_key(params_list, schema) when is_list(params_list) do
-    primary_key = schema.__schema__(:primary_key)
-
     params_list
-    |> Enum.map(&take_if_all_keys_member(&1, primary_key))
-    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&filter_primary_key(&1, schema))
+    |> Enum.filter(&Enum.any?/1)
   end
 
-  def filter_primary_key(params, schema) do
-    take_if_all_keys_member(params, schema.__schema__(:primary_key)) || %{}
-  end
+  def filter_primary_key(params, schema) when is_map(params) do
+    case schema.__schema__(:primary_key) do
+      [] ->
+        %{}
 
-  defp take_if_all_keys_member(_params, []) do
-    nil
-  end
+      keys ->
+        params = Map.take(params, keys)
 
-  defp take_if_all_keys_member(params, keys) do
-    params = Map.take(params, keys)
-
-    if all_keys_member?(params, keys) do
-      params
-    else
-      nil
+        if all_keys_member?(params, keys) do
+          params
+        else
+          %{}
+        end
     end
   end
 
@@ -524,7 +520,7 @@ defmodule EctoShorts.SchemaHelpers do
   end
 
   def has_primary_key?(schema, schema_data_or_params) do
-    has_all_non_nil_keys?(schema_data_or_params, schema.__schema__(:primary_key))
+    has_all_keys_and_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
   end
 
   def primary_key_count(schema) do
@@ -554,17 +550,17 @@ defmodule EctoShorts.SchemaHelpers do
     schema.__schema__(:primary_key)
   end
 
-  defp has_all_non_nil_keys?(_, []) do
+  defp has_all_keys_and_not_nil?(_, []) do
     false
   end
 
-  defp has_all_non_nil_keys?(%_{} = schema_data, keys) do
+  defp has_all_keys_and_not_nil?(%_{} = schema_data, keys) do
     Enum.all?(keys, fn key ->
       Map.has_key?(schema_data, key) and not (schema_data |> Map.fetch!(key) |> is_nil())
     end)
   end
 
-  defp has_all_non_nil_keys?(params, keys) do
+  defp has_all_keys_and_not_nil?(params, keys) do
     Enum.all?(keys, fn key ->
       (Map.has_key?(params, key) and Map.get(params, key) !== nil) or
         (Map.has_key?(params, to_string(key)) and Map.get(params, to_string(key)) !== nil)
@@ -577,8 +573,11 @@ defmodule EctoShorts.SchemaHelpers do
 
   defp all_keys_member?(params, keys) do
     Enum.all?(params, fn
-      {key, val} when is_atom(key) -> key in keys and not is_nil(val)
-      {key, val} when is_binary(key) -> String.to_existing_atom(key) in keys and not is_nil(val)
+      {key, val} when is_atom(key) ->
+        Enum.member?(keys, key) and not is_nil(val)
+
+      {key, val} when is_binary(key) ->
+        Enum.member?(keys, String.to_existing_atom(key)) and not is_nil(val)
     end)
   end
 end

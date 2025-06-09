@@ -12,6 +12,29 @@ defmodule EctoShorts.DynamicExpressions.PostgresTest do
     %{base: dynamic([d], d.description == "example")}
   end
 
+  describe "operators" do
+    test "1" do
+      assert [
+               :like,
+               :ilike,
+               :=~,
+               :==,
+               :!=,
+               :<,
+               :>,
+               :<=,
+               :>=,
+               :re,
+               :eq,
+               :not,
+               :lt,
+               :gt,
+               :lte,
+               :gte
+             ] = Postgres.operators()
+    end
+  end
+
   describe "create_dynamic/6 basic condition combination" do
     test "adds a condition with :and and :or", %{base: dyn} do
       assert_dynamic dynamic([d], d.description == "example" and d.id == ^1),

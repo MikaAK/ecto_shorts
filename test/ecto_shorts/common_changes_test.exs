@@ -20,20 +20,6 @@ defmodule EctoShorts.CommonChangesTest do
     UserData
   }
 
-  describe "changes_has_key?: " do
-    test "returns true when change exists" do
-      assert %Post{}
-             |> Post.changeset(%{title: "post_title"})
-             |> CommonChanges.changes_has_key?(:title)
-    end
-
-    test "returns false when change does not exist" do
-      refute %Post{}
-             |> Post.changeset(%{title: "post_title"})
-             |> CommonChanges.changes_has_key?(:does_not_exist)
-    end
-  end
-
   describe "put_new_change: " do
     test "adds change if it does not exist" do
       assert %Changeset{changes: %{title: "should_see_this"}}
@@ -44,11 +30,9 @@ defmodule EctoShorts.CommonChangesTest do
     end
 
     test "does not replace existing change" do
-      assert %Changeset{changes: %{title: "existing_title"}}
-
-      %Post{}
-      |> Post.changeset(%{title: "existing_title"})
-      |> CommonChanges.put_new_change(:title, "should_not_see_this")
+      changeset = Post.changeset(%Post{}, %{title: "post_title"})
+      assert %Changeset{changes: %{title: "post_title"}} = changeset
+      assert changeset === CommonChanges.put_new_change(changeset, :title, "should_not_see_this")
     end
   end
 
@@ -466,7 +450,14 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "cast_assoc/4" do
+  describe "cast_assoc/3" do
+    test "handles cases where changeset params is nil because the changeset was built with Ecto.Changeset.change and not the schema modules changeset/2 function" do
+      assert %Changeset{data: %Post{}} =
+               %Post{}
+               |> Changeset.change()
+               |> CommonChanges.cast_assoc(:author)
+    end
+
     test "can find one association and put association given map with id" do
       user = Testing.insert!(Repo, User, %{})
 
@@ -482,12 +473,8 @@ defmodule EctoShorts.CommonChangesTest do
                }
              } =
                %Post{}
-               |> Post.changeset()
-               |> CommonChanges.cast_assoc(
-                 :author,
-                 %{id: user.id, first_name: "user_first_name"},
-                 []
-               )
+               |> Post.changeset(%{author: %{id: user.id, first_name: "user_first_name"}})
+               |> CommonChanges.cast_assoc(:author)
     end
 
     test "creates a changeset for new record if record matching id not found" do
@@ -497,22 +484,14 @@ defmodule EctoShorts.CommonChangesTest do
                  author: %Changeset{
                    data: %User{id: nil},
                    changes: %{
-                     id: 123_456,
                      first_name: "user_first_name"
                    }
                  }
                }
              } =
                %Post{}
-               |> Post.changeset()
-               |> CommonChanges.cast_assoc(
-                 :author,
-                 %{
-                   id: 123_456,
-                   first_name: "user_first_name"
-                 },
-                 []
-               )
+               |> Post.changeset(%{author: %{id: 123_456, first_name: "user_first_name"}})
+               |> CommonChanges.cast_assoc(:author)
     end
   end
 
@@ -523,7 +502,6 @@ defmodule EctoShorts.CommonChangesTest do
 
       composite_primary_key =
         Testing.insert!(Repo, CompositePrimaryKey, %{post_id: post.id, comment_id: comment.id})
-        |> IO.inspect()
 
       assert %Changeset{
                changes: %{composite_primary_keys: [%Changeset{data: ^composite_primary_key}]}
@@ -554,6 +532,23 @@ defmodule EctoShorts.CommonChangesTest do
                |> CommonChanges.put_assoc(:author, %{id: 123_456})
     end
 
+    test "can find and put associations with mixed params of structs and maps" do
+      user_1 = Testing.insert!(Repo, User, %{first_name: "user_1_first_name"})
+      user_2 = Testing.insert!(Repo, User, %{first_name: "user_2_first_name"})
+
+      assert %Changeset{
+               changes: %{
+                 authors: [
+                   %Changeset{action: :update, data: ^user_2},
+                   %Changeset{action: :update, data: ^user_1}
+                 ]
+               }
+             } =
+               %Post{}
+               |> Post.changeset(%{})
+               |> CommonChanges.put_assoc(:authors, [%{id: user_1.id}, user_2])
+    end
+
     test "can find many associations and put association given maps with id" do
       user = Testing.insert!(Repo, User, %{})
 
@@ -579,6 +574,19 @@ defmodule EctoShorts.CommonChangesTest do
                %Post{}
                |> Post.changeset(%{})
                |> CommonChanges.put_assoc(:authors, [user])
+    end
+
+    test "raises if the field exists on the schema and its not an association" do
+      author = Testing.insert!(Repo, User, %{})
+
+      message =
+        "expected :title to be an association in the changeset for schema EctoShorts.Schemas.Post"
+
+      assert_raise ArgumentError, message, fn ->
+        %Post{}
+        |> Post.changeset(%{})
+        |> CommonChanges.put_assoc(:title, [author])
+      end
     end
 
     test "raises if not a direct schema association" do
