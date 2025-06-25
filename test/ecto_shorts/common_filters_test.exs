@@ -933,47 +933,5 @@ defmodule EctoShorts.CommonFiltersTest do
                      comments: %{post: %{author: %{id: 456}}}
                    })
     end
-
-    test "raises when given a non-direct association has_through" do
-      expected_message =
-        """
-        Expected a direct association with a `:related` key, but got
-        an association that does not support direct Ecto operations.
-
-        This likely happens when using a `:through` association,
-        which cannot be used with functions like `put_assoc` or
-        `cast_assoc`.
-
-        Supported associations include: `belongs_to`, `has_one`, and `has_many`.
-
-        key:
-
-        :comments_authors
-
-        association:
-
-        %Ecto.Association.HasThrough{
-          cardinality: :many,
-          field: :comments_authors,
-          owner: EctoShorts.Schemas.PostAbstract,
-          owner_key: :id,
-          through: [:comments, :author],
-          on_cast: nil,
-          relationship: :child,
-          unique: true,
-          ordered: false
-        }
-
-        schema:
-
-        EctoShorts.Schemas.PostAbstract
-        """
-
-      assert_raise ArgumentError, expected_message, fn ->
-        CommonFilters.convert_params_to_filter({"posts", PostAbstract}, %{
-          comments_authors: %{id: 1}
-        })
-      end
-    end
   end
 end

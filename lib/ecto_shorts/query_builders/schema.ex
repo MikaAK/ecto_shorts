@@ -76,6 +76,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
   ...> )
   ```
   """
+  alias EctoShorts.SchemaHelpers
   alias EctoShorts.{
     # CommonQuery,
     CommonQueryAPI,
@@ -371,34 +372,8 @@ defmodule EctoShorts.QueryBuilders.Schema do
       if assoc_schema !== nil do
         assoc_schema
       else
-        assoc = schema.__schema__(:association, key)
-
-        if Map.has_key?(assoc, :related) do
-          assoc.related
-        else
-          raise ArgumentError,
-                """
-                Expected a direct association with a `:related` key, but got
-                an association that does not support direct Ecto operations.
-
-                This likely happens when using a `:through` association,
-                which cannot be used with functions like `put_assoc` or
-                `cast_assoc`.
-
-                Supported associations include: `belongs_to`, `has_one`, and `has_many`.
-
-                key:
-
-                #{inspect(key)}
-
-                association:
-
-                #{inspect(assoc, pretty: true)}
-
-                schema:
-
-                #{inspect(schema, pretty: true)}
-                """
+        with nil <- SchemaHelpers.get_schema_assoc_module(schema, key) do
+          raise "Expected key to be an association for schema #{inspect(schema)}, got: #{inspect(key)}"
         end
       end
 
