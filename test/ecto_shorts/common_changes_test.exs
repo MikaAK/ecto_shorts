@@ -16,6 +16,7 @@ defmodule EctoShorts.CommonChangesTest do
     CompositePrimaryKey,
     PostHasTupleFieldSource,
     Post,
+    PostAuthor,
     User,
     UserData
   }
@@ -220,7 +221,7 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "preload_changeset_assoc: " do
+  describe "preload_changeset: " do
     test "can preload belongs_to relationship" do
       post = Testing.insert!(Repo, Post, %{title: "title"})
 
@@ -241,7 +242,7 @@ defmodule EctoShorts.CommonChangesTest do
             title: "updated_title"
           }
         })
-        |> CommonChanges.preload_changeset_assoc(:post)
+        |> CommonChanges.preload_changeset(:post)
 
       assert %Changeset{
                action: nil,
@@ -280,7 +281,7 @@ defmodule EctoShorts.CommonChangesTest do
             }
           ]
         })
-        |> CommonChanges.preload_changeset_assoc(:comments)
+        |> CommonChanges.preload_changeset(:comments)
 
       assert %Changeset{
                action: nil,
@@ -320,7 +321,7 @@ defmodule EctoShorts.CommonChangesTest do
             }
           ]
         })
-        |> CommonChanges.preload_changeset_assoc(:authors)
+        |> CommonChanges.preload_changeset(:authors)
 
       assert %Changeset{
                action: nil,
@@ -345,7 +346,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
                post
                |> PostHasTupleFieldSource.changeset(%{comments: [%{id: comment.id}]})
-               |> CommonChanges.preload_changeset_assoc(:comments)
+               |> CommonChanges.preload_changeset(:comments)
 
       assert %PostHasTupleFieldSource{comments: [^comment]} = changeset_post
     end
@@ -379,7 +380,7 @@ defmodule EctoShorts.CommonChangesTest do
             }
           ]
         })
-        |> CommonChanges.preload_changeset_assoc(:comments, ids: [comment_1_id, comment_2_id])
+        |> CommonChanges.preload_changeset(:comments, ids: [comment_1_id, comment_2_id])
 
       assert %Changeset{
                action: nil,
@@ -419,7 +420,7 @@ defmodule EctoShorts.CommonChangesTest do
       changeset =
         post
         |> Post.changeset(%{authors: [%{id: user_1_id, email: "user_1_updated_email"}]})
-        |> CommonChanges.preload_changeset_assoc(:authors, ids: [user_1_id, user_2_id])
+        |> CommonChanges.preload_changeset(:authors, ids: [user_1_id, user_2_id])
 
       assert %Changeset{
                action: nil,
@@ -445,7 +446,7 @@ defmodule EctoShorts.CommonChangesTest do
                    fn ->
                      post
                      |> Post.changeset(%{})
-                     |> CommonChanges.preload_changeset_assoc(:non_existent_association, ids: [1])
+                     |> CommonChanges.preload_changeset(:non_existent_association, ids: [1])
                    end
     end
   end
@@ -493,6 +494,56 @@ defmodule EctoShorts.CommonChangesTest do
                |> Post.changeset(%{author: %{id: 123_456, first_name: "user_first_name"}})
                |> CommonChanges.cast_assoc(:author)
     end
+
+    test "can update a nested association even if the parent association is not preloaded" do
+      user_1 = Testing.insert!(Repo, User)
+      user_2 = Testing.insert!(Repo, User)
+
+      post = Testing.insert!(Repo, Post, %{title: "post_title", author_id: user_1.id})
+
+      _post_author_1 =
+        Testing.insert!(Repo, PostAuthor, %{post_id: post.id, author_id: user_1.id})
+
+      _post_author_2 =
+        Testing.insert!(Repo, PostAuthor, %{post_id: post.id, author_id: user_2.id})
+
+      comment_1 =
+        Testing.insert!(Repo, Comment, %{
+          body: "comment_body_1",
+          post_id: post.id,
+          author_id: user_1.id
+        })
+
+      comment_2 =
+        Testing.insert!(Repo, Comment, %{
+          body: "comment_body_2",
+          post_id: post.id,
+          author_id: user_2.id
+        })
+
+      expected_post = %{
+        post
+        | author: user_1,
+          authors: [
+            %{user_1 | comments: [comment_1]},
+            %{user_2 | comments: [comment_2]}
+          ],
+          comments: [comment_1, comment_2]
+      }
+
+      assert expected_post === Repo.preload(post, [:author, :comments, authors: [:comments]])
+
+      assert {:ok, updated_post} =
+               post
+               |> Post.changeset(%{authors: [%{id: user_1.id, comments: []}]})
+               |> CommonChanges.cast_assoc(:authors)
+               |> Repo.update()
+
+      assert post.id === updated_post.id
+      # assert [post_author_1] = updated_post.authors
+      # assert user_1.id === post_author_1.id
+      # assert %Ecto.Association.NotLoaded{} === post_author_1.comments
+    end
   end
 
   describe "put_assoc/4" do
@@ -525,8 +576,8 @@ defmodule EctoShorts.CommonChangesTest do
                |> CommonChanges.put_assoc(:author, %{id: user.id})
     end
 
-    test "returns changeset with nil association when given map with id that does not exist" do
-      assert %Changeset{data: %Post{author: nil}} =
+    test "returns changeset with association not loaded when given map with id that does not exist" do
+      assert %Changeset{data: %Post{author: %Ecto.Association.NotLoaded{}}, valid?: true} =
                %Post{}
                |> Post.changeset(%{})
                |> CommonChanges.put_assoc(:author, %{id: 123_456})
@@ -580,7 +631,7 @@ defmodule EctoShorts.CommonChangesTest do
       author = Testing.insert!(Repo, User, %{})
 
       message =
-        "expected :title to be an association in the changeset for schema EctoShorts.Schemas.Post"
+        "Expected key to be an association for schema EctoShorts.Schemas.Post, got: :title"
 
       assert_raise ArgumentError, message, fn ->
         %Post{}
@@ -593,7 +644,7 @@ defmodule EctoShorts.CommonChangesTest do
       author = Testing.insert!(Repo, User, %{})
 
       message =
-        "association :comments_authors not found in the changeset for schema EctoShorts.Schemas.Post"
+        "Expected field to be a query field or direct association for schema EctoShorts.Schemas.Post, got: :comments_authors"
 
       assert_raise ArgumentError, message, fn ->
         %Post{}
@@ -819,7 +870,7 @@ defmodule EctoShorts.CommonChangesTest do
                valid?: true
              } = changeset
 
-      assert %Post{id: nil, comments: []} = data
+      assert %Post{} === data
       assert %{comments: [%Ecto.Changeset{data: comment, valid?: true}]} = changes
       assert %{"comments" => [%{id: comment.id}]} === params
     end
@@ -892,7 +943,7 @@ defmodule EctoShorts.CommonChangesTest do
 
     test "raises an error if the key is not a type of ecto changeset queryable" do
       assert_raise ArgumentError,
-                   "association :invalid_association not found in the changeset for schema EctoShorts.Schemas.Comment",
+                   "Expected a direct association for schema Elixir.EctoShorts.Schemas.Comment, got: :invalid_association",
                    fn ->
                      %Comment{}
                      |> Comment.changeset(%{invalid_association: [%{id: 1}]})
@@ -901,51 +952,41 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "change/2: " do
-    test "returns changeset as-is when params is empty map" do
-      changeset = Post.changeset(%Post{}, %{title: "post_title"})
-      assert changeset === CommonChanges.change(changeset, %{})
-    end
-
-    test "returns changeset as-is when params is empty list" do
-      changeset = Post.changeset(%Post{}, %{title: "post_title"})
-      assert changeset === CommonChanges.change(changeset, [])
-    end
-
+  describe "build_changeset/2: " do
     test "applies changes to changeset given changeset and params" do
       changeset = Post.changeset(%Post{}, %{title: "post_title"})
 
       assert %Changeset{changes: %{title: "new_title"}} =
-               CommonChanges.change(changeset, %{title: "new_title"})
+               CommonChanges.to_changeset(changeset, %{title: "new_title"})
     end
 
     test "applies changes to changeset given struct and params" do
       assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.change(%Post{}, %{title: "post_title"})
+               CommonChanges.to_changeset(%Post{}, %{title: "post_title"})
     end
 
     test "applies changes to changeset given schema and params" do
       assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.change(Post, %{title: "post_title"})
+               CommonChanges.to_changeset(Post, %{title: "post_title"})
     end
   end
 
-  describe "change/3: " do
+  describe "build_changeset/3: " do
     test "creates changeset with changes given changeset" do
       changeset = Post.changeset(%Post{}, %{published: true})
 
       assert %Changeset{changes: %{published: true, title: "post_title"}} =
-               CommonChanges.change(Post, changeset, %{title: "post_title"})
+               CommonChanges.to_changeset(Post, changeset, %{title: "post_title"})
     end
 
     test "creates changeset with changes given struct" do
       assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.change(Post, %Post{}, %{title: "post_title"})
+               CommonChanges.to_changeset(Post, %Post{}, %{title: "post_title"})
     end
 
     test "builds changeset with changeset change function if module is not a schema module" do
       assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.change(DoesNotExist, %Post{}, %{title: "post_title"})
+               CommonChanges.to_changeset(DoesNotExist, %Post{}, %{title: "post_title"})
     end
   end
 end

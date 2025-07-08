@@ -76,12 +76,11 @@ defmodule EctoShorts.QueryBuilders.Schema do
   ...> )
   ```
   """
-  alias EctoShorts.SchemaHelpers
+
   alias EctoShorts.{
-    # CommonQuery,
     CommonQueryAPI,
+    SchemaHelpers,
     Utils
-    # SchemaHelpers
   }
 
   @type query :: Ecto.Query.t()
@@ -372,7 +371,7 @@ defmodule EctoShorts.QueryBuilders.Schema do
       if assoc_schema !== nil do
         assoc_schema
       else
-        with nil <- SchemaHelpers.get_schema_assoc_module(schema, key) do
+        with nil <- SchemaHelpers.get_related_schema(schema, key) do
           raise "Expected key to be an association for schema #{inspect(schema)}, got: #{inspect(key)}"
         end
       end

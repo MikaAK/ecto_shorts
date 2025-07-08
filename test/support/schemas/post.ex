@@ -12,7 +12,8 @@ defmodule EctoShorts.Schemas.Post do
     many_to_many :authors, EctoShorts.Schemas.User,
       join_through: EctoShorts.Schemas.PostAuthor,
       join_keys: [post_id: :id, author_id: :id],
-      unique: true
+      unique: true,
+      on_replace: :delete
 
     has_many :comments, EctoShorts.Schemas.Comment
     has_many :comments_authors, through: [:comments, :author]

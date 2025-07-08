@@ -306,7 +306,7 @@ defmodule EctoShorts.CommonParams do
     else
       with {:ok, new_schema_data} <-
              schema_data
-             |> CommonChanges.change(params)
+             |> CommonChanges.to_changeset(params)
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, new_schema_data, changed_keys}
       end
@@ -323,7 +323,7 @@ defmodule EctoShorts.CommonParams do
     else
       with {:ok, new_schema_data} <-
              schema_data
-             |> CommonChanges.change(params)
+             |> CommonChanges.to_changeset(params)
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, new_schema_data, changed_keys}
       end
@@ -356,7 +356,7 @@ defmodule EctoShorts.CommonParams do
     else
       with {:ok, new_schema_data} <-
              schema_data
-             |> CommonChanges.change(%{})
+             |> CommonChanges.to_changeset(%{})
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, new_schema_data, changed_keys}
       end
@@ -387,7 +387,7 @@ defmodule EctoShorts.CommonParams do
 
       with {:ok, new_schema_data} <-
              schema
-             |> CommonChanges.change(created_data, params)
+             |> CommonChanges.to_changeset(created_data, params)
              |> Changeset.apply_action(:insert) do
         {:ok, new_schema_data, changed_keys}
       end

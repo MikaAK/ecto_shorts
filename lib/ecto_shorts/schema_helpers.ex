@@ -23,7 +23,7 @@ defmodule EctoShorts.SchemaHelpers do
   def schema_from_source(schema), do: schema
 
   @doc """
-  This is a simple wrapper function for `get_schema_assoc_module/2`
+  This is a simple wrapper function for `get_related_schema/2`
   that returns the atom `:error` if the association key is not found on
   the given Ecto schema module.
 
@@ -47,7 +47,7 @@ defmodule EctoShorts.SchemaHelpers do
   end
 
   @doc """
-  This is a simple wrapper function for `get_schema_assoc_module/2`
+  This is a simple wrapper function for `get_related_schema/2`
   that returns the atom `:error` if the association key is not found on
   the given Ecto schema module.
 
@@ -64,7 +64,7 @@ defmodule EctoShorts.SchemaHelpers do
   """
   @spec fetch_schema_assoc_module(schema(), key()) :: schema() | :error
   def fetch_schema_assoc_module(schema, key) do
-    with nil <- get_schema_assoc_module(schema, key) do
+    with nil <- get_related_schema(schema, key) do
       :error
     end
   end
@@ -79,25 +79,19 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.get_schema_assoc_module(EctoShorts.Schemas.Post, :comments)
+      iex> EctoShorts.SchemaHelpers.get_related_schema(EctoShorts.Schemas.Post, :comments)
       EctoShorts.Schemas.Comment
 
-      iex> EctoShorts.SchemaHelpers.get_schema_assoc_module(EctoShorts.Schemas.Post, :comments_authors)
+      iex> EctoShorts.SchemaHelpers.get_related_schema(EctoShorts.Schemas.Post, :comments_authors)
       EctoShorts.Schemas.User
 
-      iex> EctoShorts.SchemaHelpers.get_schema_assoc_module(EctoShorts.Schemas.Post, :does_not_exist)
+      iex> EctoShorts.SchemaHelpers.get_related_schema(EctoShorts.Schemas.Post, :does_not_exist)
       nil
   """
-  @spec get_schema_assoc_module(schema(), key()) :: schema() | nil
-  def get_schema_assoc_module(schema, key) do
-    get_related_schema(schema, key)
-  end
+  @spec get_related_schema(schema(), key()) :: schema() | nil
+  def get_related_schema(nil, _key), do: nil
 
-  defp get_related_schema(nil, _key) do
-    nil
-  end
-
-  defp get_related_schema(schema, key) do
+  def get_related_schema(schema, key) do
     case schema.__schema__(:association, key) do
       %{through: [field1, field2]} ->
         schema
@@ -154,9 +148,7 @@ defmodule EctoShorts.SchemaHelpers do
 
   """
   @spec field_type(schema(), key()) :: ecto_type() | nil
-  def field_type(schema, key) do
-    schema.__schema__(:type, key)
-  end
+  def field_type(schema, key), do: schema.__schema__(:type, key)
 
   @doc """
   Returns `true` if the value of `key` is not an
@@ -175,7 +167,7 @@ defmodule EctoShorts.SchemaHelpers do
       true
   """
   @spec association_loaded?(schema_data(), key()) :: boolean()
-  def association_loaded?(schema_data, key), do: !association_not_loaded?(schema_data, key)
+  def association_loaded?(schema_data, key), do: not association_not_loaded?(schema_data, key)
 
   @doc """
   Returns `true` if the value of `key` is an `Ecto.Association.NotLoaded`
@@ -190,9 +182,7 @@ defmodule EctoShorts.SchemaHelpers do
   """
   @spec association_not_loaded?(schema_data(), key()) :: boolean()
   def association_not_loaded?(schema_data, key) do
-    schema_data
-    |> Map.get(key)
-    |> is_struct(Ecto.Association.NotLoaded)
+    schema_data |> Map.get(key) |> is_struct(Ecto.Association.NotLoaded)
   end
 
   @doc """
@@ -373,33 +363,29 @@ defmodule EctoShorts.SchemaHelpers do
   """
   @spec filter_primary_key(params() | list(params()), schema()) :: params() | list(params())
   def filter_primary_key(params_list, schema) when is_list(params_list) do
-    params_list
-    |> Enum.map(&filter_primary_key(&1, schema))
-    |> Enum.filter(&Enum.any?/1)
+    Enum.reduce(params_list, [], fn params, acc ->
+      filtered_params = filter_primary_key(params, schema)
+      if Enum.any?(filtered_params), do: [filtered_params | acc], else: acc
+    end)
   end
 
   def filter_primary_key(params, schema) when is_map(params) do
-    case schema.__schema__(:primary_key) do
-      [] ->
-        %{}
+    primary_keys = schema.__schema__(:primary_key)
+    filtered_params = Map.take(params, primary_keys)
 
-      keys ->
-        params = Map.take(params, keys)
-
-        if all_keys_member?(params, keys) do
-          params
-        else
-          %{}
-        end
+    if all_keys_exist?(filtered_params, primary_keys) do
+      filtered_params
+    else
+      %{}
     end
   end
 
-  def all_only_primary_key?(schema, params_list) when is_list(params_list) do
-    Enum.all?(params_list, fn params -> all_only_primary_key?(schema, params) end)
+  def only_primary_key_exists?(schema, params_list) when is_list(params_list) do
+    Enum.all?(params_list, fn params -> only_primary_key_exists?(schema, params) end)
   end
 
-  def all_only_primary_key?(schema, params) when is_map(params) do
-    all_keys_member?(params, schema.__schema__(:primary_key))
+  def only_primary_key_exists?(schema, params) when is_map(params) do
+    all_keys_exist?(params, schema.__schema__(:primary_key))
   end
 
   @doc """
@@ -457,6 +443,33 @@ defmodule EctoShorts.SchemaHelpers do
   @spec any_has_primary_key?(schema(), list(params() | schema_data())) :: boolean()
   def any_has_primary_key?(schema, values) do
     Enum.any?(values, &has_primary_key?(schema, &1))
+  end
+
+  def primary_key_count(schema) do
+    Enum.count(schema.__schema__(:primary_key))
+  end
+
+  @doc """
+  Returns a list of the primary key field names (as atoms)
+  for the given schema.
+
+  This function simply retrieves the primary key fields defined
+  in the Ecto schema module `schema`. In most cases,
+  this will return a list with a single atom (e.g., `[:id]`).
+  However, for schemas with composite primary keys, it can
+  return multiple atoms.
+
+  ## Examples
+
+      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.Post)
+      [:id]
+
+      # Example for a schema with composite primary keys (for illustration)
+      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.CompositePrimaryKey)
+      [:comment_id, :post_id]
+  """
+  def primary_key(schema) do
+    schema.__schema__(:primary_key)
   end
 
   @doc """
@@ -520,58 +533,32 @@ defmodule EctoShorts.SchemaHelpers do
   end
 
   def has_primary_key?(schema, schema_data_or_params) do
-    has_all_keys_and_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
+    all_keys_exist_and_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
   end
 
-  def primary_key_count(schema) do
-    Enum.count(schema.__schema__(:primary_key))
-  end
-
-  @doc """
-  Returns a list of the primary key field names (as atoms)
-  for the given schema.
-
-  This function simply retrieves the primary key fields defined
-  in the Ecto schema module `schema`. In most cases,
-  this will return a list with a single atom (e.g., `[:id]`).
-  However, for schemas with composite primary keys, it can
-  return multiple atoms.
-
-  ## Examples
-
-      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.Post)
-      [:id]
-
-      # Example for a schema with composite primary keys (for illustration)
-      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.CompositePrimaryKey)
-      [:comment_id, :post_id]
-  """
-  def primary_key(schema) do
-    schema.__schema__(:primary_key)
-  end
-
-  defp has_all_keys_and_not_nil?(_, []) do
+  defp all_keys_exist_and_not_nil?(_, []) do
     false
   end
 
-  defp has_all_keys_and_not_nil?(%_{} = schema_data, keys) do
+  defp all_keys_exist_and_not_nil?(%_{} = schema_data, keys) do
     Enum.all?(keys, fn key ->
-      Map.has_key?(schema_data, key) and not (schema_data |> Map.fetch!(key) |> is_nil())
+      nil_value? = schema_data |> Map.fetch!(key) |> is_nil()
+      Map.has_key?(schema_data, key) and not nil_value?
     end)
   end
 
-  defp has_all_keys_and_not_nil?(params, keys) do
+  defp all_keys_exist_and_not_nil?(params, keys) do
     Enum.all?(keys, fn key ->
       (Map.has_key?(params, key) and Map.get(params, key) !== nil) or
         (Map.has_key?(params, to_string(key)) and Map.get(params, to_string(key)) !== nil)
     end)
   end
 
-  defp all_keys_member?(_, []) do
+  defp all_keys_exist?(_, []) do
     false
   end
 
-  defp all_keys_member?(params, keys) do
+  defp all_keys_exist?(params, keys) do
     Enum.all?(params, fn
       {key, val} when is_atom(key) ->
         Enum.member?(keys, key) and not is_nil(val)

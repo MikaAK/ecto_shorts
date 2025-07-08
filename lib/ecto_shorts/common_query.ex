@@ -177,7 +177,7 @@ defmodule EctoShorts.CommonQuery do
         if Map.has_key?(assoc, :related) do
           {nil, assoc.related}
         else
-          with nil <- SchemaHelpers.get_schema_assoc_module(parent_schema, assoc_key) do
+          with nil <- SchemaHelpers.get_related_schema(parent_schema, assoc_key) do
             raise "Expected key to be an association for schema #{inspect(parent_schema)}, got: #{inspect(assoc_key)}"
           end
         end

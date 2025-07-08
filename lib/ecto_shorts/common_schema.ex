@@ -337,7 +337,7 @@ defmodule EctoShorts.CommonSchema do
   def create_changeset(schema_input, struct_or_changeset, params, opts) do
     schema_input
     |> normalize_schema()
-    |> to_changeset(
+    |> build_changeset(
       prepare_changeset_data(struct_or_changeset, schema_input),
       params,
       opts[:create_changeset]
@@ -365,37 +365,21 @@ defmodule EctoShorts.CommonSchema do
   defp normalize_schema({_, schema}), do: schema
   defp normalize_schema(schema), do: schema
 
-  defp to_changeset(schema, struct_or_changeset, params, nil) do
-    CommonChanges.change(schema, struct_or_changeset, params)
+  defp build_changeset(schema, struct_or_changeset, params, nil) do
+    CommonChanges.to_changeset(schema, struct_or_changeset, params)
   end
 
-  defp to_changeset(_schema, struct_or_changeset, params, {module, fun, args}) do
-    apply(module, fun, [struct_or_changeset, params] ++ args)
-  end
-
-  defp to_changeset(_schema, struct_or_changeset, params, {module, fun}) do
-    apply(module, fun, [struct_or_changeset, params])
-  end
-
-  defp to_changeset(_schema, struct_or_changeset, params, module) when is_atom(module) do
-    if function_exported?(module, :changeset, 2) do
-      module.changeset(struct_or_changeset, params)
-    else
-      raise ArgumentError, "function changeset/2 not exported from module #{inspect(module)}"
-    end
-  end
-
-  defp to_changeset(_schema, struct_or_changeset, params, fun) when is_function(fun, 2) do
+  defp build_changeset(_schema, struct_or_changeset, params, fun) when is_function(fun, 2) do
     fun.(struct_or_changeset, params)
   end
 
-  defp to_changeset(schema, struct_or_changeset, params, fun) when is_function(fun, 1) do
+  defp build_changeset(schema, struct_or_changeset, params, fun) when is_function(fun, 1) do
     schema
-    |> CommonChanges.change(struct_or_changeset, params)
+    |> CommonChanges.to_changeset(struct_or_changeset, params)
     |> fun.()
   end
 
-  defp to_changeset(schema, struct_or_changeset, params, changes) when is_map(changes) do
-    CommonChanges.change(schema, struct_or_changeset, Map.merge(params, changes))
+  defp build_changeset(schema, struct_or_changeset, params, changes) when is_map(changes) do
+    CommonChanges.to_changeset(schema, struct_or_changeset, Map.merge(params, changes))
   end
 end

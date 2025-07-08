@@ -13,7 +13,7 @@ defmodule EctoShorts.Schemas.User do
       join_keys: [author_id: :id, post_id: :id],
       unique: true
 
-    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :author_id
+    has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :author_id, on_replace: :delete
 
     timestamps()
   end
