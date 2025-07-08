@@ -423,7 +423,6 @@ defmodule EctoShorts.CommonChanges do
     |> params_to_preload(key, list_of_params, opts)
     |> maybe_change(key, list_of_params)
     |> Changeset.cast_assoc(key, opts)
-    |> dbg()
   end
 
   defp apply_cast_assoc(changeset, key, params, opts) do
@@ -432,7 +431,6 @@ defmodule EctoShorts.CommonChanges do
     |> params_to_preload(key, params, opts)
     |> maybe_change(key, params)
     |> Changeset.cast_assoc(key, opts)
-    |> dbg()
   end
 
   defp maybe_change(changeset, _key, []), do: changeset
