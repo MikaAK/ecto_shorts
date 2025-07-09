@@ -366,7 +366,7 @@ defmodule EctoShorts.CommonSchema do
   defp normalize_schema(schema), do: schema
 
   defp build_changeset(schema, struct_or_changeset, params, nil) do
-    CommonChanges.to_changeset(schema, struct_or_changeset, params)
+    CommonChanges.build_changeset(schema, struct_or_changeset, params)
   end
 
   defp build_changeset(_schema, struct_or_changeset, params, fun) when is_function(fun, 2) do
@@ -375,11 +375,11 @@ defmodule EctoShorts.CommonSchema do
 
   defp build_changeset(schema, struct_or_changeset, params, fun) when is_function(fun, 1) do
     schema
-    |> CommonChanges.to_changeset(struct_or_changeset, params)
+    |> CommonChanges.build_changeset(struct_or_changeset, params)
     |> fun.()
   end
 
   defp build_changeset(schema, struct_or_changeset, params, changes) when is_map(changes) do
-    CommonChanges.to_changeset(schema, struct_or_changeset, Map.merge(params, changes))
+    CommonChanges.build_changeset(schema, struct_or_changeset, Map.merge(params, changes))
   end
 end

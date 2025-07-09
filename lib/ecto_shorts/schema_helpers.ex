@@ -5,6 +5,8 @@ defmodule EctoShorts.SchemaHelpers do
   Ecto schema data.
   """
 
+  alias EctoShorts.Utils
+
   @type ecto_type :: Ecto.Type.t()
   @type schema :: Ecto.Queryable.t()
   @type schema_data :: Ecto.Schema.t()
@@ -211,7 +213,7 @@ defmodule EctoShorts.SchemaHelpers do
       true
   """
   @spec all_created?(schema(), list(schema_data() | params() | any())) :: boolean()
-  def all_created?(schema, values), do: Enum.all?(values, &created?(schema, &1))
+  def all_created?(schema, values), do: Utils.all?(values, &created?(schema, &1))
 
   @doc """
   Returns `true` if any item in the list has been created
@@ -298,7 +300,7 @@ defmodule EctoShorts.SchemaHelpers do
       false
   """
   @spec all_schema_struct?(list(schema_data() | any())) :: boolean()
-  def all_schema_struct?(values), do: Enum.all?(values, &schema_struct?/1)
+  def all_schema_struct?(values), do: Utils.all?(values, &schema_struct?/1)
 
   @doc """
   Returns `true` if any item in the given list is an Ecto
@@ -380,8 +382,12 @@ defmodule EctoShorts.SchemaHelpers do
     end
   end
 
+  def only_primary_key_exists?(_schema, []), do: false
+
+  def only_primary_key_exists?(_schema, params) when params === %{}, do: false
+
   def only_primary_key_exists?(schema, params_list) when is_list(params_list) do
-    Enum.all?(params_list, fn params -> only_primary_key_exists?(schema, params) end)
+    Utils.all?(params_list, fn params -> only_primary_key_exists?(schema, params) end)
   end
 
   def only_primary_key_exists?(schema, params) when is_map(params) do
@@ -413,9 +419,7 @@ defmodule EctoShorts.SchemaHelpers do
       true
   """
   @spec all_has_primary_key?(schema(), list(params() | schema_data())) :: boolean()
-  def all_has_primary_key?(schema, values) do
-    Enum.all?(values, &has_primary_key?(schema, &1))
-  end
+  def all_has_primary_key?(schema, values), do: Utils.all?(values, &has_primary_key?(schema, &1))
 
   @doc """
   Returns `true` if at least one item in the list has all of its
@@ -536,30 +540,24 @@ defmodule EctoShorts.SchemaHelpers do
     all_keys_exist_and_not_nil?(schema_data_or_params, schema.__schema__(:primary_key))
   end
 
-  defp all_keys_exist_and_not_nil?(_, []) do
-    false
-  end
-
   defp all_keys_exist_and_not_nil?(%_{} = schema_data, keys) do
-    Enum.all?(keys, fn key ->
+    Utils.all?(keys, fn key ->
       nil_value? = schema_data |> Map.fetch!(key) |> is_nil()
       Map.has_key?(schema_data, key) and not nil_value?
     end)
   end
 
   defp all_keys_exist_and_not_nil?(params, keys) do
-    Enum.all?(keys, fn key ->
+    Utils.all?(keys, fn key ->
       (Map.has_key?(params, key) and Map.get(params, key) !== nil) or
         (Map.has_key?(params, to_string(key)) and Map.get(params, to_string(key)) !== nil)
     end)
   end
 
-  defp all_keys_exist?(_, []) do
-    false
-  end
+  defp all_keys_exist?(_, []), do: false
 
   defp all_keys_exist?(params, keys) do
-    Enum.all?(params, fn
+    Utils.all?(params, fn
       {key, val} when is_atom(key) ->
         Enum.member?(keys, key) and not is_nil(val)
 

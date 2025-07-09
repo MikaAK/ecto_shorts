@@ -8,7 +8,7 @@ defmodule EctoShorts.ActionsTest do
     Repo,
     # Schemas.PostAbstract,
     Schemas.Post,
-    # Schemas.PostNoPrimaryKey,
+    # Schemas.Book,
     Testing
   }
 
@@ -235,7 +235,7 @@ defmodule EctoShorts.ActionsTest do
   #     _post = Testing.insert!(Repo, Post, %{title: "post_title"})
 
   #     assert_raise ArgumentError, ~r|Match keys not found|, fn ->
-  #       Actions.batch(PostNoPrimaryKey, [%{title: "post_title"}])
+  #       Actions.batch(Book, [%{title: "post_title"}])
   #     end
   #   end
   # end

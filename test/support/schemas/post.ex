@@ -15,7 +15,7 @@ defmodule EctoShorts.Schemas.Post do
       unique: true,
       on_replace: :delete
 
-    has_many :comments, EctoShorts.Schemas.Comment
+    has_many :comments, EctoShorts.Schemas.Comment, on_replace: :delete
     has_many :comments_authors, through: [:comments, :author]
 
     has_many :composite_primary_keys, EctoShorts.Schemas.CompositePrimaryKey

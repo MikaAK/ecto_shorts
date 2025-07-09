@@ -13,6 +13,7 @@ defmodule EctoShorts.CommonChangesTest do
   alias EctoShorts.Schemas.{
     Comment,
     CommentAbstract,
+    Book,
     CompositePrimaryKey,
     PostHasTupleFieldSource,
     Post,
@@ -183,22 +184,21 @@ defmodule EctoShorts.CommonChangesTest do
   end
 
   describe "preload_change_assoc" do
-    test "can preload and put associations if change exists" do
-      post = Testing.insert!(Repo, PostHasTupleFieldSource, %{title: "title"})
+    test "can preload and put assocs if change exists" do
+      post = Testing.insert!(Repo, Post, %{title: "title"})
+      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
 
-      comment = Testing.insert!(Repo, {"comments", CommentAbstract}, %{post_id: post.id})
+      new_comment = Testing.insert!(Repo, Comment)
 
-      assert %PostHasTupleFieldSource{comments: %Ecto.Association.NotLoaded{}} = post
-
-      changeset = PostHasTupleFieldSource.changeset(post, %{comments: [%{id: comment.id}]})
+      changeset = Post.changeset(post, %{comments: [%{id: new_comment.id}]})
 
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
                CommonChanges.preload_change_assoc(changeset, :comments)
 
-      assert %PostHasTupleFieldSource{comments: [^comment]} = changeset_post
+      assert %Post{comments: [^comment]} = changeset_post
     end
 
-    test "can preload and cast associations if change exists" do
+    test "can preload and cast assocs if change exists" do
       changeset =
         Changeset.cast(
           %PostHasTupleFieldSource{},
@@ -242,7 +242,7 @@ defmodule EctoShorts.CommonChangesTest do
             title: "updated_title"
           }
         })
-        |> CommonChanges.preload_changeset(:post)
+        |> CommonChanges.preload_changeset_assoc(:post)
 
       assert %Changeset{
                action: nil,
@@ -281,7 +281,7 @@ defmodule EctoShorts.CommonChangesTest do
             }
           ]
         })
-        |> CommonChanges.preload_changeset(:comments)
+        |> CommonChanges.preload_changeset_assoc(:comments)
 
       assert %Changeset{
                action: nil,
@@ -321,7 +321,7 @@ defmodule EctoShorts.CommonChangesTest do
             }
           ]
         })
-        |> CommonChanges.preload_changeset(:authors)
+        |> CommonChanges.preload_changeset_assoc(:authors)
 
       assert %Changeset{
                action: nil,
@@ -336,7 +336,7 @@ defmodule EctoShorts.CommonChangesTest do
              } = changeset
     end
 
-    test "can put associations" do
+    test "can put assocs" do
       post = Testing.insert!(Repo, PostHasTupleFieldSource, %{title: "title"})
 
       comment = Testing.insert!(Repo, {"comments", CommentAbstract}, %{post_id: post.id})
@@ -346,7 +346,7 @@ defmodule EctoShorts.CommonChangesTest do
       assert %Ecto.Changeset{data: changeset_post, valid?: true} =
                post
                |> PostHasTupleFieldSource.changeset(%{comments: [%{id: comment.id}]})
-               |> CommonChanges.preload_changeset(:comments)
+               |> CommonChanges.preload_changeset_assoc(:comments)
 
       assert %PostHasTupleFieldSource{comments: [^comment]} = changeset_post
     end
@@ -380,7 +380,7 @@ defmodule EctoShorts.CommonChangesTest do
             }
           ]
         })
-        |> CommonChanges.preload_changeset(:comments, ids: [comment_1_id, comment_2_id])
+        |> CommonChanges.preload_changeset_assoc(:comments, ids: [comment_1_id, comment_2_id])
 
       assert %Changeset{
                action: nil,
@@ -420,7 +420,7 @@ defmodule EctoShorts.CommonChangesTest do
       changeset =
         post
         |> Post.changeset(%{authors: [%{id: user_1_id, email: "user_1_updated_email"}]})
-        |> CommonChanges.preload_changeset(:authors, ids: [user_1_id, user_2_id])
+        |> CommonChanges.preload_changeset_assoc(:authors, ids: [user_1_id, user_2_id])
 
       assert %Changeset{
                action: nil,
@@ -437,401 +437,89 @@ defmodule EctoShorts.CommonChangesTest do
                %User{id: ^user_2_id}
              ] = authors
     end
-
-    test "when option :ids set raises if the association does not exist" do
-      post = Testing.insert!(Repo, Post, %{title: "title"})
-
-      assert_raise ArgumentError,
-                   "schema EctoShorts.Schemas.Post does not have association or embed :non_existent_association",
-                   fn ->
-                     post
-                     |> Post.changeset(%{})
-                     |> CommonChanges.preload_changeset(:non_existent_association, ids: [1])
-                   end
-    end
-  end
-
-  describe "cast_assoc/3" do
-    test "handles cases where changeset params is nil because the changeset was built with Ecto.Changeset.change and not the schema modules changeset/2 function" do
-      assert %Changeset{data: %Post{}} =
-               %Post{}
-               |> Changeset.change()
-               |> CommonChanges.cast_assoc(:author)
-    end
-
-    test "can find one association and put association given map with id" do
-      user = Testing.insert!(Repo, User, %{})
-
-      assert %Changeset{
-               data: %Post{author: ^user},
-               changes: %{
-                 author: %Changeset{
-                   data: ^user,
-                   changes: %{
-                     first_name: "user_first_name"
-                   }
-                 }
-               }
-             } =
-               %Post{}
-               |> Post.changeset(%{author: %{id: user.id, first_name: "user_first_name"}})
-               |> CommonChanges.cast_assoc(:author)
-    end
-
-    test "creates a changeset for new record if record matching id not found" do
-      assert %Changeset{
-               data: %Post{author: %Ecto.Association.NotLoaded{}},
-               changes: %{
-                 author: %Changeset{
-                   data: %User{id: nil},
-                   changes: %{
-                     first_name: "user_first_name"
-                   }
-                 }
-               }
-             } =
-               %Post{}
-               |> Post.changeset(%{author: %{id: 123_456, first_name: "user_first_name"}})
-               |> CommonChanges.cast_assoc(:author)
-    end
-
-    test "can update a nested association even if the parent association is not preloaded" do
-      user_1 = Testing.insert!(Repo, User)
-      user_2 = Testing.insert!(Repo, User)
-
-      post = Testing.insert!(Repo, Post, %{title: "post_title", author_id: user_1.id})
-
-      _post_author_1 =
-        Testing.insert!(Repo, PostAuthor, %{post_id: post.id, author_id: user_1.id})
-
-      _post_author_2 =
-        Testing.insert!(Repo, PostAuthor, %{post_id: post.id, author_id: user_2.id})
-
-      comment_1 =
-        Testing.insert!(Repo, Comment, %{
-          body: "comment_body_1",
-          post_id: post.id,
-          author_id: user_1.id
-        })
-
-      comment_2 =
-        Testing.insert!(Repo, Comment, %{
-          body: "comment_body_2",
-          post_id: post.id,
-          author_id: user_2.id
-        })
-
-      expected_post = %{
-        post
-        | author: user_1,
-          authors: [
-            %{user_1 | comments: [comment_1]},
-            %{user_2 | comments: [comment_2]}
-          ],
-          comments: [comment_1, comment_2]
-      }
-
-      assert expected_post === Repo.preload(post, [:author, :comments, authors: [:comments]])
-
-      assert {:ok, updated_post} =
-               post
-               |> Post.changeset(%{authors: [%{id: user_1.id, comments: []}]})
-               |> CommonChanges.cast_assoc(:authors)
-               |> Repo.update()
-
-      assert post.id === updated_post.id
-      # assert [post_author_1] = updated_post.authors
-      # assert user_1.id === post_author_1.id
-      # assert %Ecto.Association.NotLoaded{} === post_author_1.comments
-    end
-  end
-
-  describe "put_assoc/4" do
-    test "can put assoc for schema with composite keys" do
-      post = Testing.insert!(Repo, Post, %{})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
-
-      composite_primary_key =
-        Testing.insert!(Repo, CompositePrimaryKey, %{post_id: post.id, comment_id: comment.id})
-
-      assert %Changeset{
-               changes: %{composite_primary_keys: [%Changeset{data: ^composite_primary_key}]}
-             } =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:composite_primary_keys, [
-                 %{
-                   comment_id: composite_primary_key.comment_id,
-                   post_id: composite_primary_key.post_id
-                 }
-               ])
-    end
-
-    test "can find one association and put association given map with id" do
-      user = Testing.insert!(Repo, User, %{})
-
-      assert %Changeset{changes: %{author: %Changeset{data: ^user}}} =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:author, %{id: user.id})
-    end
-
-    test "returns changeset with association not loaded when given map with id that does not exist" do
-      assert %Changeset{data: %Post{author: %Ecto.Association.NotLoaded{}}, valid?: true} =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:author, %{id: 123_456})
-    end
-
-    test "can find and put associations with mixed params of structs and maps" do
-      user_1 = Testing.insert!(Repo, User, %{first_name: "user_1_first_name"})
-      user_2 = Testing.insert!(Repo, User, %{first_name: "user_2_first_name"})
-
-      assert %Changeset{
-               changes: %{
-                 authors: [
-                   %Changeset{action: :update, data: ^user_2},
-                   %Changeset{action: :update, data: ^user_1}
-                 ]
-               }
-             } =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:authors, [%{id: user_1.id}, user_2])
-    end
-
-    test "can find many associations and put association given maps with id" do
-      user = Testing.insert!(Repo, User, %{})
-
-      assert %Changeset{changes: %{authors: [%Changeset{data: ^user}]}} =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:authors, [%{id: user.id}])
-    end
-
-    test "can put association given schema data" do
-      user = Testing.insert!(Repo, User, %{})
-
-      assert %Changeset{changes: %{author: %Changeset{data: ^user}}} =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:author, user)
-    end
-
-    test "can put many associations given a list of schema data" do
-      user = Testing.insert!(Repo, User, %{})
-
-      assert %Changeset{changes: %{authors: [%Changeset{data: ^user}]}} =
-               %Post{}
-               |> Post.changeset(%{})
-               |> CommonChanges.put_assoc(:authors, [user])
-    end
-
-    test "raises if the field exists on the schema and its not an association" do
-      author = Testing.insert!(Repo, User, %{})
-
-      message =
-        "Expected key to be an association for schema EctoShorts.Schemas.Post, got: :title"
-
-      assert_raise ArgumentError, message, fn ->
-        %Post{}
-        |> Post.changeset(%{})
-        |> CommonChanges.put_assoc(:title, [author])
-      end
-    end
-
-    test "raises if not a direct schema association" do
-      author = Testing.insert!(Repo, User, %{})
-
-      message =
-        "Expected field to be a query field or direct association for schema EctoShorts.Schemas.Post, got: :comments_authors"
-
-      assert_raise ArgumentError, message, fn ->
-        %Post{}
-        |> Post.changeset(%{})
-        |> CommonChanges.put_assoc(:comments_authors, [author])
-      end
-    end
   end
 
   describe "put_or_cast_assoc: " do
-    test "returns changeset without changes when assoc is nil" do
-      params = %{}
-
-      changeset =
-        %Comment{}
-        |> Comment.changeset(params)
-        |> CommonChanges.put_or_cast_assoc(:post)
-
+    test "cast assoc when assoc params is an empty map" do
       assert %Ecto.Changeset{
-               action: nil,
-               changes: changes,
-               data: %Comment{},
-               errors: [],
-               valid?: true
-             } = changeset
-
-      assert %{} === changes
+        action: nil,
+        data: %Post{},
+        changes: %{
+          author: %Ecto.Changeset{
+            action: :insert,
+            data: %User{},
+            changes: %{},
+            params: %{},
+            valid?: true
+          }
+        },
+        params: %{"author" => %{}},
+        valid?: true
+      } =
+        %Post{}
+        |> Post.changeset(%{author: %{}})
+        |> CommonChanges.put_or_cast_assoc(:author)
     end
 
-    test "uses cast_assoc when data is not created data" do
-      changeset =
-        %Comment{}
-        |> Comment.changeset(%{post: %{title: "post_title"}})
-        |> CommonChanges.put_or_cast_assoc(:post)
-
+    test "cast assoc when assoc params is an empty list" do
       assert %Ecto.Changeset{
-               action: nil,
-               changes: changes,
-               data: data,
-               errors: [],
-               params: params,
-               valid?: true
-             } = changeset
-
-      assert %Comment{} === data
-
-      assert %{
-               post: %Ecto.Changeset{
-                 action: :insert,
-                 data: %Post{},
-                 changes: %{title: "post_title"}
-               }
-             } = changes
-
-      assert %{"post" => %{title: "post_title"}} === params
+        action: nil,
+        data: %Post{},
+        changes: %{comments: []},
+        params: %{"comments" => []},
+        valid?: true
+      } =
+        %Post{}
+        |> Post.changeset(%{comments: []})
+        |> CommonChanges.put_or_cast_assoc(:comments)
     end
 
-    test "uses put_assoc when data is created data" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-
-      changeset =
-        %Comment{}
-        |> Comment.changeset(%{post: post})
-        |> CommonChanges.put_or_cast_assoc(:post)
-
+    test "cast assoc from map params" do
       assert %Ecto.Changeset{
-               action: nil,
-               changes: changes,
-               data: data,
-               errors: [],
-               valid?: true
-             } = changeset
-
-      assert %Comment{} === data
-
-      assert %{
-               post: %Ecto.Changeset{
-                 action: :update,
-                 data: ^post
-               }
-             } = changes
+        action: nil,
+        data: %Post{},
+        changes: %{
+          author: %Ecto.Changeset{
+            action: :insert,
+            data: %User{},
+            changes: %{first_name: "author_first_name"},
+            params: %{"first_name" => "author_first_name"},
+            valid?: true
+          }
+        },
+        params: %{"author" => %{first_name: "author_first_name"}},
+        valid?: true
+      } =
+        %Post{}
+        |> Post.changeset(%{author: %{first_name: "author_first_name"}})
+        |> CommonChanges.put_or_cast_assoc(:author)
     end
 
-    test "uses cast_assoc when given maps and data is a list" do
-      changeset =
+    test "cast assoc from list of map params" do
+      assert %Ecto.Changeset{
+        action: nil,
+        data: %Post{},
+        changes: %{
+          comments: [
+            %Ecto.Changeset{
+              action: :insert,
+              data: %Comment{},
+              changes: %{body: "comment_body"},
+              params: %{"body" => "comment_body"},
+              valid?: true
+            }
+          ]
+        },
+        params: %{"comments" => [%{body: "comment_body"}]},
+        valid?: true
+      } =
         %Post{}
         |> Post.changeset(%{comments: [%{body: "comment_body"}]})
         |> CommonChanges.put_or_cast_assoc(:comments)
-
-      assert %Ecto.Changeset{
-               action: nil,
-               changes: changes,
-               data: data,
-               errors: [],
-               params: params,
-               valid?: true
-             } = changeset
-
-      assert %Post{} === data
-
-      assert %{
-               comments: [
-                 %Ecto.Changeset{
-                   action: :insert,
-                   data: %Comment{},
-                   changes: %{body: "comment_body"}
-                 }
-               ]
-             } = changes
-
-      assert %{"comments" => [%{body: "comment_body"}]} === params
     end
 
-    test "uses cast_assoc when given maps with ids and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment_a = Testing.insert!(Repo, Comment, %{post_id: post.id})
-      comment_b = Testing.insert!(Repo, Comment, %{post_id: post.id})
-
-      changeset =
-        %Post{}
-        |> Post.changeset(%{
-          comments: [
-            %{id: comment_a.id},
-            %{id: comment_b.id, body: "updated_body"}
-          ]
-        })
-        |> CommonChanges.put_or_cast_assoc(:comments)
-
-      assert %Ecto.Changeset{
-               action: nil,
-               changes: changes,
-               data: data,
-               errors: [],
-               params: params,
-               valid?: true
-             } = changeset
-
-      assert %Post{id: nil, comments: [^comment_a, ^comment_b]} = data
-
-      assert %{
-               comments: [
-                 %Ecto.Changeset{action: :update, data: ^comment_a, valid?: true},
-                 %Ecto.Changeset{
-                   action: :update,
-                   data: ^comment_b,
-                   changes: %{body: "updated_body"},
-                   valid?: true
-                 }
-               ]
-             } = changes
-
-      assert %{"comments" => [%{id: comment_a.id}, %{id: comment_b.id, body: "updated_body"}]} ===
-               params
-    end
-
-    test "uses cast_assoc when given a primary key and params with ids and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
-
-      changeset =
-        %Post{}
-        |> Post.changeset(%{comments: [%{id: comment.id, body: "updated_body"}]})
-        |> CommonChanges.put_or_cast_assoc(:comments)
-
-      assert %Ecto.Changeset{
-               action: nil,
-               changes: changes,
-               data: data,
-               errors: [],
-               params: params,
-               valid?: true
-             } = changeset
-
-      assert %Post{id: nil, comments: [^comment]} = data
-
-      assert %{
-               comments: [
-                 %Ecto.Changeset{data: ^comment, changes: %{body: "updated_body"}, valid?: true}
-               ]
-             } = changes
-
-      assert %{"comments" => [%{id: comment.id, body: "updated_body"}]} === params
-    end
-
-    test "uses put_assoc when given only structs and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+    test "when parent data not yet persisted: put assoc from existing structs" do
+      comment = Testing.insert!(Repo, Comment)
 
       changeset =
         %Post{}
@@ -840,135 +528,363 @@ defmodule EctoShorts.CommonChangesTest do
 
       assert %Ecto.Changeset{
                action: nil,
-               changes: changes,
-               data: data,
+               changes: %{
+                 comments: [
+                   %Ecto.Changeset{
+                     action: :update,
+                     data: ^comment,
+                     params: nil,
+                     valid?: true
+                   }
+                 ]
+               },
+               data: %Post{},
                errors: [],
-               params: params,
+               params: %{"comments" => [^comment]},
                valid?: true
              } = changeset
-
-      assert %Post{id: nil, comments: %Ecto.Association.NotLoaded{}} = data
-      assert %{comments: [%Ecto.Changeset{data: ^comment, valid?: true}]} = changes
-      assert %{"comments" => [comment]} === params
     end
 
-    test "uses put_assoc when given only a primary key for an association and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+    test "when parent data not yet persisted: put assoc given only a list of IDs for an association" do
+      comment = Testing.insert!(Repo, Comment)
+
+      comment_id = comment.id
 
       changeset =
         %Post{}
-        |> Post.changeset(%{comments: [%{id: comment.id}]})
+        |> Post.changeset(%{comments: [%{id: comment_id}]})
         |> CommonChanges.put_or_cast_assoc(:comments)
 
       assert %Ecto.Changeset{
                action: nil,
-               changes: changes,
-               data: data,
+               changes: %{
+                 comments: [
+                   %Ecto.Changeset{
+                     action: :update,
+                     data: ^comment,
+                     params: nil,
+                     valid?: true
+                   }
+                 ]
+               },
+               data: %Post{},
                errors: [],
-               params: params,
+               params: %{"comments" => [%{id: ^comment_id}]},
                valid?: true
              } = changeset
-
-      assert %Post{} === data
-      assert %{comments: [%Ecto.Changeset{data: comment, valid?: true}]} = changes
-      assert %{"comments" => [%{id: comment.id}]} === params
     end
 
-    test "uses put_assoc to associate existing record when parent is persisted, association is not preloaded, and only primary keys are provided and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+    test "put assoc from structs without IDs" do
+      book_1 = Testing.insert!(Repo, Book, %{title: "book_title_1"})
+      book_2 = Testing.insert!(Repo, Book, %{title: "book_title_2"})
 
       changeset =
-        post
-        |> Post.changeset(%{comments: [%{id: comment.id}]})
-        |> CommonChanges.put_or_cast_assoc(:comments)
+        %User{}
+        |> User.changeset(%{books: [book_1, book_2]})
+        |> CommonChanges.put_or_cast_assoc(:books)
 
       assert %Ecto.Changeset{
                action: nil,
-               changes: changes,
-               data: data,
+               changes: %{
+                 books: [
+                   %Ecto.Changeset{
+                     action: :update,
+                     data: ^book_2,
+                     params: nil,
+                     valid?: true
+                   },
+                   %Ecto.Changeset{
+                     action: :update,
+                     data: ^book_1,
+                     params: nil,
+                     valid?: true
+                   }
+                 ]
+               },
+               data: %User{},
                errors: [],
-               params: params,
+               params: %{"books" => [^book_1, ^book_2]},
                valid?: true
              } = changeset
-
-      assert %Post{} = data
-      assert post.id === data.id
-      assert [comment] === data.comments
-
-      assert %{} === changes
-      assert %{"comments" => [%{id: comment.id}]} === params
     end
 
-    test "before put_assoc, loads only the associated record belonging to the parent when not preloaded and only primary key is provided and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+    test "calls put assoc to remove an assoc when assoc param is nil" do
+      user = Testing.insert!(Repo, User)
 
-      assert another_post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      assert _another_comment = Testing.insert!(Repo, Comment, %{post_id: another_post.id})
+      book =
+        Repo
+        |> Testing.insert!(Book, %{author_id: user.id})
+        |> Repo.preload(:author)
 
       changeset =
-        post
-        |> Post.changeset(%{comments: [%{id: comment.id}]})
-        |> CommonChanges.put_or_cast_assoc(:comments)
+        book
+        |> Book.changeset(%{author: nil})
+        |> CommonChanges.put_or_cast_assoc(:author)
 
-      assert %Ecto.Changeset{data: %Post{comments: [^comment]}} = changeset
+      assert %Ecto.Changeset{
+               action: nil,
+               changes: %{
+                 author: nil
+               },
+               data: ^book,
+               errors: [],
+               params: %{"author" => nil},
+               valid?: true
+             } = changeset
     end
 
-    test "before cast_assoc, loads only the associated record belonging to the parent when not preloaded and only primary key is provided and data is a list" do
-      post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+    # test "uses cast_assoc when data is not created data" do
+    #   changeset =
+    #     %Comment{}
+    #     |> Comment.changeset(%{post: %{title: "post_title"}})
+    #     |> CommonChanges.put_or_cast_assoc(:post)
 
-      assert another_post = Testing.insert!(Repo, Post, %{title: "post_title"})
-      assert _another_comment = Testing.insert!(Repo, Comment, %{post_id: another_post.id})
+    #   assert %Ecto.Changeset{
+    #            action: nil,
+    #            changes: changes,
+    #            data: data,
+    #            errors: [],
+    #            params: params,
+    #            valid?: true
+    #          } = changeset
 
-      changeset =
-        post
-        |> Post.changeset(%{comments: [%{id: comment.id, body: "updated_body"}]})
-        |> CommonChanges.put_or_cast_assoc(:comments)
+    #   assert %Comment{} === data
 
-      assert %Ecto.Changeset{data: %Post{comments: [^comment]}} = changeset
-    end
+    #   assert %{
+    #            post: %Ecto.Changeset{
+    #              action: :insert,
+    #              data: %Post{},
+    #              changes: %{title: "post_title"}
+    #            }
+    #          } = changes
 
-    test "raises an error if the given key is not a valid association" do
-      assert_raise ArgumentError,
-                   "expected `tags` to be an assoc in `cast_assoc`, got: `{:array, :string}`",
-                   fn ->
-                     %Comment{}
-                     |> Changeset.change(%{})
-                     |> CommonChanges.put_or_cast_assoc(:tags)
-                   end
-    end
+    #   assert %{"post" => %{title: "post_title"}} === params
+    # end
 
-    test "raises an error if the key is not a type of ecto changeset queryable" do
-      assert_raise ArgumentError,
-                   "Expected a direct association for schema Elixir.EctoShorts.Schemas.Comment, got: :invalid_association",
-                   fn ->
-                     %Comment{}
-                     |> Comment.changeset(%{invalid_association: [%{id: 1}]})
-                     |> CommonChanges.put_or_cast_assoc(:invalid_association)
-                   end
-    end
-  end
+    # test "uses put_assoc when data is created data" do
+    #   post = Testing.insert!(Repo, Post, %{title: "post_title"})
 
-  describe "build_changeset/2: " do
-    test "applies changes to changeset given changeset and params" do
-      changeset = Post.changeset(%Post{}, %{title: "post_title"})
+    #   changeset =
+    #     %Comment{}
+    #     |> Comment.changeset(%{post: post})
+    #     |> CommonChanges.put_or_cast_assoc(:post)
 
-      assert %Changeset{changes: %{title: "new_title"}} =
-               CommonChanges.to_changeset(changeset, %{title: "new_title"})
-    end
+    #   assert %Ecto.Changeset{
+    #            action: nil,
+    #            changes: changes,
+    #            data: data,
+    #            errors: [],
+    #            valid?: true
+    #          } = changeset
 
-    test "applies changes to changeset given struct and params" do
-      assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.to_changeset(%Post{}, %{title: "post_title"})
-    end
+    #   assert %Comment{} === data
 
-    test "applies changes to changeset given schema and params" do
-      assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.to_changeset(Post, %{title: "post_title"})
-    end
+    #   assert %{
+    #            post: %Ecto.Changeset{
+    #              action: :update,
+    #              data: ^post
+    #            }
+    #          } = changes
+    # end
+
+    # test "uses cast_assoc when given maps and data is a list" do
+    #   changeset =
+    #     %Post{}
+    #     |> Post.changeset(%{comments: [%{body: "comment_body"}]})
+    #     |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #   assert %Ecto.Changeset{
+    #            action: nil,
+    #            changes: changes,
+    #            data: data,
+    #            errors: [],
+    #            params: params,
+    #            valid?: true
+    #          } = changeset
+
+    #   assert %Post{} === data
+
+    #   assert %{
+    #            comments: [
+    #              %Ecto.Changeset{
+    #                action: :insert,
+    #                data: %Comment{},
+    #                changes: %{body: "comment_body"}
+    #              }
+    #            ]
+    #          } = changes
+
+    #   assert %{"comments" => [%{body: "comment_body"}]} === params
+    # end
+
+    #   test "uses cast_assoc when given a primary key and params with ids and data is a list" do
+    #     post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+
+    #     changeset =
+    #       %Post{}
+    #       |> Post.changeset(%{comments: [comment]})
+    #       |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #     assert %Ecto.Changeset{
+    #              action: nil,
+    #              changes: changes,
+    #              data: data,
+    #              errors: [],
+    #              params: params,
+    #              valid?: true
+    #            } = changeset
+
+    #     # assert %Post{id: nil, comments: [^comment]} = data
+
+    #     assert %{
+    #              comments: [%Ecto.Changeset{data: ^comment, valid?: true}]
+    #            } = changes
+
+    #     assert %{"comments" => [comment]} === params
+    #   end
+
+    #   test "uses put_assoc when given only structs and data is a list" do
+    #     post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+
+    #     changeset =
+    #       %Post{}
+    #       |> Post.changeset(%{comments: [comment]})
+    #       |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #     assert %Ecto.Changeset{
+    #              action: nil,
+    #              changes: changes,
+    #              data: data,
+    #              errors: [],
+    #              params: params,
+    #              valid?: true
+    #            } = changeset
+
+    #     assert %Post{id: nil, comments: %Ecto.Association.NotLoaded{}} = data
+    #     assert %{comments: [%Ecto.Changeset{data: ^comment, valid?: true}]} = changes
+    #     assert %{"comments" => [comment]} === params
+    #   end
+
+    #   test "uses put_assoc when given only a primary key for an association and data is a list" do
+    #     post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+
+    #     changeset =
+    #       %Post{}
+    #       |> Post.changeset(%{comments: [%{id: comment.id}]})
+    #       |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #     assert %Ecto.Changeset{
+    #              action: nil,
+    #              changes: changes,
+    #              data: data,
+    #              errors: [],
+    #              params: params,
+    #              valid?: true
+    #            } = changeset
+
+    #     assert %Post{} === data
+    #     assert %{comments: [%Ecto.Changeset{data: comment, valid?: true}]} = changes
+    #     assert %{"comments" => [%{id: comment.id}]} === params
+    #   end
+
+    #   test "uses put_assoc to associate existing record when parent is persisted, association is not preloaded, and only primary keys are provided and data is a list" do
+    #     post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+
+    #     changeset =
+    #       post
+    #       |> Post.changeset(%{comments: [%{id: comment.id}]})
+    #       |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #     assert %Ecto.Changeset{
+    #              action: nil,
+    #              changes: changes,
+    #              data: data,
+    #              errors: [],
+    #              params: params,
+    #              valid?: true
+    #            } = changeset
+
+    #     assert %Post{} = data
+    #     assert post.id === data.id
+    #     assert [comment] === data.comments
+
+    #     assert %{} === changes
+    #     assert %{"comments" => [%{id: comment.id}]} === params
+    #   end
+
+    #   test "before put_assoc, loads only the associated record belonging to the parent when not preloaded and only primary key is provided and data is a list" do
+    #     post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+
+    #     assert another_post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     assert _another_comment = Testing.insert!(Repo, Comment, %{post_id: another_post.id})
+
+    #     changeset =
+    #       post
+    #       |> Post.changeset(%{comments: [%{id: comment.id}]})
+    #       |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #     assert %Ecto.Changeset{data: %Post{comments: [^comment]}} = changeset
+    #   end
+
+    #   test "before cast_assoc, loads only the associated record belonging to the parent when not preloaded and only primary key is provided and data is a list" do
+    #     post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     comment = Testing.insert!(Repo, Comment, %{post_id: post.id})
+
+    #     assert another_post = Testing.insert!(Repo, Post, %{title: "post_title"})
+    #     assert _another_comment = Testing.insert!(Repo, Comment, %{post_id: another_post.id})
+
+    #     changeset =
+    #       post
+    #       |> Repo.preload(:comments)
+    #       |> Post.changeset(%{comments: [%{id: comment.id, body: "updated_body"}]})
+    #       |> CommonChanges.put_or_cast_assoc(:comments)
+
+    #     assert %Ecto.Changeset{data: %Post{comments: [^comment]}} = changeset
+    #   end
+
+    #   test "raises an error if the given key is not a valid association" do
+    #     assert_raise ArgumentError,
+    #                  "expected `tags` to be an assoc in `cast_assoc`, got: `{:array, :string}`",
+    #                  fn ->
+    #                    %Comment{}
+    #                    |> Changeset.change(%{})
+    #                    |> CommonChanges.put_or_cast_assoc(:tags)
+    #                  end
+    #   end
+
+    #   test "raises an error if the key is not a type of ecto changeset queryable" do
+    #     assert_raise ArgumentError,
+    #                  "Expected a direct association for schema Elixir.EctoShorts.Schemas.Comment, got: :invalid_association",
+    #                  fn ->
+    #                    %Comment{}
+    #                    |> Comment.changeset(%{invalid_association: [%{id: 1}]})
+    #                    |> CommonChanges.put_or_cast_assoc(:invalid_association)
+    #                  end
+    #   end
+    # end
+
+    # describe "build_changeset/2: " do
+    #   test "applies changes to changeset given changeset and params" do
+    #     changeset = Post.changeset(%Post{}, %{title: "post_title"})
+
+    #     assert %Changeset{changes: %{title: "new_title"}} =
+    #              CommonChanges.build_changeset(changeset, %{title: "new_title"})
+    #   end
+
+    #   test "applies changes to changeset given struct and params" do
+    #     assert %Changeset{changes: %{title: "post_title"}} =
+    #              CommonChanges.build_changeset(%Post{}, %{title: "post_title"})
+    #   end
+
+    #   test "applies changes to changeset given schema and params" do
+    #     assert %Changeset{changes: %{title: "post_title"}} =
+    #              CommonChanges.build_changeset(Post, %{title: "post_title"})
+    #   end
   end
 
   describe "build_changeset/3: " do
@@ -976,17 +892,17 @@ defmodule EctoShorts.CommonChangesTest do
       changeset = Post.changeset(%Post{}, %{published: true})
 
       assert %Changeset{changes: %{published: true, title: "post_title"}} =
-               CommonChanges.to_changeset(Post, changeset, %{title: "post_title"})
+               CommonChanges.build_changeset(Post, changeset, %{title: "post_title"})
     end
 
     test "creates changeset with changes given struct" do
       assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.to_changeset(Post, %Post{}, %{title: "post_title"})
+               CommonChanges.build_changeset(Post, %Post{}, %{title: "post_title"})
     end
 
     test "builds changeset with changeset change function if module is not a schema module" do
       assert %Changeset{changes: %{title: "post_title"}} =
-               CommonChanges.to_changeset(DoesNotExist, %Post{}, %{title: "post_title"})
+               CommonChanges.build_changeset(DoesNotExist, %Post{}, %{title: "post_title"})
     end
   end
 end

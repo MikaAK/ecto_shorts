@@ -538,7 +538,7 @@ defmodule EctoShorts.Actions do
   end
 
   defp has_all_keys?(keys, data) do
-    Enum.all?(keys, &(Map.get(data, &1) !== nil))
+    Utils.all?(keys, &(Map.get(data, &1) !== nil))
   end
 
   @doc group: "Schema API"

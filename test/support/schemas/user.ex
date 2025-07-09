@@ -15,6 +15,8 @@ defmodule EctoShorts.Schemas.User do
 
     has_many :comments, EctoShorts.Schemas.Comment, foreign_key: :author_id, on_replace: :delete
 
+    has_many :books, EctoShorts.Schemas.Book, foreign_key: :author_id, on_replace: :delete
+
     timestamps()
   end
 

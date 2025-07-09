@@ -8,6 +8,10 @@ defmodule EctoShorts.Utils do
 
   @ordered_expressions false
 
+  def all?([], _), do: false
+  def all?(map, _) when map === %{}, do: false
+  def all?(enum, fun), do: Enum.all?(enum, fun)
+
   def atomize_keys(enum, opts \\ []) do
     transform_keys(enum, &string_to_atom(&1, opts))
   end
