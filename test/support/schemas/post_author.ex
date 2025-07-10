@@ -14,8 +14,8 @@ defmodule EctoShorts.Schemas.PostAuthor do
     :post_id
   ]
 
-  def changeset(model_or_changeset, attrs \\ %{}) do
-    model_or_changeset
+  def changeset(schema_data_or_changeset, attrs \\ %{}) do
+    schema_data_or_changeset
     |> cast(attrs, @available_fields)
     |> foreign_key_constraint(:author_id)
     |> foreign_key_constraint(:post_id)

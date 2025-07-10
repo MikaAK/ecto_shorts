@@ -39,8 +39,8 @@ defmodule EctoShorts.Schemas.PostHasTupleFieldSource do
     :views
   ]
 
-  def changeset(model_or_changeset, attrs \\ %{}) do
-    model_or_changeset
+  def changeset(schema_data_or_changeset, attrs \\ %{}) do
+    schema_data_or_changeset
     |> cast(attrs, @available_fields)
     |> no_assoc_constraint(:comments)
     |> unique_constraint(:permalink)

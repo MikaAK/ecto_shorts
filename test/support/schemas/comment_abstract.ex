@@ -28,8 +28,8 @@ defmodule EctoShorts.Schemas.CommentAbstract do
     :tags
   ]
 
-  def changeset(model_or_changeset, attrs \\ %{}) do
-    model_or_changeset
+  def changeset(schema_data_or_changeset, attrs \\ %{}) do
+    schema_data_or_changeset
     |> cast(attrs, @available_fields)
     |> validate_length(:body, min: 3)
   end

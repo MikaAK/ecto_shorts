@@ -45,8 +45,8 @@ defmodule EctoShorts.Schemas.Post do
                       :views
                     ] ++ @required_fields
 
-  def changeset(model_or_changeset, attrs \\ %{}) do
-    model_or_changeset
+  def changeset(schema_data_or_changeset, attrs \\ %{}) do
+    schema_data_or_changeset
     |> cast(attrs, @available_fields)
     |> validate_required(@required_fields)
     |> foreign_key_constraint(:author_id)

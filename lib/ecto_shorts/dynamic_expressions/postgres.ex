@@ -86,8 +86,8 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
         {operator, value}
       )
       when operator in @operators do
-    if SchemaHelpers.source_has_schema?(source) and field_type_array?(source, key) do
-      if list_value?(value) do
+    if SchemaHelpers.source_has_schema?(source) and schema_field_type_array?(source, key) do
+      if list?(value) do
         CommonQueryAPI.merge_dynamic(
           dyn,
           condition,
@@ -127,13 +127,18 @@ defmodule EctoShorts.DynamicExpressions.Postgres do
     )
   end
 
-  defp list_value?({_, value}) when is_list(value), do: true
-  defp list_value?(value) when is_list(value), do: true
-  defp list_value?(_), do: false
+  defp list?({_, value}) when is_list(value), do: true
+  defp list?(value) when is_list(value), do: true
+  defp list?(_), do: false
 
-  defp field_type_array?(source, key) do
-    source
-    |> SchemaHelpers.schema_from_source()
-    |> SchemaHelpers.field_type_array?(key)
+  defp schema_field_type_array?({_source, schema}, key) do
+    schema_field_type_array?(schema, key)
+  end
+
+  defp schema_field_type_array?(schema, key) do
+    case schema.__schema__(:type, key) do
+      {:array, _} -> true
+      _ -> false
+    end
   end
 end

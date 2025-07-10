@@ -77,23 +77,23 @@ defmodule EctoShorts.CommonSchemaTest do
     end
   end
 
-  describe "put_schema_metadata/2" do
+  describe "put_metadata/2" do
     test "updates the schema's metadata" do
       assert %EctoShorts.Schemas.Post{
                __meta__: %Metadata{prefix: "test_prefix"}
-             } = CommonSchema.put_schema_metadata(%Post{}, prefix: "test_prefix")
+             } = CommonSchema.put_metadata(%Post{}, prefix: "test_prefix")
     end
   end
 
-  describe "create_struct/1" do
+  describe "to_struct/1" do
     test "when given a schema module, returns a struct" do
       assert %Post{__meta__: %Metadata{source: "posts"}} =
-               CommonSchema.create_struct(Post)
+               CommonSchema.to_struct(Post)
     end
 
     test "when given a {source, schema} tuple, returns a struct" do
       assert %PostAbstract{__meta__: %Metadata{source: "custom_source"}} =
-               CommonSchema.create_struct({"custom_source", PostAbstract})
+               CommonSchema.to_struct({"custom_source", PostAbstract})
     end
   end
 end

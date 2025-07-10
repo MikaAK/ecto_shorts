@@ -137,8 +137,8 @@ defmodule EctoShorts do
       :name
     ]
 
-    def changeset(model_or_changeset, attrs \\ %{}) do
-      model_or_changeset
+    def changeset(schema_data_or_changeset, attrs \\ %{}) do
+      schema_data_or_changeset
       |> cast(attrs, @available_fields)
       |> EctoShorts.CommonChanges.preload_change_assoc(:users)
     end
@@ -162,8 +162,8 @@ defmodule EctoShorts do
       :organization_id
     ]
 
-    def changeset(model_or_changeset, attrs \\ %{}) do
-      model_or_changeset
+    def changeset(schema_data_or_changeset, attrs \\ %{}) do
+      schema_data_or_changeset
       |> cast(attrs, @available_fields)
       |> EctoShorts.CommonChanges.preload_change_assoc(:organization, required_when_missing: :organization_id)
     end

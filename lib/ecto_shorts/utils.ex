@@ -257,14 +257,14 @@ defmodule EctoShorts.Utils do
 
   ### Examples
 
-      iex> EctoShorts.Utils.reduce_all([1], fn v -> {:ok, v} end)
+      iex> EctoShorts.Utils.validate_success([1], fn v -> {:ok, v} end)
       {:ok, [1]}
 
-      iex> EctoShorts.Utils.reduce_all(["error"], fn v -> {:error, v} end)
+      iex> EctoShorts.Utils.validate_success(["error"], fn v -> {:error, v} end)
       {:error, ["error"]}
   """
-  @spec reduce_all(enum :: Enum.t(), fun :: function()) :: {:ok, list()} | {:error, list()}
-  def reduce_all(enum, fun) do
+  @spec validate_success(enum :: Enum.t(), fun :: function()) :: {:ok, list()} | {:error, list()}
+  def validate_success(enum, fun) do
     case Enum.reduce(enum, {[], []}, &reduce_eval(&1, fun, &2)) do
       {values, []} -> {:ok, Enum.reverse(values)}
       {_, errors} -> {:error, Enum.reverse(errors)}

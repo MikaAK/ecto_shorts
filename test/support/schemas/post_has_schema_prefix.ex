@@ -12,7 +12,7 @@ defmodule EctoShorts.Schemas.PostHasSchemaPrefix do
 
   @available_fields [:title]
 
-  def changeset(model_or_changeset, attrs \\ %{}) do
-    cast(model_or_changeset, attrs, @available_fields)
+  def changeset(schema_data_or_changeset, attrs \\ %{}) do
+    cast(schema_data_or_changeset, attrs, @available_fields)
   end
 end

@@ -138,7 +138,7 @@ defmodule EctoShorts.CommonQuery do
       lookup_join_source(join_expr, inner_query)
     else
       with {_, parent_schema} <- get_source(from_expr) do
-        {nil, SchemaHelpers.fetch_schema_assoc_module!(parent_schema, assoc_key)}
+        {nil, SchemaHelpers.get_related_schema(parent_schema, assoc_key)}
       end
     end
   end
@@ -168,7 +168,7 @@ defmodule EctoShorts.CommonQuery do
                joins
                |> get_in([Access.at!(binding_position - 1)])
                |> lookup_join_source(query) do
-          {nil, SchemaHelpers.fetch_schema_assoc_module!(parent_schema, assoc_key)}
+          {nil, SchemaHelpers.get_related_schema(parent_schema, assoc_key)}
         end
 
       %{source: {_, parent_schema}} = _parent_join_expr ->
@@ -184,7 +184,7 @@ defmodule EctoShorts.CommonQuery do
 
       parent_join_expr ->
         with {_, parent_schema} <- lookup_join_source(parent_join_expr, query) do
-          {nil, SchemaHelpers.fetch_schema_assoc_module!(parent_schema, assoc_key)}
+          {nil, SchemaHelpers.get_related_schema(parent_schema, assoc_key)}
         end
     end
   end

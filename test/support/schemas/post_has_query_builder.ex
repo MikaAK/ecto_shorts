@@ -42,8 +42,8 @@ defmodule EctoShorts.Schemas.PostHasQueryBuilder do
     :views
   ]
 
-  def changeset(model_or_changeset, attrs \\ %{}) do
-    model_or_changeset
+  def changeset(schema_data_or_changeset, attrs \\ %{}) do
+    schema_data_or_changeset
     |> cast(attrs, @available_fields)
     |> foreign_key_constraint(:author_id)
     |> no_assoc_constraint(:comments)
