@@ -659,7 +659,7 @@ defmodule EctoShorts.Actions do
           nil ->
             with {:error, changeset} <-
                    source
-                   |> CommonSchema.prepare_changeset(params, opts)
+                   |> CommonSchema.create_changeset(params, opts)
                    |> repo.insert(opts) do
               {:error,
                {:conflict, "Failed to create record.",
@@ -799,7 +799,7 @@ defmodule EctoShorts.Actions do
           nil ->
             with {:error, changeset} <-
                    source
-                   |> CommonSchema.prepare_changeset(Map.merge(find_params, upsert_params), opts)
+                   |> CommonSchema.create_changeset(Map.merge(find_params, upsert_params), opts)
                    |> repo.insert(opts) do
               {:error,
                {:conflict, "Failed to create record.",
@@ -872,7 +872,7 @@ defmodule EctoShorts.Actions do
       Ecto.Multi.run(multi, {:create, idx}, fn repo, _changes_so_far ->
         with {:error, changeset} <-
                source
-               |> CommonSchema.prepare_changeset(params, opts)
+               |> CommonSchema.create_changeset(params, opts)
                |> repo.insert(opts) do
           {:error,
            {:conflict, "Failed to create record.",
@@ -1242,7 +1242,7 @@ defmodule EctoShorts.Actions do
     opts = Keyword.merge(default_opts(), opts)
 
     source
-    |> CommonSchema.prepare_changeset(params, opts)
+    |> CommonSchema.create_changeset(params, opts)
     |> Config.repo!(opts).insert(opts)
   end
 

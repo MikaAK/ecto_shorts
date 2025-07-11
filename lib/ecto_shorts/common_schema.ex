@@ -218,6 +218,24 @@ defmodule EctoShorts.CommonSchema do
     struct(schema)
   end
 
+  def create_changeset(source, params, opts \\ [])
+
+  def create_changeset({source, schema}, params, opts) do
+    if function_exported?(schema, :create_changeset, 1) do
+      schema.create_changeset({source, params})
+    else
+      prepare_changeset(schema, to_struct({source, schema}), params, opts)
+    end
+  end
+
+  def create_changeset(schema, params, opts) do
+    if function_exported?(schema, :create_changeset, 1) do
+      schema.create_changeset(params)
+    else
+      prepare_changeset(schema, to_struct(schema), params, opts)
+    end
+  end
+
   # ---
 
   def prepare_changeset(%{__meta__: %{schema: schema}} = schema_data, opts) do
