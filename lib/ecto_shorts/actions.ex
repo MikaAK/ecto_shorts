@@ -958,22 +958,22 @@ defmodule EctoShorts.Actions do
     |> handle_multi_response()
   end
 
-  defp multi_delete(entries, opts) do
-    entries
+  defp multi_delete(schema_data_list, opts) do
+    schema_data_list
     |> Enum.with_index()
-    |> Enum.reduce(Ecto.Multi.new(), fn {entry, idx}, multi ->
+    |> Enum.reduce(Ecto.Multi.new(), fn {schema_data, idx}, multi ->
       Ecto.Multi.run(multi, {:create, idx}, fn repo, _changes_so_far ->
         with {:error, changeset} <-
-               entry
-               |> CommonSchema.prepare_changeset(opts)
+               schema_data
+               |> CommonSchema.prepare_changeset(%{}, opts)
                |> repo.delete(opts) do
           {:error,
            {:conflict, "Failed to delete record.",
             %{
-              query: CommonSchema.get_schema_metadata(entry),
-              params: entries,
+              query: CommonSchema.get_schema_metadata(schema_data, :schema),
+              params: schema_data_list,
               changeset: changeset,
-              failed_value: entry,
+              failed_value: schema_data,
               position: idx
             }}}
         end

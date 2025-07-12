@@ -20,73 +20,75 @@ defmodule EctoShorts.CommonChangesTest do
     UserData
   }
 
-  describe "put_new_change: " do
+  describe "put_change_if_missing: " do
     test "adds change if it does not exist" do
       assert %Changeset{changes: %{title: "should_see_this"}}
 
       %Post{}
       |> Post.changeset(%{})
-      |> CommonChanges.put_new_change(:title, fn -> "should_see_this" end)
+      |> CommonChanges.put_change_if_missing(:title, fn -> "should_see_this" end)
     end
 
     test "does not replace existing change" do
       changeset = Post.changeset(%Post{}, %{title: "post_title"})
       assert %Changeset{changes: %{title: "post_title"}} = changeset
-      assert changeset === CommonChanges.put_new_change(changeset, :title, "should_not_see_this")
+
+      assert changeset ===
+               CommonChanges.put_change_if_missing(changeset, :title, "should_not_see_this")
     end
   end
 
-  describe "changeset_change_empty?: " do
+  describe "has_empty_change?: " do
     test "returns false if the change field is not a map or list " do
       refute %Post{}
              |> Post.changeset(%{title: "post_title"})
-             |> CommonChanges.changeset_change_empty?(:title)
+             |> CommonChanges.has_empty_change?(:title)
     end
 
     test "returns true if change is an empty list" do
       assert %Post{}
              |> Post.changeset(%{tags: []})
-             |> CommonChanges.changeset_change_empty?(:tags)
+             |> CommonChanges.has_empty_change?(:tags)
     end
 
     test "returns true if change is an empty map" do
       assert %UserData{}
              |> UserData.changeset(%{data: %{}})
-             |> CommonChanges.changeset_change_empty?(:data)
+             |> CommonChanges.has_empty_change?(:data)
     end
   end
 
-  describe "changeset_field_empty?: " do
+  describe "has_empty_field?: " do
     test "returns false if the change field is not a map or list " do
       refute %Post{title: "post_title"}
              |> Post.changeset(%{})
-             |> CommonChanges.changeset_field_empty?(:title)
+             |> CommonChanges.has_empty_field?(:title)
     end
 
     test "returns true if change is an empty list" do
       assert %Post{tags: []}
              |> Post.changeset(%{})
-             |> CommonChanges.changeset_field_empty?(:tags)
+             |> CommonChanges.has_empty_field?(:tags)
     end
 
     test "returns true if change is an empty map" do
       assert %UserData{data: %{}}
              |> UserData.changeset(%{})
-             |> CommonChanges.changeset_field_empty?(:data)
+             |> CommonChanges.has_empty_field?(:data)
     end
   end
 
-  describe "changeset_change_nil?: " do
+  describe "has_nil_change?: " do
     test "returns true if the change key exists and the value is nil" do
       assert %Post{}
              |> Post.changeset(%{title: nil})
-             |> CommonChanges.changeset_change_nil?(:title)
+             |> CommonChanges.has_nil_change?(:title)
     end
 
     test "returns false if the change key exists and the value is not nil" do
       refute %Post{}
              |> Post.changeset(%{title: "post_title"})
-             |> CommonChanges.changeset_change_nil?(:title)
+             |> CommonChanges.has_nil_change?(:title)
     end
   end
 
@@ -113,7 +115,7 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "put_when: " do
+  describe "apply_if: " do
     test "returns changeset without changes if evaluator function returns false" do
       when_func =
         fn _changeset -> false end
@@ -126,7 +128,7 @@ defmodule EctoShorts.CommonChangesTest do
       changeset =
         %Post{}
         |> Post.changeset(%{})
-        |> CommonChanges.put_when(when_func, change_func)
+        |> CommonChanges.apply_if(when_func, change_func)
 
       assert %Changeset{changes: changes, params: params} = changeset
 
@@ -147,7 +149,7 @@ defmodule EctoShorts.CommonChangesTest do
       changeset =
         %Post{}
         |> Post.changeset(%{})
-        |> CommonChanges.put_when(when_func, change_func)
+        |> CommonChanges.apply_if(when_func, change_func)
 
       assert %Changeset{changes: changes} = changeset
 
@@ -155,29 +157,29 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "changeset_field_nil?: " do
+  describe "has_nil_field?: " do
     test "returns false if changeset field is in data" do
       changeset = Post.changeset(%Post{title: "title"}, %{})
 
-      refute CommonChanges.changeset_field_nil?(changeset, :title)
+      refute CommonChanges.has_nil_field?(changeset, :title)
     end
 
     test "returns true if changeset field is not in changes" do
       changeset = Post.changeset(%Post{}, %{})
 
-      assert CommonChanges.changeset_field_nil?(changeset, :title)
+      assert CommonChanges.has_nil_field?(changeset, :title)
     end
 
     test "returns true if changeset field is in changes is nil" do
       changeset = Post.changeset(%Post{}, %{title: nil})
 
-      assert CommonChanges.changeset_field_nil?(changeset, :title)
+      assert CommonChanges.has_nil_field?(changeset, :title)
     end
 
     test "returns false if changeset field is in changes is nil and is a has_many association" do
       changeset = Post.changeset(%Post{}, %{comments: nil})
 
-      refute CommonChanges.changeset_field_nil?(changeset, :comments)
+      refute CommonChanges.has_nil_field?(changeset, :comments)
     end
   end
 

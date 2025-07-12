@@ -235,10 +235,10 @@ defmodule EctoShorts.CommonParams do
       constructed without validation.
   """
   def convert_to_insert_all_params(schema, params_list \\ [], opts \\ []) do
-    with {:ok, insert_maps, changed_keys, has_primary_key?} <-
+    with {:ok, insert_maps, changed_keys, has_primary_keys?} <-
            build_inserts(params_list, schema, opts) do
       insert_opts =
-        if has_primary_key? do
+        if has_primary_keys? do
           on_conflict_options(schema, changed_keys)
         else
           []
@@ -250,13 +250,13 @@ defmodule EctoShorts.CommonParams do
 
   defp build_inserts(params_list, schema, opts) do
     case prepare_inserts(params_list, schema, opts) do
-      {insert_maps, [], changed_key_set, has_primary_key?} ->
+      {insert_maps, [], changed_key_set, has_primary_keys?} ->
         changed_keys =
           changed_key_set
           |> MapSet.to_list()
           |> Enum.sort()
 
-        {:ok, Enum.reverse(insert_maps), changed_keys, has_primary_key?}
+        {:ok, Enum.reverse(insert_maps), changed_keys, has_primary_keys?}
 
       {_, errors, _, _} ->
         {:error, Enum.reverse(errors)}
@@ -269,24 +269,24 @@ defmodule EctoShorts.CommonParams do
     Enum.reduce(
       params_list,
       {[], [], MapSet.new(), false},
-      fn params, {entries, errors, changed_key_set, has_primary_key?} ->
+      fn params, {entries, errors, changed_key_set, has_primary_keys?} ->
         case change_insert(schema, params, opts) do
           {:ok, insert_data, changed_keys} ->
             changed_key_set = Enum.reduce(changed_keys, changed_key_set, &MapSet.put(&2, &1))
 
             entry = serialize_insert_data(schema, insert_data, utc_now, changed_keys, opts)
 
-            has_primary_key? =
-              if has_primary_key? do
-                has_primary_key?
+            has_primary_keys? =
+              if has_primary_keys? do
+                has_primary_keys?
               else
-                SchemaHelpers.primary_key_exist?(schema, entry)
+                SchemaHelpers.has_primary_keys?(schema, entry)
               end
 
-            {[entry | entries], errors, changed_key_set, has_primary_key?}
+            {[entry | entries], errors, changed_key_set, has_primary_keys?}
 
           {:error, e} ->
-            {entries, [e | errors], changed_key_set, has_primary_key?}
+            {entries, [e | errors], changed_key_set, has_primary_keys?}
         end
       end
     )
@@ -352,7 +352,7 @@ defmodule EctoShorts.CommonParams do
     else
       with {:ok, insert_data} <-
              schema_data
-             |> CommonSchema.prepare_changeset(opts)
+             |> CommonSchema.prepare_changeset(%{}, opts)
              |> Changeset.apply_action(changeset_action(schema, schema_data)) do
         {:ok, insert_data, changed_keys}
       end
@@ -379,8 +379,8 @@ defmodule EctoShorts.CommonParams do
              |> CommonSchema.prepare_changeset(params, opts)
              |> Changeset.apply_action(:insert) do
         insert_data =
-          if SchemaHelpers.primary_key_exist?(schema, params) do
-            struct!(insert_data, SchemaHelpers.filter_primary_key(params, schema))
+          if SchemaHelpers.has_primary_keys?(schema, params) do
+            struct!(insert_data, SchemaHelpers.filter_primary_keys(params, schema))
           else
             insert_data
           end
@@ -391,7 +391,7 @@ defmodule EctoShorts.CommonParams do
   end
 
   defp changeset_action(schema, schema_data) do
-    if SchemaHelpers.primary_key_exist?(schema, schema_data) do
+    if SchemaHelpers.has_primary_keys?(schema, schema_data) do
       :update
     else
       :insert

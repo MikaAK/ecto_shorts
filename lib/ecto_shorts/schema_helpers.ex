@@ -13,14 +13,6 @@ defmodule EctoShorts.SchemaHelpers do
   @type key :: atom()
   @type params :: map()
 
-  def schema_module?(nil), do: false
-  def schema_module?(module) when is_atom(module), do: function_exported?(module, :__schema__, 2)
-  def schema_module?(_), do: false
-
-  def source_has_schema?({_source, schema}), do: schema_module?(schema)
-  def source_has_schema?(schema) when is_atom(schema), do: schema_module?(schema)
-  def source_has_schema?(_), do: false
-
   @doc """
   Recursively resolves the related schema module for an association
   key on a given schema module.
@@ -41,20 +33,23 @@ defmodule EctoShorts.SchemaHelpers do
       nil
   """
   @spec get_related_schema(schema(), key()) :: schema() | nil
-  def get_related_schema(nil, _key), do: nil
+  def get_related_schema(schema, key), do: lookup_related_schema(schema, key)
 
-  def get_related_schema(schema, key) do
+  defp lookup_related_schema(nil, _), do: nil
+
+  defp lookup_related_schema(schema, []), do: schema
+
+  defp lookup_related_schema(schema, [key | path]) do
+    schema
+    |> lookup_related_schema(key)
+    |> lookup_related_schema(path)
+  end
+
+  defp lookup_related_schema(schema, key) do
     case schema.__schema__(:association, key) do
-      %{through: [field1, field2]} ->
-        schema
-        |> get_related_schema(field1)
-        |> get_related_schema(field2)
-
-      %{related: schema} ->
-        schema
-
-      _ ->
-        nil
+      %{related: schema} -> schema
+      %{through: path} -> lookup_related_schema(schema, path)
+      _ -> nil
     end
   end
 
@@ -79,27 +74,6 @@ defmodule EctoShorts.SchemaHelpers do
   def schema_field_type(schema, key), do: schema.__schema__(:type, key)
 
   @doc """
-  Returns `true` if the value of `key` is not an
-  `Ecto.Association.NotLoaded` struct, otherwise `false.`
-
-  ## Examples
-
-      # Given a Post struct with a not preloaded :comments association
-      iex> post = %EctoShorts.Schemas.Post{comments: %Ecto.Association.NotLoaded{}}
-      ...> EctoShorts.SchemaHelpers.association_loaded?(post, :comments)
-      false
-
-      # If the association is preloaded (even as an empty list), it returns true
-      iex> post_with_comments = %EctoShorts.Schemas.Post{comments: []}
-      ...> EctoShorts.SchemaHelpers.association_loaded?(post_with_comments, :comments)
-      true
-  """
-  @spec association_loaded?(schema_data(), key()) :: boolean()
-  def association_loaded?(schema_data, key) do
-    association_not_loaded?(schema_data, key) === false
-  end
-
-  @doc """
   Returns `true` if the value of `key` is an `Ecto.Association.NotLoaded`
   struct, otherwise `false.`
 
@@ -112,107 +86,10 @@ defmodule EctoShorts.SchemaHelpers do
   """
   @spec association_not_loaded?(schema_data(), key()) :: boolean()
   def association_not_loaded?(schema_data, key) do
-    schema_data |> Map.get(key) |> is_struct(Ecto.Association.NotLoaded)
+    schema_data
+    |> Map.get(key)
+    |> is_struct(Ecto.Association.NotLoaded)
   end
-
-  @doc """
-  Returns `true` if all items in the list has been created
-  (persisted), otherwise returns `false`.
-
-  It checks each element in the `values` list to see if it
-  appears to be a persisted record, by verifying that all
-  primary key fields are set .
-
-  If all items have their primary keys present and non-nil,
-  the result is `true`. If any item is missing a primary
-  key (indicating it hasn't been persisted to the database
-  yet), the result is `false`.
-
-  ## Examples
-
-      # List where one user has not been saved (id is nil)
-      iex> posts = [%EctoShorts.Schemas.Post{id: 1}, %EctoShorts.Schemas.Post{id: 2}, %EctoShorts.Schemas.Post{id: nil}]
-      ...> EctoShorts.SchemaHelpers.all_created?(EctoShorts.Schemas.Post, posts)
-      false
-
-      # List where all posts have an id (all are persisted)
-      iex> posts_all_saved = [%EctoShorts.Schemas.Post{id: 10}, %EctoShorts.Schemas.Post{id: 11}]
-      ...> EctoShorts.SchemaHelpers.all_created?(EctoShorts.Schemas.Post, posts_all_saved)
-      true
-  """
-  @spec all_created?(schema(), list(schema_data() | params() | any())) :: boolean()
-  def all_created?(schema, values), do: Utils.all?(values, &created?(schema, &1))
-
-  @doc """
-  Returns `true` if any item in the list has been created
-  (persisted), otherwise returns `false`.
-
-  It checks each element in the `values` list to see if it
-  appears to be a persisted record, by verifying that all
-  primary key fields are set .
-
-  If any items has all primary keys present and non-nil,
-  the result is `true`. If any item is missing a primary
-  key (indicating it hasn't been persisted to the database
-  yet), the result is `false`.
-
-  ## Examples
-
-      # List with a mix of persisted and non-persisted items
-      iex> data = [%EctoShorts.Schemas.Post{id: nil}, %EctoShorts.Schemas.Post{id: 5}, %{title: "Charlie"}]
-      ...> EctoShorts.SchemaHelpers.any_created?(EctoShorts.Schemas.Post, data)
-      true
-
-      # List where no item has been persisted yet (no ids present)
-      iex> new_data = [%EctoShorts.Schemas.Post{id: nil}, %{title: "Dana"}]
-      ...> EctoShorts.SchemaHelpers.any_created?(EctoShorts.Schemas.Post, new_data)
-      false
-  """
-  @spec any_created?(schema(), list(schema_data() | params() | any())) :: boolean()
-  def any_created?(schema, values), do: Enum.any?(values, &created?(schema, &1))
-
-  @doc """
-  Checks if a given struct or map likely represents a record
-  that has been created/persisted (all primary key fields
-  are set).
-
-  This function determines whether the `data` (which can be
-  an Ecto schema struct, an Ecto changeset, or a plain map
-  of fields) has all of its primary key fields present and
-  not `nil`. In other words, it returns `true` if the item
-  looks like it has been inserted into the database (since
-  the primary keys, often an `id`, are typically assigned
-  by the database upon insertion). Otherwise, it returns
-  `false`.
-
-  Under the hood, this function uses `has_primary_key?/2` for
-  the actual check when `data` is a map or struct. If `data`
-  is not a map (for example, if someone accidentally passes
-  just an integer or other type), `created?/2` will
-  immediately return `false`.
-
-  ## Examples
-
-      # An Ecto schema struct with an id (persisted record)
-      iex> schema_data = %EctoShorts.Schemas.Post{id: 42}
-      ...> EctoShorts.SchemaHelpers.created?(EctoShorts.Schemas.Post, schema_data)
-      true
-
-      # A changeset for an existing record (id present in data)
-      iex> changeset = Ecto.Changeset.change(%EctoShorts.Schemas.Post{id: 42})
-      ...> EctoShorts.SchemaHelpers.created?(EctoShorts.Schemas.Post, changeset)
-      true
-
-      # A map representing a new record (no id yet)
-      iex> EctoShorts.SchemaHelpers.created?(EctoShorts.Schemas.Post, %{title: "example"})
-      false
-  """
-  @spec created?(schema(), schema_data() | params() | any()) :: boolean()
-  def created?(schema, %{} = schema_data_or_params) do
-    primary_key_exist?(schema, schema_data_or_params)
-  end
-
-  def created?(_, _), do: false
 
   @doc """
   Returns `true` if all items in the given list are Ecto
@@ -265,8 +142,40 @@ defmodule EctoShorts.SchemaHelpers do
       false
   """
   @spec schema_struct?(schema_data() | any()) :: boolean()
-  def schema_struct?(%{__meta__: _}), do: true
+  def schema_struct?(%_{__meta__: %{schema: schema}}), do: schema_module?(schema)
   def schema_struct?(_), do: false
+
+  def schema_module?(module) when is_atom(module) and module !== nil,
+    do: function_exported?(module, :__schema__, 2)
+
+  def schema_module?(_), do: false
+
+  def source_has_schema?({_source, schema}), do: schema_module?(schema)
+  def source_has_schema?(schema) when is_atom(schema), do: schema_module?(schema)
+  def source_has_schema?(_), do: false
+
+  def primary_key_count(schema), do: Enum.count(schema.__schema__(:primary_key))
+
+  @doc """
+  Returns a list of the primary key field names (as atoms)
+  for the given schema.
+
+  This function simply retrieves the primary key fields defined
+  in the Ecto schema module `schema`. In most cases,
+  this will return a list with a single atom (e.g., `[:id]`).
+  However, for schemas with composite primary keys, it can
+  return multiple atoms.
+
+  ## Examples
+
+      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.Post)
+      [:id]
+
+      # Example for a schema with composite primary keys (for illustration)
+      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.CompositePrimaryKey)
+      [:comment_id, :post_id]
+  """
+  def primary_key(schema), do: schema.__schema__(:primary_key)
 
   @doc """
   Filters a map (or list of maps) to include only the primary
@@ -294,38 +203,42 @@ defmodule EctoShorts.SchemaHelpers do
   can be atoms or strings, and it will handle both by converting
   to string for comparison.
   """
-  @spec filter_primary_key(params() | list(params()), schema()) :: params() | list(params())
-  def filter_primary_key(params_list, schema) when is_list(params_list) do
-    Enum.reduce(params_list, [], fn params, acc ->
-      case filter_primary_key(params, schema) do
+  @spec filter_primary_keys(params() | list(params()), schema()) :: params() | list(params())
+  def filter_primary_keys(params_list, schema) when is_list(params_list) do
+    params_list
+    |> Enum.reduce([], fn params, acc ->
+      case filter_primary_keys(params, schema) do
         [] -> acc
         values -> [values | acc]
       end
     end)
+    |> Enum.reverse()
   end
 
-  def filter_primary_key(params, schema) when is_map(params) do
+  def filter_primary_keys(params, schema) when is_map(params) do
     primary_key = schema.__schema__(:primary_key)
 
     values = Map.take(params, primary_key)
 
-    if required_keys_exist?(values, primary_key) do
+    if has_required_keys?(values, primary_key) do
       values
     else
       %{}
     end
   end
 
-  def only_primary_key_exist?(_schema, []), do: false
+  def only_has_primary_keys?(_schema, []), do: false
 
-  def only_primary_key_exist?(_schema, params) when params === %{}, do: false
+  def only_has_primary_keys?(_schema, params) when params === %{}, do: false
 
-  def only_primary_key_exist?(schema, params_list) when is_list(params_list) do
-    Utils.all?(params_list, fn params -> only_primary_key_exist?(schema, params) end)
+  def only_has_primary_keys?(schema, params_list) when is_list(params_list) do
+    Utils.all?(params_list, fn params -> only_has_primary_keys?(schema, params) end)
   end
 
-  def only_primary_key_exist?(schema, params) when is_map(params) do
-    required_keys_exist?(params, schema.__schema__(:primary_key))
+  def only_has_primary_keys?(schema, params) when is_map(params) do
+    keys = schema.__schema__(:primary_key)
+
+    has_required_keys?(params, keys) and params === Map.take(params, keys)
   end
 
   @doc """
@@ -344,17 +257,18 @@ defmodule EctoShorts.SchemaHelpers do
 
       # A list where one struct is missing its primary key
       iex> records = [%EctoShorts.Schemas.Post{id: 5}, %EctoShorts.Schemas.Post{id: nil}, %{id: 8}]
-      ...> EctoShorts.SchemaHelpers.all_has_primary_key?(EctoShorts.Schemas.Post, records)
+      ...> EctoShorts.SchemaHelpers.all_has_primary_keys?(EctoShorts.Schemas.Post, records)
       false
 
       # A list where every item has the primary key set (structs or maps)
       iex> records = [%EctoShorts.Schemas.Post{id: 5}, %{id: 6}]
-      ...> EctoShorts.SchemaHelpers.all_has_primary_key?(EctoShorts.Schemas.Post, records)
+      ...> EctoShorts.SchemaHelpers.all_has_primary_keys?(EctoShorts.Schemas.Post, records)
       true
   """
-  @spec all_has_primary_key?(schema(), list(params() | schema_data())) :: boolean()
-  def all_has_primary_key?(schema, values),
-    do: Utils.all?(values, &primary_key_exist?(schema, &1))
+  @spec all_has_primary_keys?(schema(), list(params() | schema_data())) :: boolean()
+  def all_has_primary_keys?(schema, values) do
+    Utils.all?(values, &has_primary_keys?(schema, &1))
+  end
 
   @doc """
   Returns `true` if at least one item in the list has all of its
@@ -371,44 +285,17 @@ defmodule EctoShorts.SchemaHelpers do
 
       # List has one map with a full primary key (id present)
       iex> list = [%{id: nil}, %{id: 100}, %{title: "New"}]
-      ...> EctoShorts.SchemaHelpers.any_has_primary_key?(EctoShorts.Schemas.Post, list)
+      ...> EctoShorts.SchemaHelpers.any_has_primary_keys?(EctoShorts.Schemas.Post, list)
       true
 
       # No item in the list has a primary key
       iex> list2 = [%{id: nil}, %{title: "No ID"}]
-      ...> EctoShorts.SchemaHelpers.any_has_primary_key?(EctoShorts.Schemas.Post, list2)
+      ...> EctoShorts.SchemaHelpers.any_has_primary_keys?(EctoShorts.Schemas.Post, list2)
       false
   """
-  @spec any_has_primary_key?(schema(), list(params() | schema_data())) :: boolean()
-  def any_has_primary_key?(schema, values) do
-    Enum.any?(values, &primary_key_exist?(schema, &1))
-  end
-
-  def primary_key_count(schema) do
-    Enum.count(schema.__schema__(:primary_key))
-  end
-
-  @doc """
-  Returns a list of the primary key field names (as atoms)
-  for the given schema.
-
-  This function simply retrieves the primary key fields defined
-  in the Ecto schema module `schema`. In most cases,
-  this will return a list with a single atom (e.g., `[:id]`).
-  However, for schemas with composite primary keys, it can
-  return multiple atoms.
-
-  ## Examples
-
-      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.Post)
-      [:id]
-
-      # Example for a schema with composite primary keys (for illustration)
-      iex> EctoShorts.SchemaHelpers.primary_key(EctoShorts.Schemas.CompositePrimaryKey)
-      [:comment_id, :post_id]
-  """
-  def primary_key(schema) do
-    schema.__schema__(:primary_key)
+  @spec any_has_primary_keys?(schema(), list(params() | schema_data())) :: boolean()
+  def any_has_primary_keys?(schema, values) do
+    Enum.any?(values, &has_primary_keys?(schema, &1))
   end
 
   @doc """
@@ -434,7 +321,7 @@ defmodule EctoShorts.SchemaHelpers do
 
   - For any other type of `data`, the function will simply return `false`.
 
-  In practice, `has_primary_key?/2` tells you if `data` has enough
+  In practice, `has_primary_keys?/2` tells you if `data` has enough
   information to uniquely identify a record of type `schema`.
   This is often true when the record has been fetched from or saved to
   the database.
@@ -447,45 +334,36 @@ defmodule EctoShorts.SchemaHelpers do
 
       # Ecto schema struct with primary key set
       iex> post = %EctoShorts.Schemas.Post{id: 7, title: "Helen"}
-      ...> EctoShorts.SchemaHelpers.primary_key_exist?(EctoShorts.Schemas.Post, post)
-      true
-
-      # Ecto changeset for a struct with primary key set
-      iex> changeset = Ecto.Changeset.change(%EctoShorts.Schemas.Post{id: 8, title: "Ian"})
-      ...> EctoShorts.SchemaHelpers.primary_key_exist?(EctoShorts.Schemas.Post, changeset)
+      ...> EctoShorts.SchemaHelpers.has_primary_keys?(EctoShorts.Schemas.Post, post)
       true
 
       # Map with all primary key fields present
       iex> attrs = %{"id" => 9, "name" => "Jill"}
-      ...> EctoShorts.SchemaHelpers.primary_key_exist?(EctoShorts.Schemas.Post, attrs)
+      ...> EctoShorts.SchemaHelpers.has_primary_keys?(EctoShorts.Schemas.Post, attrs)
       true
 
       # Map missing the primary key
       iex> incomplete_attrs = %{title: "Kelly"}
-      ...> EctoShorts.SchemaHelpers.primary_key_exist?(EctoShorts.Schemas.Post, incomplete_attrs)
+      ...> EctoShorts.SchemaHelpers.has_primary_keys?(EctoShorts.Schemas.Post, incomplete_attrs)
       false
   """
-  @spec primary_key_exist?(Ecto.Queryable.t(), Ecto.Changeset.t() | Ecto.Schema.t() | map()) ::
-          boolean()
-  def primary_key_exist?(schema, %{data: %{__meta__: _} = schema_data}) do
-    primary_key_exist?(schema, schema_data)
-  end
+  def has_primary_keys?(schema, value),
+    do: has_required_keys?(value, schema.__schema__(:primary_key))
 
-  def primary_key_exist?(schema, schema_data_or_params) do
-    required_keys_exist?(schema_data_or_params, schema.__schema__(:primary_key))
-  end
-
-  defp required_keys_exist?(%_{} = schema_data, keys) do
+  defp has_required_keys?(%_{} = schema_data, keys) do
     Utils.all?(keys, fn key ->
       nil_value? = Map.get(schema_data, key) === nil
       Map.has_key?(schema_data, key) and not nil_value?
     end)
   end
 
-  defp required_keys_exist?(params, keys) do
+  defp has_required_keys?(params, keys) do
     Utils.all?(keys, fn key ->
-      (Map.has_key?(params, key) and Map.get(params, key) !== nil) or
-        (Map.has_key?(params, to_string(key)) and Map.get(params, to_string(key)) !== nil)
+      map_has_non_nil_key?(params, key) or map_has_non_nil_key?(params, to_string(key))
     end)
+  end
+
+  defp map_has_non_nil_key?(map, key) do
+    Map.has_key?(map, key) and Map.get(map, key) !== nil
   end
 end

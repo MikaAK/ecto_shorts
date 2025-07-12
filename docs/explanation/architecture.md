@@ -107,8 +107,8 @@ changeset = CommonChanges.put_or_cast_assoc(changeset, :posts)
 
 - `preload_change_assoc/3`: Preloads an association and prepares it for changes
 - `put_or_cast_assoc/3`: Intelligently chooses between `put_assoc` and `cast_assoc`
-- `put_when/3`: Conditionally applies a function to a changeset
-- `changeset_field_nil?/2` and `changeset_field_empty?/2`: Helper functions for checking field values
+- `apply_if/3`: Conditionally applies a function to a changeset
+- `has_nil_field?/2` and `has_empty_field?/2`: Helper functions for checking field values
 
 These functions simplify common patterns when working with associations in Ecto changesets.
 

@@ -85,15 +85,15 @@ defmodule EctoShorts.CommonSchemaTest do
     end
   end
 
-  describe "to_struct/1" do
+  describe "prepare_struct/1" do
     test "when given a schema module, returns a struct" do
       assert %Post{__meta__: %Metadata{source: "posts"}} =
-               CommonSchema.to_struct(Post)
+               CommonSchema.prepare_struct(Post)
     end
 
     test "when given a {source, schema} tuple, returns a struct" do
       assert %PostAbstract{__meta__: %Metadata{source: "custom_source"}} =
-               CommonSchema.to_struct({"custom_source", PostAbstract})
+               CommonSchema.prepare_struct({"custom_source", PostAbstract})
     end
   end
 end

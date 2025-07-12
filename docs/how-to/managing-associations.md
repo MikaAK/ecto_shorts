@@ -223,21 +223,21 @@ role_params = %{
 
 5. **Validate associations**: Add appropriate foreign key constraints and validations to ensure data integrity.
 
-6. **Use conditional functions**: Take advantage of `put_when/3` to apply changes only when specific conditions are met.
+6. **Use conditional functions**: Take advantage of `apply_if/3` to apply changes only when specific conditions are met.
 
 ## Additional Features
 
 ### Conditional Changes
 
-The `put_when/3` function allows you to conditionally apply changes based on a predicate:
+The `apply_if/3` function allows you to conditionally apply changes based on a predicate:
 
 ```elixir
 def changeset(user, params) do
   user
   |> cast(params, [:name, :email])
   |> validate_required([:name])
-  |> CommonChanges.put_when(
-    &CommonChanges.changeset_field_nil?(&1, :email),
+  |> CommonChanges.apply_if(
+    &CommonChanges.has_nil_field?(&1, :email),
     &put_change(&1, :email, "default@example.com")
   )
 end
@@ -251,10 +251,10 @@ CommonChanges provides helper functions to check field states:
 
 ```elixir
 # Check if a field is nil
-CommonChanges.changeset_field_nil?(changeset, :address)
+CommonChanges.has_nil_field?(changeset, :address)
 
 # Check if a collection is empty
-CommonChanges.changeset_field_empty?(changeset, :posts)
+CommonChanges.has_empty_field?(changeset, :posts)
 ```
 
 ## Conclusion

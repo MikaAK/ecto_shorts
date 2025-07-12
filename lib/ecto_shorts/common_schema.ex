@@ -24,6 +24,11 @@ defmodule EctoShorts.CommonSchema do
   """
   alias EctoShorts.CommonQuery
 
+  @type source_name :: String.t()
+  @type schema_module :: module()
+  @type source_tuple :: {source_name(), schema_module()}
+  @type query_source :: source_name() | schema_module() | source_tuple()
+
   @doc """
   Invokes the `__schema__/1` get_schema_reflection function.
 
@@ -104,7 +109,7 @@ defmodule EctoShorts.CommonSchema do
   end
 
   def get_schema_source(query) do
-    CommonQuery.get_source(query)
+    CommonQuery.lookup_base_expr_source(query)
   end
 
   @doc """
@@ -123,7 +128,7 @@ defmodule EctoShorts.CommonSchema do
   def get_schema_metadata(schema_data_or_changeset, key) do
     schema_data_or_changeset
     |> get_schema_metadata()
-    |> Map.get(key)
+    |> Map.fetch!(key)
   end
 
   @doc """
@@ -138,17 +143,9 @@ defmodule EctoShorts.CommonSchema do
       ...> EctoShorts.CommonSchema.get_schema_metadata(changeset)
       %Ecto.Schema.Metadata{schema: EctoShorts.Schemas.Post, source: "posts", state: :built}
   """
-  def get_schema_metadata(%{data: %{__meta__: meta}}) do
-    meta
-  end
-
-  def get_schema_metadata(%{__meta__: meta}) do
-    meta
-  end
-
-  def get_schema_metadata(queryable_source) do
-    queryable_source |> to_struct() |> get_schema_metadata()
-  end
+  def get_schema_metadata(%{data: %{__meta__: meta}}), do: meta
+  def get_schema_metadata(%{__meta__: meta}), do: meta
+  def get_schema_metadata(source), do: source |> prepare_struct() |> get_schema_metadata()
 
   @doc """
   Updates the `__meta__` field on an Ecto schema struct.
@@ -190,7 +187,7 @@ defmodule EctoShorts.CommonSchema do
         }
       }
   """
-  def put_metadata(queryable_source_or_schema_data, params \\ [])
+  def put_metadata(source_or_schema_data, params \\ [])
 
   def put_metadata(%_{__meta__: state} = schema_data, params) do
     Ecto.put_meta(schema_data,
@@ -201,20 +198,20 @@ defmodule EctoShorts.CommonSchema do
     )
   end
 
-  def put_metadata(queryable_source, params) do
-    queryable_source |> to_struct() |> put_metadata(params)
+  def put_metadata(source, params) do
+    source |> prepare_struct() |> put_metadata(params)
   end
 
   @doc """
   ...
   """
-  def to_struct({source, schema}) do
+  def prepare_struct({source, schema}) do
     schema
     |> struct()
     |> put_metadata(state: :loaded, source: source, prefix: get_schema_prefix(schema))
   end
 
-  def to_struct(schema) do
+  def prepare_struct(schema) do
     struct(schema)
   end
 
@@ -224,7 +221,7 @@ defmodule EctoShorts.CommonSchema do
     if function_exported?(schema, :create_changeset, 1) do
       schema.create_changeset({source, params})
     else
-      prepare_changeset(schema, to_struct({source, schema}), params, opts)
+      prepare_changeset(schema, prepare_struct({source, schema}), params, opts)
     end
   end
 
@@ -232,30 +229,20 @@ defmodule EctoShorts.CommonSchema do
     if function_exported?(schema, :create_changeset, 1) do
       schema.create_changeset(params)
     else
-      prepare_changeset(schema, to_struct(schema), params, opts)
+      prepare_changeset(schema, prepare_struct(schema), params, opts)
     end
   end
 
-  # ---
-
-  def prepare_changeset(%{__meta__: %{schema: schema}} = schema_data, opts) do
-    prepare_changeset(schema, schema_data, %{}, opts)
-  end
-
-  def prepare_changeset(%{data: %{__meta__: %{schema: schema}}} = changeset, opts) do
-    prepare_changeset(schema, changeset, %{}, opts)
-  end
-
-  def prepare_changeset({source, schema}, opts) do
-    prepare_changeset(schema, to_struct({source, schema}), %{}, opts)
-  end
-
-  def prepare_changeset(schema, opts) do
-    prepare_changeset(schema, to_struct(schema), %{}, opts)
-  end
-
-  # ---
-
+  @doc """
+  `(schema_data :: Ecto.Schema.t(), params :: map(), options :: keyword())`
+  `(changeset :: Ecto.Changeset.t(), params :: map(), options :: keyword())`
+  `(query_source :: {source_name :: binary(), schema_module :: module()}, schema_data :: Ecto.Schema.t(), options :: keyword())`
+  `(query_source :: {source_name :: binary(), schema_module :: module()}, changeset :: Ecto.Changeset.t(), options :: keyword())`
+  `(query_source :: {source_name :: binary(), schema_module :: module()}, params :: map(), options :: keyword())`
+  `(schema_module :: module(), schema_data :: Ecto.Schema.t(), options :: keyword())`
+  `(schema_module :: module(), changeset :: Ecto.Changeset.t(), options :: keyword())`
+  `(schema_module :: module(), params :: map(), options :: keyword())`
+  """
   def prepare_changeset(%{__meta__: %{schema: schema}} = schema_data, params, opts) do
     prepare_changeset(schema, schema_data, params, opts)
   end
@@ -273,7 +260,7 @@ defmodule EctoShorts.CommonSchema do
   end
 
   def prepare_changeset({source, schema}, params, opts) do
-    prepare_changeset(schema, to_struct({source, schema}), params, opts)
+    prepare_changeset(schema, prepare_struct({source, schema}), params, opts)
   end
 
   def prepare_changeset(schema, %{__meta__: _} = schema_data, opts) do
@@ -285,7 +272,7 @@ defmodule EctoShorts.CommonSchema do
   end
 
   def prepare_changeset(schema, params, opts) do
-    prepare_changeset(schema, to_struct(schema), params, opts)
+    prepare_changeset(schema, prepare_struct(schema), params, opts)
   end
 
   # ---
