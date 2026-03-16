@@ -250,5 +250,64 @@ defmodule EctoShorts.Actions.BatchTest do
 
       assert [%Post{comments: []}] = result["Beta"]
     end
+
+    test "preloads associations on multi-key batched structs with :one cardinality" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "Gamma", permalink: "gamma"})
+        |> Repo.insert!()
+
+      comment =
+        %Comment{}
+        |> Comment.changeset(%{body: "hello", post_id: post.id})
+        |> Repo.insert!()
+
+      key = %{title: "Gamma", permalink: "gamma"}
+
+      result = Actions.batch(Post, [key], [:title, :permalink], :one, preload: [:comments])
+
+      assert %Post{id: post_id, comments: [%Comment{id: comment_id, body: "hello"}]} = result[key]
+      assert post_id === post.id
+      assert comment_id === comment.id
+    end
+
+    test "pairs each multi-key result back with the correct preloaded struct when multiple results are returned" do
+      post_a =
+        %Post{}
+        |> Post.changeset(%{title: "Gamma", permalink: "gamma"})
+        |> Repo.insert!()
+
+      post_b =
+        %Post{}
+        |> Post.changeset(%{title: "Delta", permalink: "delta"})
+        |> Repo.insert!()
+
+      comment_a =
+        %Comment{}
+        |> Comment.changeset(%{body: "hello gamma", post_id: post_a.id})
+        |> Repo.insert!()
+
+      comment_b =
+        %Comment{}
+        |> Comment.changeset(%{body: "hello delta", post_id: post_b.id})
+        |> Repo.insert!()
+
+      key_a = %{title: "Gamma", permalink: "gamma"}
+      key_b = %{title: "Delta", permalink: "delta"}
+
+      result =
+        Actions.batch(Post, [key_b, key_a], [:title, :permalink], :one, preload: [:comments])
+
+      assert %Post{id: post_a_id, comments: [%Comment{id: comment_a_id, body: "hello gamma"}]} =
+               result[key_a]
+
+      assert %Post{id: post_b_id, comments: [%Comment{id: comment_b_id, body: "hello delta"}]} =
+               result[key_b]
+
+      assert post_a_id === post_a.id
+      assert post_b_id === post_b.id
+      assert comment_a_id === comment_a.id
+      assert comment_b_id === comment_b.id
+    end
   end
 end

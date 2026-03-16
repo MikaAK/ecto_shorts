@@ -8,6 +8,7 @@ defmodule EctoShorts.Actions.Batch do
   # `EctoShorts.Actions.batch_preload/4` to build the lookup queries and
   # shape the results into a key-to-record(s) map.
 
+  alias EctoShorts.Actions.CRUD
   alias EctoShorts.CommonSchema
 
   def build_batch_params(_schema, _list_of_params, [], _opts) do
@@ -44,7 +45,7 @@ defmodule EctoShorts.Actions.Batch do
     %{key => value}
   end
 
-  def handle_batch_response(records, cardinality, batch_key) do
+  def handle_batch_response(records, cardinality, batch_key, opts) do
     records
     |> Enum.map(fn {key, values} ->
       case {cardinality, values} do
@@ -60,6 +61,7 @@ defmodule EctoShorts.Actions.Batch do
       end
     end)
     |> Map.new()
+    |> finalize_batch_results(cardinality, opts)
   end
 
   def normalize_key_fields(key) when is_atom(key), do: [key]
@@ -126,6 +128,50 @@ defmodule EctoShorts.Actions.Batch do
     case key_fn.(params) do
       map when is_map(map) -> map
       term -> raise "Expected batch key function to return a map, got: #{inspect(term)}"
+    end
+  end
+
+  defp finalize_batch_results(results, cardinality, opts) do
+    entries = Enum.to_list(results)
+
+    case {opts[:preload], entries, cardinality} do
+      {nil, _, _} ->
+        results
+
+      {[], _, _} ->
+        results
+
+      {_preloads, [], _cardinality} ->
+        results
+
+      {preloads, entries, cardinality} ->
+        {keys, structs} =
+          entries
+          |> Enum.reduce({[], []}, fn {key, value}, {keys, structs} ->
+            case value do
+              values when is_list(values) ->
+                Enum.reduce(values, {keys, structs}, fn struct, {keys, structs} ->
+                  {[key | keys], [struct | structs]}
+                end)
+
+              struct ->
+                {[key | keys], [struct | structs]}
+            end
+          end)
+          |> then(fn {keys, structs} -> {Enum.reverse(keys), Enum.reverse(structs)} end)
+
+        keyed_preloaded =
+          structs
+          |> CRUD.preload(preloads, opts)
+          |> then(&Enum.zip(keys, &1))
+
+        case cardinality do
+          :many ->
+            Enum.group_by(keyed_preloaded, &elem(&1, 0), &elem(&1, 1))
+
+          :one ->
+            Map.new(keyed_preloaded)
+        end
     end
   end
 end

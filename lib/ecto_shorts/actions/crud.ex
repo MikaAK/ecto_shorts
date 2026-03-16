@@ -76,10 +76,16 @@ defmodule EctoShorts.Actions.CRUD do
       |> put_param(opts, :order_by)
       |> put_param(opts, :group_by)
 
-    queryable
-    |> CommonFilters.convert_params_to_filter(params, opts)
-    |> Config.repo!(opts).all(opts)
-    |> maybe_preload(opts)
+    records =
+      queryable
+      |> CommonFilters.convert_params_to_filter(params, opts)
+      |> Config.repo!(opts).all(opts)
+
+    case opts[:preload] do
+      nil -> records
+      [] -> records
+      preloads -> preload(records, preloads, opts)
+    end
   end
 
   @doc false
@@ -99,7 +105,13 @@ defmodule EctoShorts.Actions.CRUD do
   @doc false
   def get(queryable, id, opts) do
     result = Config.replica!(opts).get(queryable, id, opts)
-    maybe_preload(result, opts)
+
+    case opts[:preload] do
+      nil -> result
+      [] -> result
+      _preloads when result === nil -> nil
+      preloads -> preload(result, preloads, opts)
+    end
   end
 
   @doc false
@@ -147,7 +159,12 @@ defmodule EctoShorts.Actions.CRUD do
          )}
 
       record ->
-        {:ok, maybe_preload(record, opts)}
+        {:ok,
+         case opts[:preload] do
+           nil -> record
+           [] -> record
+           preloads -> preload(record, preloads, opts)
+         end}
     end
   end
 
@@ -340,18 +357,15 @@ defmodule EctoShorts.Actions.CRUD do
   end
 
   @doc false
-  def maybe_preload(nil, _opts), do: nil
-
-  def maybe_preload(data, opts) do
-    case opts[:preload] do
-      nil -> data
-      [] -> data
-      preloads -> preload(data, preloads, opts)
-    end
+  def handle_response_preload({:ok, value}, opts) do
+    {:ok,
+     case opts[:preload] do
+       nil -> value
+       [] -> value
+       preloads -> preload(value, preloads, opts)
+     end}
   end
 
-  @doc false
-  def handle_response_preload({:ok, value}, opts), do: {:ok, maybe_preload(value, opts)}
   def handle_response_preload(other, _opts), do: other
 
   defp do_delete(schema_data, schema, opts) do

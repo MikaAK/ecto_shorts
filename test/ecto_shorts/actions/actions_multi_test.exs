@@ -286,4 +286,99 @@ defmodule EctoShorts.Actions.MultiTest do
       assert Enum.all?(posts, fn p -> p.comments === [] end)
     end
   end
+
+  describe "update_many/3 with :preload" do
+    test "preloads associations on all updated structs" do
+      post_a =
+        %Post{}
+        |> Post.changeset(%{title: "UM-A"})
+        |> Repo.insert!()
+
+      post_b =
+        %Post{}
+        |> Post.changeset(%{title: "UM-B"})
+        |> Repo.insert!()
+
+      assert {:ok, posts} =
+               Actions.update_many(
+                 Post,
+                 [
+                   %{id: post_a.id, title: "UM-A Updated"},
+                   %{id: post_b.id, title: "UM-B Updated"}
+                 ],
+                 preload: [:comments]
+               )
+
+      assert Enum.sort(Enum.map(posts, & &1.title)) === ["UM-A Updated", "UM-B Updated"]
+      assert Enum.all?(posts, fn post -> post.comments === [] end)
+    end
+  end
+
+  describe "delete_many/3 with :preload" do
+    test "preloads associations on all deleted structs" do
+      post_a =
+        %Post{}
+        |> Post.changeset(%{title: "DM-A"})
+        |> Repo.insert!()
+
+      post_b =
+        %Post{}
+        |> Post.changeset(%{title: "DM-B"})
+        |> Repo.insert!()
+
+      assert {:ok, deleted_posts} =
+               Actions.delete_many(Post, [post_a, post_b], preload: [:comments])
+
+      assert Enum.sort(Enum.map(deleted_posts, & &1.title)) === ["DM-A", "DM-B"]
+      assert Enum.all?(deleted_posts, fn post -> post.comments === [] end)
+      assert Repo.get(Post, post_a.id) === nil
+      assert Repo.get(Post, post_b.id) === nil
+    end
+  end
+
+  describe "find_or_create_many/3 with :preload" do
+    test "preloads associations on found and created structs" do
+      existing =
+        %Post{}
+        |> Post.changeset(%{title: "FOCM-Existing"})
+        |> Repo.insert!()
+
+      assert {:ok, posts} =
+               Actions.find_or_create_many(
+                 Post,
+                 [
+                   %{title: "FOCM-Existing"},
+                   %{title: "FOCM-Created"}
+                 ],
+                 preload: [:comments]
+               )
+
+      assert Enum.sort(Enum.map(posts, & &1.title)) === ["FOCM-Created", "FOCM-Existing"]
+      assert Enum.all?(posts, fn post -> post.comments === [] end)
+      assert Enum.any?(posts, fn post -> post.id === existing.id end)
+    end
+  end
+
+  describe "find_and_upsert_many/3 with :preload" do
+    test "preloads associations on updated and created structs" do
+      existing =
+        %Post{}
+        |> Post.changeset(%{title: "FAUM-Existing"})
+        |> Repo.insert!()
+
+      assert {:ok, posts} =
+               Actions.find_and_upsert_many(
+                 Post,
+                 [
+                   {%{id: existing.id}, %{title: "FAUM-Updated"}},
+                   {%{title: "FAUM-Created"}, %{}}
+                 ],
+                 preload: [:comments]
+               )
+
+      assert Enum.sort(Enum.map(posts, & &1.title)) === ["FAUM-Created", "FAUM-Updated"]
+      assert Enum.all?(posts, fn post -> post.comments === [] end)
+      assert Enum.any?(posts, fn post -> post.id === existing.id end)
+    end
+  end
 end

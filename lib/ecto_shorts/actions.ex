@@ -693,19 +693,7 @@ defmodule EctoShorts.Actions do
         |> CommonFilters.convert_params_to_filter(batch_params, opts)
         |> Config.repo!(opts).all(opts)
         |> Enum.group_by(&Map.take(&1, batch_keys))
-        |> Batch.handle_batch_response(cardinality, batch_keys)
-        |> then(fn results ->
-          preloaded =
-            results
-            |> Enum.map(fn {_, v} -> v end)
-            |> CRUD.maybe_preload(opts)
-
-          results
-          |> Enum.map(fn {k, _} -> k end)
-          |> Enum.zip(preloaded)
-          |> Map.new()
-        end)
-        |> Map.new(fn {k, v} -> {k, CRUD.maybe_preload(v, opts)} end)
+        |> Batch.handle_batch_response(cardinality, batch_keys, opts)
     end
   end
 
@@ -723,8 +711,7 @@ defmodule EctoShorts.Actions do
       |> CommonFilters.convert_params_to_filter(%{batch_key => values}, opts)
       |> Config.repo!(opts).all(opts)
       |> Enum.group_by(&Batch.normalize_batch_key(&1, batch_key))
-      |> Batch.handle_batch_response(cardinality, batch_key)
-      |> Map.new(fn {k, v} -> {k, CRUD.maybe_preload(v, opts)} end)
+      |> Batch.handle_batch_response(cardinality, batch_key, opts)
     end
   end
 
