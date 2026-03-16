@@ -1,4 +1,4 @@
 defmodule EctoShorts.ConfigTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case
   doctest EctoShorts.Config
 end

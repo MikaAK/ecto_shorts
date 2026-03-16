@@ -1,4 +1,4 @@
 defmodule EctoShortsTest do
-  use EctoShorts.DataCase
+  use ExUnit.Case
   doctest EctoShorts
 end

@@ -5,7 +5,7 @@
   "coverage_options": {
     "html_filter_full_covered": true,
     "treat_no_relevant_lines_as_covered": true,
-    "minimum_coverage": 0
+    "minimum_coverage": 90
   },
   "custom_stop_words": [
     "defdelegate"
