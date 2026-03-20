@@ -503,11 +503,20 @@ defmodule EctoShorts.CommonFilters do
   defp resolve_binding_selector(_query, key, inner_key), do: {key, inner_key}
 
   defp reduce_association_filters(query, filter, source, key, term, opts) do
+    assoc_source = resolve_association_source(source, key)
+
     term
     |> to_keyword()
     |> Enum.reduce(query, fn {inner_key, inner_value}, query_acc ->
-      apply_filters(filter, source, query_acc, {:as, key}, {inner_key, inner_value}, opts)
+      apply_filters(filter, assoc_source, query_acc, {:as, key}, {inner_key, inner_value}, opts)
     end)
+  end
+
+  defp resolve_association_source(source, key) do
+    case CommonSchema.get_schema_reflection(source, :association, key) do
+      %{queryable: queryable} when queryable != nil -> queryable
+      _ -> source
+    end
   end
 
   defp ensure_association_binding(query, source, key, opts) do

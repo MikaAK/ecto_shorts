@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonFilters.EnumCastingTest do
   use EctoShorts.Testing
 
   alias EctoShorts.CommonFilters
+  alias EctoShorts.Schema.EnumParent
   alias EctoShorts.Schema.EnumSchema
 
   import Ecto.Query
@@ -39,6 +40,26 @@ defmodule EctoShorts.CommonFilters.EnumCastingTest do
     test "passes through nil without casting" do
       expected = from(e in EnumSchema, where: is_nil(e.status))
       actual = CommonFilters.convert_params_to_filter(EnumSchema, %{status: nil}, [])
+
+      assert_sql(expected, actual)
+    end
+  end
+
+  describe "convert_params_to_filter/3 Ecto.Enum casting through associations" do
+    test "casts Ecto.Enum atom in nested association filter" do
+      expected =
+        from(p in EnumParent,
+          join: e in assoc(p, :enum_schema),
+          as: :enum_schema,
+          where: e.status == ^1
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          EnumParent,
+          %{enum_schema: %{status: :published}},
+          []
+        )
 
       assert_sql(expected, actual)
     end
