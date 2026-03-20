@@ -49,19 +49,21 @@ defmodule EctoShorts.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.40.1"},
-      {:credo, "~> 1.4", runtime: false},
-      {:blitz_credo_checks, "~> 0.1.10", runtime: false},
-      {:dialyxir, "~> 1.4", runtime: false},
-      {:excoveralls, "~> 0.13", only: :test},
-      # ---
-      {:factory_ex, "~> 0.3.4", only: :test},
-      # ---
-      {:ecto, "~> 3.0"},
-      {:ecto_sql, "~> 3.10"},
+      # documentation
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false, warn_if_outdated: true},
+      # code quality
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:blitz_credo_checks, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:excoveralls, ">= 0.0.0", only: :test},
+      # ecto
+      {:ecto, ">= 3.0.0"},
+      {:ecto_sql, ">= 3.0.0"},
       {:postgrex, ">= 0.0.0", optional: true},
-      # ---
-      {:error_message, "~> 0.1"}
+      # testing
+      {:factory_ex, ">= 0.0.0", only: :test},
+      # utility
+      {:error_message, ">= 0.0.0"}
     ]
   end
 
