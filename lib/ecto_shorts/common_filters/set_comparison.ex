@@ -3,7 +3,7 @@ defmodule EctoShorts.CommonFilters.SetComparison do
 
   alias EctoShorts.CommonFilters
   alias EctoShorts.CommonFilters.Select
-  alias EctoShorts.DynamicBuilders.Postgres.Normalizer
+  alias EctoShorts.CommonSchema
   alias EctoShorts.Logger
 
   @logger_prefix "EctoShorts.CommonFilters.SetComparison"
@@ -38,7 +38,7 @@ defmodule EctoShorts.CommonFilters.SetComparison do
     do: field_name
 
   defp quantified_select_field(source, field_name, outer_key, opts) when is_binary(field_name) do
-    Normalizer.normalize_field_name(source, field_name, opts) || outer_key
+    normalize_field_name(source, field_name, opts) || outer_key
   end
 
   defp quantified_select_field(source, field_name, outer_key, opts)
@@ -51,6 +51,57 @@ defmodule EctoShorts.CommonFilters.SetComparison do
       quantified_select_field(source, Keyword.fetch!(field_name, :field), outer_key, opts)
     else
       field_name
+    end
+  end
+
+  defp normalize_field_name(_source, field_name, _opts) when is_atom(field_name), do: field_name
+
+  defp normalize_field_name(source, field_name, opts) when is_binary(field_name) do
+    case (source !== nil && CommonSchema.get_schema(source) !== nil &&
+            CommonSchema.get_schema_reflection(source, :fields)) || nil do
+      fields when is_list(fields) ->
+        string_fields = MapSet.new(fields, &Atom.to_string/1)
+
+        if MapSet.member?(string_fields, field_name) do
+          String.to_existing_atom(field_name)
+        else
+          Logger.warning(
+            @logger_prefix,
+            "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
+          )
+
+          nil
+        end
+
+      _ ->
+        allowed_keys = opts[:allowed_keys]
+
+        if allowed_keys do
+          allowed_set = MapSet.new(allowed_keys)
+
+          if MapSet.member?(allowed_set, field_name) do
+            String.to_atom(field_name)
+          else
+            Logger.warning(
+              @logger_prefix,
+              "Field \"#{field_name}\" is not in the :allowed_keys list, skipping field reference"
+            )
+
+            nil
+          end
+        else
+          try do
+            String.to_existing_atom(field_name)
+          rescue
+            ArgumentError ->
+              Logger.warning(
+                @logger_prefix,
+                "Field \"#{field_name}\" could not be resolved to an existing atom, skipping field reference"
+              )
+
+              nil
+          end
+        end
     end
   end
 end

@@ -131,6 +131,8 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   end
 
   def build_dynamic(source, selected_binding, {key, params}, opts) do
+    params = maybe_dump_param(source, key, params)
+
     expr =
       params
       |> then(&Normalizer.normalize_params(source, &1, opts))
@@ -230,6 +232,32 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
       {:array, _} -> true
       {:map, _} -> true
       _ -> false
+    end
+  end
+
+  defp maybe_dump_param(source, key, params) do
+    case CommonSchema.get_schema_reflection(source, :type, key) do
+      nil -> params
+      field_type -> dump_param(field_type, params)
+    end
+  end
+
+  defp dump_param(field_type, {op, values}) when is_atom(op) and is_list(values) do
+    {op, Enum.map(values, &dump_param(field_type, &1))}
+  end
+
+  defp dump_param(field_type, {op, value}) when is_atom(op) do
+    {op, dump_param(field_type, value)}
+  end
+
+  defp dump_param(field_type, values) when is_list(values) do
+    Enum.map(values, &dump_param(field_type, &1))
+  end
+
+  defp dump_param(field_type, value) do
+    case Ecto.Type.dump(field_type, value) do
+      {:ok, dumped} -> dumped
+      :error -> value
     end
   end
 

@@ -280,41 +280,9 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
     end
   end
 
-  @doc """
-  Normalizes a field name to an atom using a tiered validation strategy.
+  defp normalize_field_name(_source, field_name, _opts) when is_atom(field_name), do: field_name
 
-  Atom inputs are passed through unchanged.
-
-  For binary string inputs, the resolution strategy depends on the
-  combination of `source` and `opts`:
-
-  1. **Schema present** - `CommonSchema.get_schema_reflection(source, :fields)`
-     returns the schema's field atoms. The string is compared against their
-     string representations. Valid → `String.to_existing_atom/1`. Invalid →
-     log a warning and return `nil`.
-
-  2. **No schema, `:allowed_keys` option provided** - the string is checked
-     against a `MapSet` built from `opts[:allowed_keys]`. Present →
-     `String.to_atom/1`. Absent → log a warning and return `nil`.
-
-  3. **Fallback** - attempt `String.to_existing_atom/1` and rescue
-     `ArgumentError`. On failure → log a warning and return `nil`.
-
-  Returning `nil` signals to the caller that the field reference should
-  be skipped (no dynamic expression is built).
-
-  ## Examples
-
-      iex> Normalizer.normalize_field_name(nil, :views, [])
-      :views
-
-      iex> Normalizer.normalize_field_name(EctoShorts.Schema.Post, "views", [])
-      :views
-  """
-  @spec normalize_field_name(term(), atom() | binary(), keyword()) :: atom() | nil
-  def normalize_field_name(_source, field_name, _opts) when is_atom(field_name), do: field_name
-
-  def normalize_field_name(source, field_name, opts) when is_binary(field_name) do
+  defp normalize_field_name(source, field_name, opts) when is_binary(field_name) do
     case (source !== nil && CommonSchema.get_schema(source) !== nil &&
             CommonSchema.get_schema_reflection(source, :fields)) || nil do
       fields when is_list(fields) ->

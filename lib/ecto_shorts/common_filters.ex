@@ -576,7 +576,7 @@ defmodule EctoShorts.CommonFilters do
   def build_query(filter, source, query, selected_binding, term, opts) do
     case opts[:query_builder] || Config.query_builder() do
       nil ->
-        dispatch_build_query(filter, source, query, selected_binding, term, opts)
+        do_build_query(filter, source, query, selected_binding, term, opts)
 
       module when is_atom(module) ->
         if function_exported?(module, :build_query, 6) do
@@ -595,73 +595,73 @@ defmodule EctoShorts.CommonFilters do
     end
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @uniqueness_filters do
     Distinct.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:last, source, query, selected_binding, term, opts) do
+  defp do_build_query(:last, source, query, selected_binding, term, opts) do
     Last.build_query(:last, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:join, source, query, selected_binding, term, opts) do
+  defp do_build_query(:join, source, query, selected_binding, term, opts) do
     Join.build_query(:join, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @grouping_filters do
     GroupBy.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @post_aggregate_filters do
     Having.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @sorting_filters do
     OrderBy.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:preload, source, query, selected_binding, term, opts) do
+  defp do_build_query(:preload, source, query, selected_binding, term, opts) do
     Preload.build_query(:preload, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:subquery, source, query, selected_binding, term, opts) do
+  defp do_build_query(:subquery, source, query, selected_binding, term, opts) do
     SubQuery.build_query(:subquery, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:put_query_prefix, _source, query, _selected_binding, prefix, _opts) do
+  defp do_build_query(:put_query_prefix, _source, query, _selected_binding, prefix, _opts) do
     Query.put_query_prefix(query, prefix)
   end
 
-  defp dispatch_build_query(:recursive_ctes, _source, query, _selected_binding, value, _opts) do
+  defp do_build_query(:recursive_ctes, _source, query, _selected_binding, value, _opts) do
     Query.recursive_ctes(query, value)
   end
 
-  defp dispatch_build_query(:windows, source, query, selected_binding, term, opts) do
+  defp do_build_query(:windows, source, query, selected_binding, term, opts) do
     Windows.build_query(:windows, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:with_cte, source, query, selected_binding, term, opts) do
+  defp do_build_query(:with_cte, source, query, selected_binding, term, opts) do
     WithCte.build_query(:with_cte, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:with_ties, source, query, selected_binding, term, opts) do
+  defp do_build_query(:with_ties, source, query, selected_binding, term, opts) do
     WithTies.build_query(:with_ties, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @projection_filters do
     Select.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @set_composition_filters do
     SetOperation.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:exclude, _source, query, _selected_binding, term, _opts) do
+  defp do_build_query(:exclude, _source, query, _selected_binding, term, _opts) do
     term
     |> List.wrap()
     |> Enum.reduce(query, fn field, query_acc ->
@@ -669,28 +669,28 @@ defmodule EctoShorts.CommonFilters do
     end)
   end
 
-  defp dispatch_build_query(:lock, source, query, selected_binding, term, opts) do
+  defp do_build_query(:lock, source, query, selected_binding, term, opts) do
     Lock.build_query(:lock, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @cardinality_filters do
     Limit.build_query(filter, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:offset, source, query, selected_binding, term, opts) do
+  defp do_build_query(:offset, source, query, selected_binding, term, opts) do
     Offset.build_query(:offset, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:update, source, query, selected_binding, term, opts) do
+  defp do_build_query(:update, source, query, selected_binding, term, opts) do
     Update.build_query(:update, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(:with_named_binding, source, query, selected_binding, term, opts) do
+  defp do_build_query(:with_named_binding, source, query, selected_binding, term, opts) do
     WithNamedBinding.build_query(:with_named_binding, source, query, selected_binding, term, opts)
   end
 
-  defp dispatch_build_query(filter, source, query, selected_binding, term, opts)
+  defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @predicate_filters do
     dyn = DynamicBuilders.build_dynamic(source, selected_binding, term, opts)
 

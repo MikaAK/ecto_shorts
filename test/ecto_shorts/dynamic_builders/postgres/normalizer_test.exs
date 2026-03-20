@@ -1,8 +1,6 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
   use ExUnit.Case, async: true
 
-  import ExUnit.CaptureLog
-
   alias EctoShorts.DynamicBuilders.Postgres.Normalizer
   alias EctoShorts.Schema.Post
 
@@ -149,81 +147,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
     test "recursively normalizes a list" do
       assert [{:field, :title}, 42] =
                Normalizer.normalize_value_node(nil, [{:field, :title}, 42], [])
-    end
-  end
-
-  describe "normalize_field_name/3 - atom passthrough" do
-    test "passes an atom through unchanged regardless of source" do
-      assert :inserted_at = Normalizer.normalize_field_name(nil, :inserted_at, [])
-      assert :views = Normalizer.normalize_field_name(Post, :views, [])
-      assert :title = Normalizer.normalize_field_name("posts", :title, [])
-    end
-  end
-
-  describe "normalize_field_name/3 - schema present (tier 1)" do
-    test "returns atom when string matches a schema field" do
-      assert :views = Normalizer.normalize_field_name(Post, "views", [])
-      assert :title = Normalizer.normalize_field_name(Post, "title", [])
-      assert :inserted_at = Normalizer.normalize_field_name(Post, "inserted_at", [])
-    end
-
-    test "returns nil and logs a warning when string does not match any schema field" do
-      log =
-        capture_log(fn ->
-          result = Normalizer.normalize_field_name(Post, "nonexistent_field_xyz", [])
-          assert result === nil
-        end)
-
-      assert log =~ "nonexistent_field_xyz"
-      assert log =~ "does not exist on schema"
-    end
-  end
-
-  describe "normalize_field_name/3 - no schema, :allowed_keys provided (tier 2)" do
-    test "returns atom via String.to_atom when string is in allowed_keys" do
-      result = Normalizer.normalize_field_name("scores", "score", allowed_keys: ["score", "rank"])
-      assert result === :score
-    end
-
-    test "returns nil and logs a warning when string is not in allowed_keys" do
-      log =
-        capture_log(fn ->
-          result =
-            Normalizer.normalize_field_name(
-              "some_table",
-              "unknown_col",
-              allowed_keys: ["score", "rank"]
-            )
-
-          assert result === nil
-        end)
-
-      assert log =~ "unknown_col"
-      assert log =~ "allowed_keys"
-    end
-  end
-
-  describe "normalize_field_name/3 - fallback (tier 3)" do
-    test "returns atom via String.to_existing_atom when no schema and no :allowed_keys" do
-      assert :inserted_at = Normalizer.normalize_field_name(nil, "inserted_at", [])
-      assert :inserted_at = Normalizer.normalize_field_name("posts", "inserted_at", [])
-    end
-
-    test "returns nil and logs a warning when atom does not exist" do
-      log =
-        capture_log(fn ->
-          result =
-            Normalizer.normalize_field_name(
-              nil,
-              "this_atom_will_never_exist_zzz_9999",
-              []
-            )
-
-          assert result === nil
-        end)
-
-      assert log =~ "this_atom_will_never_exist_zzz_9999"
-      assert log =~ "could not be resolved"
     end
   end
 
