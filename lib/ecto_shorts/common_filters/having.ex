@@ -13,13 +13,17 @@ defmodule EctoShorts.CommonFilters.Having do
   end
 
   def build_query(:having, source, query, selected_binding, term, opts) do
-    dyn = build_dynamic(source, selected_binding, term, opts)
-    build_having(query, selected_binding, dyn)
+    case build_dynamic(source, selected_binding, term, opts) do
+      nil -> query
+      dyn -> build_having(query, selected_binding, dyn)
+    end
   end
 
   def build_query(:or_having, source, query, selected_binding, term, opts) do
-    dyn = build_dynamic(source, selected_binding, term, opts)
-    build_or_having(query, selected_binding, dyn)
+    case build_dynamic(source, selected_binding, term, opts) do
+      nil -> query
+      dyn -> build_or_having(query, selected_binding, dyn)
+    end
   end
 
   defp build_dynamic(source, selected_binding, term, opts) do

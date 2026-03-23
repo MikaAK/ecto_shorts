@@ -701,11 +701,15 @@ defmodule EctoShorts.CommonFilters do
 
   defp do_build_query(filter, source, query, selected_binding, term, opts)
        when filter in @predicate_filters do
-    dyn = DynamicBuilders.build_dynamic(source, selected_binding, term, opts)
+    case DynamicBuilders.build_dynamic(source, selected_binding, term, opts) do
+      nil ->
+        query
 
-    case filter do
-      :where -> Query.where(query, ^dyn)
-      :or_where -> Query.or_where(query, ^dyn)
+      dyn ->
+        case filter do
+          :where -> Query.where(query, ^dyn)
+          :or_where -> Query.or_where(query, ^dyn)
+        end
     end
   end
 
