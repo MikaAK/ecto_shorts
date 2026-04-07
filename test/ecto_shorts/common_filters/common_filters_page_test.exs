@@ -64,6 +64,26 @@ defmodule EctoShorts.CommonFilters.PageTest do
     end
   end
 
+  describe ":page with index/size string casting" do
+    test "casts string index and size to integers" do
+      expected = from(p in Post, limit: ^10, offset: ^10)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{page: %{index: "2", size: "10"}}, [])
+
+      assert_query(expected, actual)
+    end
+
+    test "casts string size only" do
+      expected = from(p in Post, limit: ^5, offset: ^0)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{page: %{index: 1, size: "5"}}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe ":page with after cursor (keyset forward)" do
     test "after: id, by: :id, size: 10 applies WHERE id > cursor ORDER BY id ASC LIMIT 10" do
       expected = from(p in Post, where: p.id > ^5, order_by: [asc: p.id], limit: ^10)
@@ -123,6 +143,47 @@ defmodule EctoShorts.CommonFilters.PageTest do
         CommonFilters.convert_params_to_filter(
           source,
           %{at: %{2 => %{page: %{after: 10, by: :id, size: 5}}}},
+          []
+        )
+
+      assert_sql(expected, actual)
+    end
+  end
+
+  describe ":page cursor pagination on non-id field" do
+    test "after cursor on :views field applies WHERE views > cursor ORDER BY views ASC LIMIT" do
+      expected = from(p in Post, where: p.views > ^100, order_by: [asc: p.views], limit: ^5)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{page: %{after: 100, by: :views, size: 5}},
+          []
+        )
+
+      assert_sql(expected, actual)
+    end
+
+    test "before cursor on :views field applies WHERE views < cursor ORDER BY views DESC LIMIT" do
+      expected = from(p in Post, where: p.views < ^200, order_by: [desc: p.views], limit: ^5)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{page: %{before: 200, by: :views, size: 5}},
+          []
+        )
+
+      assert_sql(expected, actual)
+    end
+
+    test "casts string size in after-cursor shape" do
+      expected = from(p in Post, where: p.id > ^5, order_by: [asc: p.id], limit: ^10)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{page: %{after: 5, by: :id, size: "10"}},
           []
         )
 

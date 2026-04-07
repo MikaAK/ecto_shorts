@@ -20,7 +20,14 @@ defmodule EctoShorts.CommonFilters.Page do
   end
 
   # Shape 2a — cursor forward: %{after: cursor, by: field, size: N}
-  def build_query(:page, source, query, selected_binding, %{after: nil, by: field, size: size}, opts) do
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{after: nil, by: field, size: size},
+        opts
+      ) do
     limit = Types.cast(:integer, size)
 
     query
@@ -28,7 +35,14 @@ defmodule EctoShorts.CommonFilters.Page do
     |> Query.limit(^limit)
   end
 
-  def build_query(:page, source, query, selected_binding, %{after: cursor, by: field, size: size}, opts) do
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{after: cursor, by: field, size: size},
+        opts
+      ) do
     dyn = cursor_gt_dynamic(selected_binding, field, cursor)
     limit = Types.cast(:integer, size)
 
@@ -39,7 +53,14 @@ defmodule EctoShorts.CommonFilters.Page do
   end
 
   # Shape 2b — cursor backward: %{before: cursor, by: field, size: N}
-  def build_query(:page, source, query, selected_binding, %{before: nil, by: field, size: size}, opts) do
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{before: nil, by: field, size: size},
+        opts
+      ) do
     limit = Types.cast(:integer, size)
 
     query
@@ -47,7 +68,14 @@ defmodule EctoShorts.CommonFilters.Page do
     |> Query.limit(^limit)
   end
 
-  def build_query(:page, source, query, selected_binding, %{before: cursor, by: field, size: size}, opts) do
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{before: cursor, by: field, size: size},
+        opts
+      ) do
     dyn = cursor_lt_dynamic(selected_binding, field, cursor)
     limit = Types.cast(:integer, size)
 

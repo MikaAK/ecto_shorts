@@ -35,6 +35,17 @@ defmodule EctoShorts.CommonFilters.SchemalessPageTest do
     end
   end
 
+  describe ":page with index/size string casting (schemaless)" do
+    test "casts string index and size to integers" do
+      expected = from(p in "posts", limit: ^10, offset: ^10)
+
+      actual =
+        CommonFilters.convert_params_to_filter("posts", %{page: %{index: "2", size: "10"}}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe ":page with after cursor (keyset forward, schemaless)" do
     test "after: id, by: :id, size: 10 applies WHERE id > cursor ORDER BY id ASC LIMIT 10" do
       expected = from(p in "posts", where: p.id > ^5, order_by: [asc: p.id], limit: ^10)
