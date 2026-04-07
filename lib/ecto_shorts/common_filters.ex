@@ -248,6 +248,7 @@ defmodule EctoShorts.CommonFilters do
           | :order_by
           | :or_having
           | :or_where
+          | :page
           | :prepend_order_by
           | :preload
           | :put_query_prefix
@@ -283,6 +284,7 @@ defmodule EctoShorts.CommonFilters do
     :order_by,
     :or_having,
     :or_where,
+    :page,
     :prepend_order_by,
     :preload,
     :put_query_prefix,

@@ -46,7 +46,7 @@ defmodule EctoShorts.CommonFilters.SchemalessPageTest do
           []
         )
 
-      assert_sql(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "after: nil applies ORDER BY id ASC LIMIT 10 with no WHERE" do
@@ -59,7 +59,7 @@ defmodule EctoShorts.CommonFilters.SchemalessPageTest do
           []
         )
 
-      assert_sql(expected, actual)
+      assert_query(expected, actual)
     end
   end
 
@@ -74,7 +74,7 @@ defmodule EctoShorts.CommonFilters.SchemalessPageTest do
           []
         )
 
-      assert_sql(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "before: nil applies ORDER BY id DESC LIMIT 5 with no WHERE" do
@@ -87,7 +87,7 @@ defmodule EctoShorts.CommonFilters.SchemalessPageTest do
           []
         )
 
-      assert_sql(expected, actual)
+      assert_query(expected, actual)
     end
   end
 end

@@ -21,6 +21,7 @@ defmodule EctoShorts.CommonFilters.Builder do
     Lock,
     Offset,
     OrderBy,
+    Page,
     PrependOrderBy,
     Preload,
     PutQueryPrefix,
@@ -165,6 +166,10 @@ defmodule EctoShorts.CommonFilters.Builder do
 
   defp apply_filter(:offset, source, query, selected_binding, term, opts) do
     Offset.build_query(:offset, source, query, selected_binding, term, opts)
+  end
+
+  defp apply_filter(:page, source, query, selected_binding, term, opts) do
+    Page.build_query(:page, source, query, selected_binding, term, opts)
   end
 
   defp apply_filter(:update, source, query, selected_binding, term, opts) do
