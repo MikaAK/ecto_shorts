@@ -417,12 +417,11 @@ defmodule EctoShorts.CommonFilters do
           end)
         end
 
+      key in @filters ->
+        Builder.build_query(key, source, query, selected_binding, params, opts)
+
       true ->
-        if key in @filters do
-          Builder.build_query(key, source, query, selected_binding, params, opts)
-        else
-          Builder.build_query(filter, source, query, selected_binding, {key, params}, opts)
-        end
+        Builder.build_query(filter, source, query, selected_binding, {key, params}, opts)
     end
   end
 
