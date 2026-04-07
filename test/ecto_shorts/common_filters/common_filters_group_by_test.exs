@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 group_by shapes" do
+  describe "group_by shapes" do
     test "matches Ecto.Query for a root group_by atom" do
       expected = from(p in Post, group_by: :author_id)
 

@@ -7,8 +7,8 @@ defmodule EctoShorts.Actions.CRUD do
   alias EctoShorts.Actions.Source
 
   alias EctoShorts.{
-    Config,
     CommonFilters,
+    Config,
     CommonSchema
   }
 

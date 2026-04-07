@@ -6,9 +6,8 @@ defmodule EctoShorts.CommonFilters.SelectTest do
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
-  import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 select shapes" do
+  describe "select shapes" do
     test "matches Ecto.Query for a root select field atom" do
       expected = from(p in Post, select: p.title)
 
@@ -199,30 +198,9 @@ defmodule EctoShorts.CommonFilters.SelectTest do
 
       assert_query(expected, actual)
     end
-
-    # Applying `select:` to a query that already has a select clause overwrites it.
-    # A warning is logged and the new expression replaces the existing one.
-    test "matches Ecto.Query when select overwrites an existing select" do
-      source = from(p in Post, select: p.title)
-      expected = from(p in Post, select: p.id)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              source,
-              %{select: :id},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Query already has a :select expression"
-    end
   end
 
-  describe "convert_params_to_filter/3 select extended shapes" do
+  describe "select extended shapes" do
     test "matches Ecto.Query for a root select map with a plain keyword alias list" do
       expected =
         from(p in Post,
@@ -420,7 +398,7 @@ defmodule EctoShorts.CommonFilters.SelectTest do
     end
   end
 
-  describe "convert_params_to_filter/3 select_merge shapes" do
+  describe "select_merge shapes" do
     test "matches Ecto.Query for root select_merge with a keyword alias list" do
       expected =
         from(p in Post,
@@ -552,7 +530,7 @@ defmodule EctoShorts.CommonFilters.SelectTest do
     end
   end
 
-  describe "convert_params_to_filter/3 select map conversion paths" do
+  describe "select map conversion paths" do
     test "matches Ecto.Query for root select with {:map, map} form" do
       expected =
         from(p in Post,

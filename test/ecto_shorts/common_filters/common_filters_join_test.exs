@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 join shapes" do
+  describe "join shapes" do
     test "matches Ecto.Query for an association join payload" do
       expected =
         from(p in Post,
@@ -285,7 +285,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
               ]
             ]
           },
-          query_provider: EctoShorts.TestQueryProvider
+          query_provider_module: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)
@@ -310,7 +310,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
               ]
             ]
           },
-          query_provider: EctoShorts.TestNoOpQueryProvider
+          query_provider_module: EctoShorts.TestNoOpQueryProvider
         )
 
       assert_query(expected, actual)
@@ -338,7 +338,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
                   ]
                 ]
               },
-              query_provider: EctoShorts.TestQueryProvider
+              query_provider_module: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -366,7 +366,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
                   ]
                 ]
               },
-              query_provider: EctoShorts.TestQueryProvider
+              query_provider_module: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -377,7 +377,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
     end
   end
 
-  describe "convert_params_to_filter/3 join extended paths" do
+  describe "join extended paths" do
     test "keeps the query unchanged and logs when join type key is unrecognised" do
       expected = from(p in Post)
 
@@ -437,7 +437,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{join: [fragment: [source: [values: %{}], as: :users, on: true]]},
-          query_provider: EctoShorts.TestQueryProvider
+          query_provider_module: EctoShorts.TestQueryProvider
         )
       end
     end
@@ -447,7 +447,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{join: [fragment: [source: [name: :active_users], as: :users, on: true]]},
-          query_provider: EctoShorts.TestQueryProvider
+          query_provider_module: EctoShorts.TestQueryProvider
         )
       end
     end

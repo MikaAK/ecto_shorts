@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessJoinTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 join shapes (schemaless)" do
+  describe "join shapes (schemaless)" do
     test "matches Ecto.Query for a table join with on clause" do
       expected = from(p in "posts", join: u in "users", on: p.author_id == ^1)
 
@@ -103,7 +103,7 @@ defmodule EctoShorts.CommonFilters.SchemalessJoinTest do
               ]
             ]
           },
-          query_provider: EctoShorts.TestQueryProvider
+          query_provider_module: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)

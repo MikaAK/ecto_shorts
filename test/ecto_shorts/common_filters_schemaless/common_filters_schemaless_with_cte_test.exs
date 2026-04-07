@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.SchemalessWithCteTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 with_cte shapes (schemaless)" do
+  describe "with_cte shapes (schemaless)" do
     test "matches Ecto.Query for with_cte with a prebuilt query" do
       cte_query = from(p in "posts", where: p.published == ^true)
       expected = with_cte("posts", "published_posts", as: ^cte_query)

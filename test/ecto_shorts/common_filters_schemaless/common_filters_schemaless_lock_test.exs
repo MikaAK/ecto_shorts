@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.SchemalessLockTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 lock shapes (schemaless)" do
+  describe "lock shapes (schemaless)" do
     test "matches Ecto.Query for a root for_update alias lock" do
       expected = lock("posts", "FOR UPDATE")
 

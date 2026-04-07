@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessWindowsTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 windows shapes (schemaless)" do
+  describe "windows shapes (schemaless)" do
     test "matches Ecto.Query for a root windows partition_by atom" do
       field_name = :author_id
 

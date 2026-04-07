@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessHavingTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 having shapes (schemaless)" do
+  describe "having shapes (schemaless)" do
     test "matches Ecto.Query for a root aggregate having" do
       source = from(p in "posts", group_by: p.author_id)
       expected = from(p in "posts", group_by: p.author_id, having: avg(p.views) > ^100)

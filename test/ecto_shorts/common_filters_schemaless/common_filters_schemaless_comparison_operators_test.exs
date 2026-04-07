@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessComparisonOperatorsTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 comparison operators (schemaless)" do
+  describe "comparison operators (schemaless)" do
     test "matches records where the field equals the value using ==" do
       expected = from(p in "posts", where: p.id == ^1)
       q2 = CommonFilters.convert_params_to_filter("posts", %{id: %{==: 1}}, [])

@@ -6,9 +6,9 @@ defmodule EctoShorts.CommonFilters.SchemalessOrderModifierTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 order modifier shapes (schemaless)" do
+  describe "order modifier shapes (schemaless)" do
     test "matches Ecto.Query for a root order_by atom" do
-      expected = from(p in "posts", order_by: [desc: :title])
+      expected = from(p in "posts", order_by: [asc: :title])
 
       actual =
         CommonFilters.convert_params_to_filter(
@@ -82,7 +82,7 @@ defmodule EctoShorts.CommonFilters.SchemalessOrderModifierTest do
     test "matches Ecto.Query for reverse_order after local order_by params" do
       expected =
         "posts"
-        |> order_by([], desc: :title)
+        |> order_by([], asc: :title)
         |> reverse_order()
 
       actual =

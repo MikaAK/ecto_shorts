@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDatetimeWrappersTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 datetime wrappers (schemaless)" do
+  describe "datetime wrappers (schemaless)" do
     test "matches records using datetime_add before comparison" do
       expected =
         from(p in "posts", where: p.inserted_at >= datetime_add(p.inserted_at, ^1, "day"))

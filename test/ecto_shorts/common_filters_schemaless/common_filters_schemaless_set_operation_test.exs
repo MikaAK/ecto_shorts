@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessSetOperationTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 set operation shapes (schemaless)" do
+  describe "set operation shapes (schemaless)" do
     test "matches Ecto.Query for union with a prebuilt query" do
       other_query = from(p in "posts", where: p.published == ^false)
       expected = union("posts", ^other_query)

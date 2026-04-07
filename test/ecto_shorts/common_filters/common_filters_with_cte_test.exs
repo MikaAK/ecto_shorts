@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.WithCteTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 with_cte shapes" do
+  describe "with_cte shapes" do
     test "accepts a map payload for with_cte (map→list conversion path)" do
       cte_query = from(p in Post, where: p.published == ^true)
       expected = with_cte(Post, "published_posts", as: ^cte_query)
@@ -284,24 +284,23 @@ defmodule EctoShorts.CommonFilters.WithCteTest do
     end
   end
 
-  describe "convert_params_to_filter/3 with_cte extended paths" do
-    test "keeps the query unchanged when a with_cte entry is a map with a string key (unsupported list-of-maps shape)" do
+  describe "with_cte extended paths" do
+    test "applies with_cte from a list entry that is a string-keyed map" do
       cte_query = from(p in Post, where: p.published == ^true)
-      expected = from(p in Post)
 
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{with_cte: [%{"published_posts" => [as: cte_query]}]},
-              []
-            )
+      expected =
+        Post
+        |> from()
+        |> with_cte("published_posts", as: ^cte_query)
 
-          assert_query(expected, actual)
-        end)
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_cte: [%{"published_posts" => [as: cte_query]}]},
+          []
+        )
 
-      assert log =~ "Expected :with_cte params to be a map or keyword list"
+      assert_query(expected, actual)
     end
 
     test "matches Ecto.Query for with_cte with both materialized and operation" do
@@ -399,6 +398,20 @@ defmodule EctoShorts.CommonFilters.WithCteTest do
         end)
 
       assert log =~ "Expected :materialized for \"published_posts\" to be a boolean"
+    end
+
+    test "casts a string boolean with_cte :materialized payload" do
+      cte_query = from(p in Post, where: p.published == ^true)
+      expected = with_cte(Post, "published_posts", as: ^cte_query, materialized: false)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_cte: [published_posts: [as: cte_query, materialized: "false"]]},
+          []
+        )
+
+      assert_query(expected, actual)
     end
   end
 end

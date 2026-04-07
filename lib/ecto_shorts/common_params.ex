@@ -308,6 +308,7 @@ defmodule EctoShorts.CommonParams do
   alias EctoShorts.CommonParams.Placeholders
   alias EctoShorts.CommonParams.Timestamps
   alias EctoShorts.CommonSchema
+  alias EctoShorts.CommonFilters.UpdateExpr
   alias EctoShorts.Utils
 
   @doc """
@@ -439,7 +440,8 @@ defmodule EctoShorts.CommonParams do
   * `:updated_at` - manually set the `:updated_at` timestamp value.
   * `:inserted_at_source` - override the field name (e.g. `:created_on`).
   * `:updated_at_source` - override the field name.
-  * `:inserted_at_timestamp_type` - override the timestamp type (`:naive_datetime` or `:utc_datetime`).
+  * `:inserted_at_timestamp_type` - override the timestamp type
+    (`:naive_datetime`, `:naive_datetime_usec`, `:utc_datetime`, or `:utc_datetime_usec`).
   * `:updated_at_timestamp_type` - override the timestamp type.
   * `:timestamp_type` - fallback type for both fields when specific overrides are absent.
 
@@ -737,7 +739,7 @@ defmodule EctoShorts.CommonParams do
 
     with updates when updates !== [] <-
            schema
-           |> build_update_operations(params, [], opts)
+           |> UpdateExpr.build_update_operations(params, opts)
            |> group_update_operations() do
       updates
       |> Timestamps.put_set_updated_at(utc_now, schema, opts)
@@ -752,122 +754,6 @@ defmodule EctoShorts.CommonParams do
     |> Enum.map(fn {op, updates} ->
       {op, Enum.map(updates, fn {_, key, value} -> {key, value} end)}
     end)
-  end
-
-  defp build_update_operations(source, %{} = params, acc, opts) do
-    build_update_operations(source, Map.to_list(params), acc, opts)
-  end
-
-  defp build_update_operations(_source, [], acc, _opts) do
-    acc
-  end
-
-  defp build_update_operations(source, [head | tail], acc, opts) do
-    acc = build_update_operations(source, head, acc, opts)
-    build_update_operations(source, tail, acc, opts)
-  end
-
-  defp build_update_operations(source, {key, value}, acc, opts) do
-    case source do
-      nil ->
-        normalize_update_value(nil, key, value, acc)
-
-      schema ->
-        if key in CommonSchema.get_query_fields(opts, schema) do
-          normalize_update_value(schema, key, value, acc)
-        else
-          acc
-        end
-    end
-  end
-
-  defp normalize_update_value(source, key, value, acc) do
-    if is_list(value) and
-         Enum.all?(value, &match?({op, _val} when op in [:set, :inc, :push, :pull], &1)) do
-      Enum.reduce(value, acc, fn v, acc ->
-        reduce_updates(source, key, v, acc)
-      end)
-    else
-      reduce_updates(source, key, value, acc)
-    end
-  end
-
-  defp reduce_updates(source, key, {op, value}, acc)
-       when op in [:pull, :push] do
-    case validate_field_type_of_array(source, key) do
-      :ok ->
-        value
-        |> List.wrap()
-        |> Enum.reduce(acc, fn value, acc ->
-          [{op, key, value} | acc]
-        end)
-
-      {:error, actual_type} ->
-        raise ArgumentError,
-              """
-              The field `#{inspect(key)}` on schema `#{inspect(source)}` is not a type of `:array`
-              and cannot be used with the `Ecto.Query` update operator `#{inspect(op)}`.
-
-              actual type:
-              #{inspect(actual_type)}
-              """
-    end
-  end
-
-  defp reduce_updates(source, key, {:inc, value}, acc) do
-    case validate_field_type_of_int(source, key) do
-      :ok ->
-        if is_integer(value) do
-          [{:inc, key, value} | acc]
-        else
-          raise ArgumentError,
-                "Expected value for key `#{inspect(key)}` to be an integer, got: #{inspect(value)}"
-        end
-
-      {:error, actual_type} ->
-        raise ArgumentError,
-              """
-              The field `#{inspect(key)}` on schema `#{inspect(source)}` is not a type of `:integer`
-              and cannot be used with the `Ecto.Query` update operator `:inc`.
-
-              actual type:
-              #{inspect(actual_type)}
-              """
-    end
-  end
-
-  defp reduce_updates(_source, key, {:set, value}, acc) do
-    [{:set, key, value} | acc]
-  end
-
-  defp reduce_updates(_source, key, value, acc) do
-    [{:set, key, value} | acc]
-  end
-
-  defp validate_field_type_of_int(source, key) do
-    case source do
-      nil ->
-        :ok
-
-      schema ->
-        case schema.__schema__(:type, key) do
-          :integer -> :ok
-          val -> {:error, val}
-        end
-    end
-  end
-
-  defp validate_field_type_of_array(source, key) do
-    case source do
-      nil ->
-        :ok
-
-      schema ->
-        case schema.__schema__(:type, key) do
-          {:array, _} -> :ok
-          val -> {:error, val}
-        end
-    end
   end
 
   # Helpers

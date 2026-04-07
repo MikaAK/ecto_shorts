@@ -9,7 +9,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 comparison operators" do
+  describe "comparison operators" do
     test "matches records where the field equals the value using ==" do
       expected = from(p in Post, where: p.id == ^1)
       q2 = CommonFilters.convert_params_to_filter(Post, %{id: %{==: 1}}, [])
@@ -583,7 +583,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic negation" do
+  describe "arithmetic negation" do
     test "excludes records using negated arithmetic comparison" do
       expected = from(p in Post, where: not (p.views == p.views + ^10))
 
@@ -598,7 +598,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 value wrapper negation" do
+  describe "value wrapper negation" do
     test "excludes records using negated value-wrapped comparison" do
       expected = from(p in Post, where: p.views != ^10)
 
@@ -626,7 +626,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic subtraction comparisons" do
+  describe "arithmetic subtraction comparisons" do
     test "matches records using arithmetic subtraction comparison" do
       expected = from(p in Post, where: p.views != p.views - ^5)
 
@@ -667,7 +667,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic multiplication comparisons" do
+  describe "arithmetic multiplication comparisons" do
     test "matches records using arithmetic multiplication comparison" do
       expected = from(p in Post, where: p.views == p.views * ^2)
 
@@ -695,7 +695,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic division comparisons" do
+  describe "arithmetic division comparisons" do
     test "matches records using arithmetic division comparison" do
       expected = from(p in Post, where: p.views > p.views / ^2)
 
@@ -723,7 +723,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 generic scalar fallback" do
+  describe "generic scalar fallback" do
     test "matches records using the generic scalar != fallback" do
       expected = from(p in Post, where: p.views != ^5)
       q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{!=: %{value: 5}}}, [])
@@ -781,7 +781,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 generic datetime comparisons" do
+  describe "generic datetime comparisons" do
     test "matches records using generic datetime ago comparison via catch-all" do
       expected =
         from(p in Post,
@@ -815,7 +815,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic + variants" do
+  describe "arithmetic + variants" do
     test "views == views + 10 (plain)" do
       expected = from(p in Post, where: p.views == p.views + ^10)
 
@@ -947,7 +947,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic - variants" do
+  describe "arithmetic - variants" do
     test "views == views - 5 (plain)" do
       expected = from(p in Post, where: p.views == p.views - ^5)
 
@@ -1079,7 +1079,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic * variants" do
+  describe "arithmetic * variants" do
     test "views == views * 2 (plain)" do
       expected = from(p in Post, where: p.views == p.views * ^2)
 
@@ -1211,7 +1211,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 arithmetic / variants" do
+  describe "arithmetic / variants" do
     test "views == views / 2 (plain)" do
       expected = from(p in Post, where: p.views == p.views / ^2)
 

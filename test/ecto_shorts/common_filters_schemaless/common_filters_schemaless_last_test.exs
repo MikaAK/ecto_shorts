@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessLastTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 last shapes (schemaless)" do
+  describe "last shapes (schemaless)" do
     test "matches Ecto.Query for a root integer last payload" do
       expected =
         "posts"

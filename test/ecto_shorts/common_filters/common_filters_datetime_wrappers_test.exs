@@ -11,7 +11,7 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
   # The RHS is replaced with the Ecto datetime function before the comparison is
   # applied. Supported RHS shapes: `%{add: ...}` (`datetime_add`), `%{ago: ...}`
   # (`ago`), `%{from_now: ...}` (`from_now`). The field side is not wrapped.
-  describe "convert_params_to_filter/3 datetime wrappers" do
+  describe "datetime wrappers" do
     test "matches records using datetime_add before comparison" do
       expected = from(p in Post, where: p.inserted_at >= datetime_add(p.inserted_at, ^1, "day"))
 
@@ -74,7 +74,7 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
     end
   end
 
-  describe "convert_params_to_filter/3 datetime from_now comparisons" do
+  describe "datetime from_now comparisons" do
     test "matches records using datetime from_now comparison" do
       expected = from(p in Post, where: p.published_at > from_now(^1, "month"))
 
@@ -135,7 +135,7 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
     end
   end
 
-  describe "convert_params_to_filter/3 datetime add comparisons" do
+  describe "datetime add comparisons" do
     test "matches records using datetime add comparison" do
       expected =
         from(p in Post,
@@ -221,7 +221,7 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
     end
   end
 
-  describe "convert_params_to_filter/3 datetime negated != and <= variants" do
+  describe "datetime negated != and <= variants" do
     test "matches records using negated datetime != (produces ==)" do
       expected = from(p in Post, where: p.published_at == ago(^1, "month"))
 

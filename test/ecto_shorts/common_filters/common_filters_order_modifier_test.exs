@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 order modifier shapes" do
+  describe "order modifier shapes" do
     # A bare atom for `prepend_order_by` defaults to `desc:` order, unlike `order_by:`
     # where a bare atom defaults to `asc:`.
     test "matches Ecto.Query for a root prepend_order_by atom" do
@@ -164,7 +164,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     test "matches Ecto.Query for reverse_order after local order_by params" do
       expected =
         Post
-        |> order_by([], desc: :title)
+        |> order_by([], asc: :title)
         |> reverse_order()
 
       actual =
@@ -178,7 +178,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     end
   end
 
-  describe "convert_params_to_filter/3 order_by list shapes" do
+  describe "order_by list shapes" do
     test "orders by a list of direction-field tuples" do
       expected = from(p in Post, order_by: [asc: p.title, desc: p.views])
 
@@ -192,8 +192,8 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
       assert_query(expected, actual)
     end
 
-    test "orders by a list of bare atoms defaulting to desc" do
-      expected = from(p in Post, order_by: [desc: p.title, desc: p.views])
+    test "orders by a list of bare atoms defaulting to asc" do
+      expected = from(p in Post, order_by: [asc: p.title, asc: p.views])
 
       actual =
         CommonFilters.convert_params_to_filter(
@@ -206,7 +206,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     end
   end
 
-  describe "convert_params_to_filter/3 prepend_order_by list shapes" do
+  describe "prepend_order_by list shapes" do
     test "prepend_order_by with a list of direction-field tuples" do
       expected = prepend_order_by(Post, [], asc: :title, desc: :views)
 
@@ -278,7 +278,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     end
   end
 
-  describe "convert_params_to_filter/3 order_by DynamicExpr and fallthrough paths" do
+  describe "order_by DynamicExpr and fallthrough paths" do
     test "order_by passes a DynamicExpr entry through unchanged in a list" do
       dyn = dynamic([p], p.views > ^0)
 
@@ -354,7 +354,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     end
   end
 
-  describe "convert_params_to_filter/3 reverse_order warning" do
+  describe "reverse_order warning" do
     test "logs a warning and returns the query unchanged when reverse_order is not true" do
       expected = from(p in Post, order_by: [asc: p.title])
 

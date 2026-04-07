@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.RecursiveCtesTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 recursive_ctes shapes" do
+  describe "recursive_ctes shapes" do
     test "matches Ecto.Query for recursive_ctes true" do
       expected = recursive_ctes(Post, true)
 
@@ -28,6 +28,19 @@ defmodule EctoShorts.CommonFilters.RecursiveCtesTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{recursive_ctes: false},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "casts a string boolean recursive_ctes payload" do
+      expected = recursive_ctes(Post, true)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{recursive_ctes: "true"},
           []
         )
 

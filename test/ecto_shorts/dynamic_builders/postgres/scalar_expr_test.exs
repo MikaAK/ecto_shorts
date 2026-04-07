@@ -8,781 +8,807 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
 
   import Ecto.Query
 
-  test "dynamic_expr/4 builds a root named-binding equality expression from a plain scalar term" do
-    expected = dynamic([q], field(q, :id) == ^1)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, 1, [])
-
-    assert_dynamic(expected, actual)
-  end
+  describe "root binding equality" do
+    test "plain scalar value produces equality" do
+      expected = dynamic([q], field(q, :id) == ^1)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, 1, [])
 
-  test "dynamic_expr/4 builds a root named-binding nil expression from a plain scalar term" do
-    expected = dynamic([q], is_nil(field(q, :id)))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, nil, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "nil value produces IS NULL" do
+      expected = dynamic([q], is_nil(field(q, :id)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, nil, [])
 
-  test "dynamic_expr/4 keeps the schema field key dynamic" do
-    expected = dynamic([q], field(q, :title) == ^"hello")
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, "hello", [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "string field key stays dynamic" do
+      expected = dynamic([q], field(q, :title) == ^"hello")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, "hello", [])
 
-  test "dynamic_expr/4 builds a root named-binding equality expression" do
-    expected = dynamic([q], field(q, :id) == ^1)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:eq, 1}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:eq, value} produces equality" do
+      expected = dynamic([q], field(q, :id) == ^1)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:eq, 1}, [])
 
-  test "dynamic_expr/4 builds a root named-binding equality expression from :==" do
-    expected = dynamic([q], field(q, :id) == ^1)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, 1}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:==, value} produces equality" do
+      expected = dynamic([q], field(q, :id) == ^1)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, 1}, [])
 
-  test "dynamic_expr/4 builds a root named-binding nil expression from :eq" do
-    expected = dynamic([q], is_nil(field(q, :id)))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:eq, nil}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:eq, nil} produces IS NULL" do
+      expected = dynamic([q], is_nil(field(q, :id)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:eq, nil}, [])
 
-  test "dynamic_expr/4 builds a root named-binding nil expression from :==" do
-    expected = dynamic([q], is_nil(field(q, :id)))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, nil}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:==, nil} produces IS NULL" do
+      expected = dynamic([q], is_nil(field(q, :id)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, nil}, [])
 
-  test "dynamic_expr/4 builds a root named-binding not-nil expression from :!=" do
-    expected = dynamic([q], not is_nil(field(q, :published_at)))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:!=, nil}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:!=, nil} produces IS NOT NULL" do
+      expected = dynamic([q], not is_nil(field(q, :published_at)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:!=, nil}, [])
 
-  test "dynamic_expr/4 builds a root named-binding not-nil expression from :ne" do
-    expected = dynamic([q], not is_nil(field(q, :published_at)))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:ne, nil}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:ne, nil} produces IS NOT NULL" do
+      expected = dynamic([q], not is_nil(field(q, :published_at)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:ne, nil}, [])
 
-  test "dynamic_expr/4 builds a root named-binding inequality expression from :!=" do
-    expected = dynamic([q], field(q, :views) != ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:!=, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:!=, value} produces inequality" do
+      expected = dynamic([q], field(q, :views) != ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:!=, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding inequality expression from :ne" do
-    expected = dynamic([q], field(q, :views) != ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:ne, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:ne, value} produces inequality" do
+      expected = dynamic([q], field(q, :views) != ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:ne, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding greater-than expression" do
-    expected = dynamic([q], field(q, :views) > ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "DateTime struct value is preserved in comparisons" do
+      dt = ~U[2026-01-01 00:00:00Z]
+      expected = dynamic([q], field(q, :published_at) >= ^dt)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:>=, dt}, [])
 
-  test "dynamic_expr/4 builds a root named-binding greater-than expression from an explicit wrapped arithmetic value" do
-    expected = dynamic([q], field(q, :views) > field(q, :views) + ^10)
-
-    actual =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :views,
-        nil,
-        {:>, {:value, {:+, {{:field, :views}, {:value, 10}}}}},
-        []
-      )
-
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a root named-binding greater-than-or-equal expression" do
-    expected = dynamic([q], field(q, :views) >= ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>=, 10}, [])
+  describe "root binding comparison operators" do
+    test "{:>, value} produces greater-than" do
+      expected = dynamic([q], field(q, :views) > ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>, 10}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding less-than expression" do
-    expected = dynamic([q], field(q, :views) < ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<, 10}, [])
+    test "{:>, wrapped_arithmetic} produces greater-than with arithmetic value" do
+      expected = dynamic([q], field(q, :views) > field(q, :views) + ^10)
 
-    assert_dynamic(expected, actual)
-  end
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>, {:value, {:+, {{:field, :views}, {:value, 10}}}}},
+          []
+        )
 
-  test "dynamic_expr/4 builds a root named-binding less-than-or-equal expression" do
-    expected = dynamic([q], field(q, :views) <= ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<=, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:>=, value} produces greater-than-or-equal" do
+      expected = dynamic([q], field(q, :views) >= ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>=, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding greater-than expression from :gt" do
-    expected = dynamic([q], field(q, :views) > ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:gt, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:<, value} produces less-than" do
+      expected = dynamic([q], field(q, :views) < ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding greater-than-or-equal expression from :gte" do
-    expected = dynamic([q], field(q, :views) >= ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:gte, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:<=, value} produces less-than-or-equal" do
+      expected = dynamic([q], field(q, :views) <= ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<=, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding less-than expression from :lt" do
-    expected = dynamic([q], field(q, :views) < ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:lt, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test ":gt alias produces greater-than" do
+      expected = dynamic([q], field(q, :views) > ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:gt, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding less-than-or-equal expression from :lte" do
-    expected = dynamic([q], field(q, :views) <= ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:lte, 10}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test ":gte alias produces greater-than-or-equal" do
+      expected = dynamic([q], field(q, :views) >= ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:gte, 10}, [])
 
-  test "dynamic_expr/4 builds a root named-binding membership expression from :in" do
-    expected = dynamic([q], field(q, :id) in ^[1, 2, 3])
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:in, [1, 2, 3]}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test ":lt alias produces less-than" do
+      expected = dynamic([q], field(q, :views) < ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:lt, 10}, [])
+
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 treats a list value with :== as membership" do
-    expected = dynamic([q], field(q, :published) in ^[true, false])
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :published, nil, {:==, [true, false]}, [])
+    test ":lte alias produces less-than-or-equal" do
+      expected = dynamic([q], field(q, :views) <= ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:lte, 10}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 treats a list value with :!= as negated membership" do
-    expected =
-      dynamic([q], is_nil(field(q, :published)) or field(q, :published) not in ^[true, false])
+  describe "membership operators" do
+    test "{:in, list} produces membership" do
+      expected = dynamic([q], field(q, :id) in ^[1, 2, 3])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:in, [1, 2, 3]}, [])
 
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :published, nil, {:!=, [true, false]}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:==, list} produces membership" do
+      expected = dynamic([q], field(q, :published) in ^[true, false])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :published, nil, {:==, [true, false]}, [])
 
-  test "dynamic_expr/4 preserves struct values like DateTime in comparisons" do
-    dt = ~U[2026-01-01 00:00:00Z]
-    expected = dynamic([q], field(q, :published_at) >= ^dt)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:>=, dt}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
-  end
+    test "{:!=, list} produces negated membership with nil guard" do
+      expected =
+        dynamic([q], is_nil(field(q, :published)) or field(q, :published) not in ^[true, false])
 
-  test "dynamic_expr/4 builds a root named-binding aggregate comparison expression" do
-    expected = dynamic([q], avg(field(q, :views)) > ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:avg, {:>, 10}}, [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :published, nil, {:!=, [true, false]}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a root named-binding negated aggregate comparison expression" do
-    expected = dynamic([q], not (avg(field(q, :views)) > ^10))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:avg, {:>, 10}}, [])
+  describe "aggregate comparisons" do
+    test "{:avg, comparison} produces aggregate comparison" do
+      expected = dynamic([q], avg(field(q, :views)) > ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:avg, {:>, 10}}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:avg, comparison} wraps aggregate with NOT" do
+      expected = dynamic([q], not (avg(field(q, :views)) > ^10))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:avg, {:>, 10}}, [])
 
-  test "dynamic_expr/4 builds a root named-binding count equals nil aggregate comparison expression" do
-    expected = dynamic([q], is_nil(count(field(q, :views))))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:count, {:==, nil}}, [])
+      assert_dynamic(expected, actual)
+    end
 
-    assert_dynamic(expected, actual)
+    test "{:count, {:==, nil}} produces is_nil aggregate check" do
+      expected = dynamic([q], is_nil(count(field(q, :views))))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:count, {:==, nil}}, [])
+
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a root named-binding quantified equality expression" do
-    subquery_expr =
-      from(c in Comment,
-        where: c.published == ^true,
-        select: c.id
-      )
+  describe "quantified expressions" do
+    test "{:==, {:all, subquery}} produces quantified equality" do
+      subquery_expr =
+        from(c in Comment,
+          where: c.published == ^true,
+          select: c.id
+        )
 
-    expected = dynamic([q], field(q, :id) == all(subquery_expr))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, {:all, subquery_expr}}, [])
+      expected = dynamic([q], field(q, :id) == all(subquery_expr))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, {:all, subquery_expr}}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding negated quantified equality expression" do
-    subquery_expr =
-      from(c in Comment,
-        where: c.published == ^true,
-        select: c.id
-      )
+    test "negated {:==, {:all, subquery}} wraps quantified equality with NOT" do
+      subquery_expr =
+        from(c in Comment,
+          where: c.published == ^true,
+          select: c.id
+        )
 
-    expected = dynamic([q], not (field(q, :id) == all(subquery_expr)))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:==, {:all, subquery_expr}}, [])
+      expected = dynamic([q], not (field(q, :id) == all(subquery_expr)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:==, {:all, subquery_expr}}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a root named-binding like expression" do
-    expected = dynamic([q], like(field(q, :title), ^"%hello%"))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, "hello"}, [])
+  describe "LIKE / ILIKE operators" do
+    test "{:like, term} auto-wraps the term with percent signs" do
+      expected = dynamic([q], like(field(q, :title), ^"%hello%"))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, "hello"}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 preserves a caller-supplied like wildcard pattern" do
-    expected = dynamic([q], like(field(q, :title), ^"hello%"))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, "hello%"}, [])
+    test "{:like, pattern_with_wildcard} preserves caller-supplied wildcard pattern" do
+      expected = dynamic([q], like(field(q, :title), ^"hello%"))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, "hello%"}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding ilike expression" do
-    expected = dynamic([q], ilike(field(q, :title), ^"%hello%"))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, "hello"}, [])
+    test "{:ilike, term} auto-wraps the term with percent signs" do
+      expected = dynamic([q], ilike(field(q, :title), ^"%hello%"))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, "hello"}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding like-any expression" do
-    patterns = ["%hello%", "%world%"]
+    test "{:like, list} produces LIKE ANY fragment with auto-wrapped patterns" do
+      patterns = ["%hello%", "%world%"]
 
-    expected =
-      dynamic([q], fragment("? LIKE ANY(?)", field(q, :title), ^patterns))
+      expected =
+        dynamic([q], fragment("? LIKE ANY(?)", field(q, :title), ^patterns))
 
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, ["hello", "world"]}, [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, ["hello", "world"]}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding ilike-any expression" do
-    patterns = ["%hello%", "%world%"]
+    test "{:ilike, list} produces ILIKE ANY fragment with auto-wrapped patterns" do
+      patterns = ["%hello%", "%world%"]
 
-    expected =
-      dynamic([q], fragment("? ILIKE ANY(?)", field(q, :title), ^patterns))
+      expected =
+        dynamic([q], fragment("? ILIKE ANY(?)", field(q, :title), ^patterns))
 
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, ["hello", "world"]}, [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, ["hello", "world"]}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 preserves caller-supplied ilike-any wildcard patterns" do
-    patterns = ["hello%", "%world"]
+    test "{:ilike, list_with_wildcards} preserves caller-supplied wildcard patterns" do
+      patterns = ["hello%", "%world"]
 
-    expected =
-      dynamic([q], fragment("? ILIKE ANY(?)", field(q, :title), ^patterns))
+      expected =
+        dynamic([q], fragment("? ILIKE ANY(?)", field(q, :title), ^patterns))
 
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, ["hello%", "%world"]}, [])
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, ["hello%", "%world"]}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a root named-binding lower transform equality expression" do
-    expected = dynamic([q], fragment("lower(?)", field(q, :title)) == ^"hello")
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:==, {:lower, "hello"}}, [])
+  describe "string transform operators" do
+    test "{:==, {:lower, value}} produces lower() equality" do
+      expected = dynamic([q], fragment("lower(?)", field(q, :title)) == ^"hello")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:==, {:lower, "hello"}}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding upper transform equality expression" do
-    expected = dynamic([q], fragment("upper(?)", field(q, :title)) == ^"HELLO")
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:==, {:upper, "HELLO"}}, [])
+    test "{:==, {:upper, value}} produces upper() equality" do
+      expected = dynamic([q], fragment("upper(?)", field(q, :title)) == ^"HELLO")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:==, {:upper, "HELLO"}}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding lower transform inequality expression" do
-    expected = dynamic([q], fragment("lower(?)", field(q, :title)) != ^"hello")
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:!=, {:lower, "hello"}}, [])
+    test "{:!=, {:lower, value}} produces lower() inequality" do
+      expected = dynamic([q], fragment("lower(?)", field(q, :title)) != ^"hello")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:!=, {:lower, "hello"}}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding upper transform inequality expression" do
-    expected = dynamic([q], fragment("upper(?)", field(q, :title)) != ^"HELLO")
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:!=, {:upper, "HELLO"}}, [])
+    test "{:!=, {:upper, value}} produces upper() inequality" do
+      expected = dynamic([q], fragment("upper(?)", field(q, :title)) != ^"HELLO")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:!=, {:upper, "HELLO"}}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a root named-binding negated membership expression" do
-    expected =
-      dynamic([q], is_nil(field(q, :published)) or field(q, :published) not in ^[true, false])
+  describe "negation" do
+    test "negated {:in, list} produces NOT IN with nil guard" do
+      expected =
+        dynamic([q], is_nil(field(q, :published)) or field(q, :published) not in ^[true, false])
 
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :published, :not, {:in, [true, false]}, [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :published, :not, {:in, [true, false]}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding negated greater-than expression" do
-    expected = dynamic([q], not (field(q, :views) > ^10))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:>, 10}, [])
+    test "negated {:>, value} wraps with NOT" do
+      expected = dynamic([q], not (field(q, :views) > ^10))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:>, 10}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding negated equality expression" do
-    expected = dynamic([q], field(q, :views) != ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:==, 10}, [])
+    test "negated {:==, value} produces inequality" do
+      expected = dynamic([q], field(q, :views) != ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:==, 10}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding double-negated inequality expression" do
-    expected = dynamic([q], field(q, :views) == ^10)
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:!=, 10}, [])
+    test "negated {:!=, value} produces equality (double negation)" do
+      expected = dynamic([q], field(q, :views) == ^10)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:!=, 10}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding negated like expression" do
-    expected = dynamic([q], not like(field(q, :title), ^"%hello%"))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:like, "hello"}, [])
+    test "negated {:like, term} wraps LIKE with NOT" do
+      expected = dynamic([q], not like(field(q, :title), ^"%hello%"))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:like, "hello"}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding negated like-any expression" do
-    patterns = ["%hello%", "%world%"]
+    test "negated {:like, list} wraps LIKE ANY with NOT" do
+      patterns = ["%hello%", "%world%"]
 
-    expected = dynamic([q], not fragment("? LIKE ANY(?)", field(q, :title), ^patterns))
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:like, ["hello", "world"]}, [])
+      expected = dynamic([q], not fragment("? LIKE ANY(?)", field(q, :title), ^patterns))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:like, ["hello", "world"]}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a root named-binding negated lower transform expression" do
-    expected = dynamic([q], fragment("lower(?)", field(q, :title)) != ^"hello")
-    actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:==, {:lower, "hello"}}, [])
+    test "negated {:==, {:lower, value}} produces lower() inequality" do
+      expected = dynamic([q], fragment("lower(?)", field(q, :title)) != ^"hello")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:==, {:lower, "hello"}}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a named-binding alias expression" do
-    id = 1
-    expected = from(p in Post, as: :post, where: p.id == ^id)
+  describe "named binding alias" do
+    test "{:eq, value} on a named binding produces equality on that alias" do
+      id = 1
+      expected = from(p in Post, as: :post, where: p.id == ^id)
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:eq, id}, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:eq, id}, [])
+        )
 
-    assert_sql(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a named-binding alias expression from a plain scalar term" do
-    id = 1
-    expected = from(p in Post, as: :post, where: p.id == ^id)
+    test "plain scalar value on a named binding produces equality on that alias" do
+      id = 1
+      expected = from(p in Post, as: :post, where: p.id == ^id)
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, id, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, id, [])
+        )
 
-    assert_sql(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a named-binding alias expression from :==" do
-    id = 1
-    expected = from(p in Post, as: :post, where: p.id == ^id)
+    test "{:==, value} on a named binding produces equality on that alias" do
+      id = 1
+      expected = from(p in Post, as: :post, where: p.id == ^id)
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, id}, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, id}, [])
+        )
 
-    assert_sql(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a named-binding alias nil expression from a plain scalar term" do
-    expected = from(p in Post, as: :post, where: is_nil(p.id))
+    test "nil value on a named binding produces IS NULL on that alias" do
+      expected = from(p in Post, as: :post, where: is_nil(p.id))
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, nil, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, nil, [])
+        )
 
-    assert_sql(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a named-binding alias nil expression" do
-    expected = from(p in Post, as: :post, where: is_nil(p.id))
+    test "{:eq, nil} on a named binding produces IS NULL on that alias" do
+      expected = from(p in Post, as: :post, where: is_nil(p.id))
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:eq, nil}, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:eq, nil}, [])
+        )
 
-    assert_sql(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a named-binding alias nil expression from :==" do
-    expected = from(p in Post, as: :post, where: is_nil(p.id))
+    test "{:==, nil} on a named binding produces IS NULL on that alias" do
+      expected = from(p in Post, as: :post, where: is_nil(p.id))
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, nil}, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, nil}, [])
+        )
 
-    assert_sql(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a named-binding alias greater-than expression" do
-    expected = from(p in Post, as: :post, where: p.views > ^10)
+    test "{:>, value} on a named binding produces greater-than on that alias" do
+      expected = from(p in Post, as: :post, where: p.views > ^10)
 
-    actual =
-      from(p in Post,
-        as: :post,
-        where: ^ScalarExpr.dynamic_expr({:as, :post}, :views, nil, {:>, 10}, [])
-      )
+      actual =
+        from(p in Post,
+          as: :post,
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :views, nil, {:>, 10}, [])
+        )
 
-    assert_sql(expected, actual)
+      assert_sql(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a positional-binding expression" do
-    id = 1
-    expected = dynamic([_, q], q.id == ^id)
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:eq, id}, [])
+  describe "positional binding" do
+    test "{:eq, value} on a positional binding produces equality on the correct join" do
+      id = 1
+      expected = dynamic([_, q], q.id == ^id)
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:eq, id}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a positional-binding expression from a plain scalar term" do
-    id = 1
-    expected = dynamic([_, q], q.id == ^id)
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, id, [])
+    test "plain scalar value on a positional binding produces equality on the correct join" do
+      id = 1
+      expected = dynamic([_, q], q.id == ^id)
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, id, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a positional-binding expression from :==" do
-    id = 1
-    expected = dynamic([_, q], q.id == ^id)
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, id}, [])
+    test "{:==, value} on a positional binding produces equality on the correct join" do
+      id = 1
+      expected = dynamic([_, q], q.id == ^id)
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, id}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a positional-binding nil expression from a plain scalar term" do
-    expected = dynamic([_, q], is_nil(q.id))
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, nil, [])
+    test "nil value on a positional binding produces IS NULL on the correct join" do
+      expected = dynamic([_, q], is_nil(q.id))
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, nil, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a positional-binding nil expression" do
-    expected = dynamic([_, q], is_nil(q.id))
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:eq, nil}, [])
+    test "{:eq, nil} on a positional binding produces IS NULL on the correct join" do
+      expected = dynamic([_, q], is_nil(q.id))
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:eq, nil}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a positional-binding nil expression from :==" do
-    expected = dynamic([_, q], is_nil(q.id))
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, nil}, [])
+    test "{:==, nil} on a positional binding produces IS NULL on the correct join" do
+      expected = dynamic([_, q], is_nil(q.id))
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, nil}, [])
 
-    assert_dynamic(expected, actual)
-  end
+      assert_dynamic(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a positional-binding membership expression" do
-    expected = dynamic([_, q], q.id in ^[1, 2, 3])
-    actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:in, [1, 2, 3]}, [])
+    test "{:in, list} on a positional binding produces membership on the correct join" do
+      expected = dynamic([_, q], q.id in ^[1, 2, 3])
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:in, [1, 2, 3]}, [])
 
-    assert_dynamic(expected, actual)
+      assert_dynamic(expected, actual)
+    end
   end
 
-  test "dynamic_expr/4 builds a date equality expression using date wrapper with ago" do
-    expected =
-      from(p in Post,
-        where: fragment("date(?)", p.inserted_at) == fragment("date(?)", ago(^1, "day"))
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:==, {:date, {:ago, [count: 1, interval: "day"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+  describe "date wrapper expressions" do
+    test "{:==, {:date, {:ago, ...}}} produces date equality using ago" do
+      expected =
+        from(p in Post,
+          where: fragment("date(?)", p.inserted_at) == fragment("date(?)", ago(^1, "day"))
+        )
 
-  test "dynamic_expr/4 builds a date inequality expression using date wrapper with from_now" do
-    expected =
-      from(p in Post,
-        where: fragment("date(?)", p.inserted_at) != fragment("date(?)", from_now(^1, "day"))
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:!=, {:date, {:from_now, [count: 1, interval: "day"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:==, {:date, {:ago, [count: 1, interval: "day"]}}},
+          []
+        )
 
-  test "dynamic_expr/4 builds a negated date greater-than expression using date wrapper with from_now" do
-    expected =
-      from(p in Post,
-        where: not (fragment("date(?)", p.inserted_at) > fragment("date(?)", from_now(^1, "day")))
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:not, {:>, {:date, {:from_now, [count: 1, interval: "day"]}}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+      actual = from(p in Post, where: ^actual_dynamic)
 
-  test "dynamic_expr/4 builds a date >= expression using date wrapper with datetime_add" do
-    expected =
-      dynamic(
-        [q],
-        fragment("date(?)", field(q, :inserted_at)) >=
-          fragment("date(?)", datetime_add(field(q, :inserted_at), ^7, "day"))
-      )
-
-    actual =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:>=, {:date, {:add, [field: :inserted_at, count: 7, interval: "day"]}}},
-        []
-      )
-
-    assert_dynamic(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 preserves datetime wrapper extraction when add params arrive in a different keyword order" do
-    expected =
-      dynamic(
-        [q],
-        field(q, :inserted_at) >= datetime_add(field(q, :inserted_at), ^1, "day")
-      )
-
-    actual =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:>=, {:datetime, {:add, [interval: "day", field: :inserted_at, count: 1]}}},
-        []
-      )
-
-    assert_dynamic(expected, actual)
-  end
+    test "{:!=, {:date, {:from_now, ...}}} produces date inequality using from_now" do
+      expected =
+        from(p in Post,
+          where: fragment("date(?)", p.inserted_at) != fragment("date(?)", from_now(^1, "day"))
+        )
 
-  test "dynamic_expr/4 builds a datetime greater-than expression using ago" do
-    expected =
-      from(p in Post,
-        where: p.inserted_at > ago(^1, "day")
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:>, {:datetime, {:ago, [count: 1, interval: "day"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:!=, {:date, {:from_now, [count: 1, interval: "day"]}}},
+          []
+        )
 
-  test "dynamic_expr/4 builds a datetime greater-than expression using from_now" do
-    expected =
-      from(p in Post,
-        where: p.inserted_at > from_now(^1, "day")
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:>, {:datetime, {:from_now, [count: 1, interval: "day"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+      actual = from(p in Post, where: ^actual_dynamic)
 
-  test "dynamic_expr/4 builds a negated datetime >= expression using datetime_add" do
-    expected =
-      dynamic(
-        [q],
-        not (field(q, :inserted_at) >= datetime_add(field(q, :inserted_at), ^1, "day"))
-      )
-
-    actual =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:not, {:>=, {:datetime, {:add, [field: :inserted_at, count: 1, interval: "day"]}}}},
-        []
-      )
-
-    assert_dynamic(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 builds a datetime less-than expression using ago" do
-    expected =
-      from(p in Post,
-        where: p.inserted_at < ago(^7, "day")
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:<, {:datetime, {:ago, [count: 7, interval: "day"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+    test "negated {:>, {:date, {:from_now, ...}}} wraps date comparison with NOT" do
+      expected =
+        from(p in Post,
+          where:
+            not (fragment("date(?)", p.inserted_at) > fragment("date(?)", from_now(^1, "day")))
+        )
 
-  test "dynamic_expr/4 builds a datetime less-than-or-equal expression using from_now" do
-    expected =
-      from(p in Post,
-        where: p.inserted_at <= from_now(^30, "day")
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:<=, {:datetime, {:from_now, [count: 30, interval: "day"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:not, {:>, {:date, {:from_now, [count: 1, interval: "day"]}}}},
+          []
+        )
 
-  test "dynamic_expr/4 builds a negated datetime less-than expression using ago" do
-    expected =
-      from(p in Post,
-        where: not (p.inserted_at < ago(^7, "day"))
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:not, {:<, {:datetime, {:ago, [count: 7, interval: "day"]}}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+      actual = from(p in Post, where: ^actual_dynamic)
 
-  test "dynamic_expr/4 preserves date wrapper extraction when add params arrive in a different keyword order" do
-    expected =
-      dynamic(
-        [q],
-        fragment("date(?)", field(q, :inserted_at)) >=
-          fragment("date(?)", datetime_add(field(q, :inserted_at), ^7, "day"))
-      )
-
-    actual =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:>=, {:date, {:add, [interval: "day", field: :inserted_at, count: 7]}}},
-        []
-      )
-
-    assert_dynamic(expected, actual)
-  end
+      assert_sql(expected, actual)
+    end
 
-  test "dynamic_expr/4 preserves date wrapper extraction when ago params arrive in a different keyword order" do
-    expected =
-      from(p in Post,
-        where: fragment("date(?)", p.inserted_at) < fragment("date(?)", ago(^1, "month"))
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:<, {:date, {:ago, [interval: "month", count: 1]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
-  end
+    test "{:>=, {:date, {:add, ...}}} produces date >= using datetime_add" do
+      expected =
+        dynamic(
+          [q],
+          fragment("date(?)", field(q, :inserted_at)) >=
+            fragment("date(?)", datetime_add(field(q, :inserted_at), ^7, "day"))
+        )
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>=, {:date, {:add, [field: :inserted_at, count: 7, interval: "day"]}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "date add params in different keyword order produce the same expression" do
+      expected =
+        dynamic(
+          [q],
+          fragment("date(?)", field(q, :inserted_at)) >=
+            fragment("date(?)", datetime_add(field(q, :inserted_at), ^7, "day"))
+        )
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>=, {:date, {:add, [interval: "day", field: :inserted_at, count: 7]}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:date, {:ago, ..., :month}}} produces date less-than using ago with month interval" do
+      expected =
+        from(p in Post,
+          where: fragment("date(?)", p.inserted_at) < fragment("date(?)", ago(^1, "month"))
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:<, {:date, {:ago, [count: 1, interval: "month"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "date ago params in different keyword order produce the same expression" do
+      expected =
+        from(p in Post,
+          where: fragment("date(?)", p.inserted_at) < fragment("date(?)", ago(^1, "month"))
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:<, {:date, {:ago, [interval: "month", count: 1]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+  end
 
-  test "dynamic_expr/4 builds a date less-than expression using date wrapper with ago and month interval" do
-    expected =
-      from(p in Post,
-        where: fragment("date(?)", p.inserted_at) < fragment("date(?)", ago(^1, "month"))
-      )
-
-    actual_dynamic =
-      ScalarExpr.dynamic_expr(
-        {:as, nil},
-        :inserted_at,
-        nil,
-        {:<, {:date, {:ago, [count: 1, interval: "month"]}}},
-        []
-      )
-
-    actual = from(p in Post, where: ^actual_dynamic)
-
-    assert_sql(expected, actual)
+  describe "datetime wrapper expressions" do
+    test "{:>=, {:datetime, {:add, ...}}} preserves datetime_add when params arrive in different keyword order" do
+      expected =
+        dynamic(
+          [q],
+          field(q, :inserted_at) >= datetime_add(field(q, :inserted_at), ^1, "day")
+        )
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>=, {:datetime, {:add, [interval: "day", field: :inserted_at, count: 1]}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, {:datetime, {:ago, ...}}} produces datetime greater-than using ago" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at > ago(^1, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>, {:datetime, {:ago, [count: 1, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "{:>, {:datetime, {:from_now, ...}}} produces datetime greater-than using from_now" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at > from_now(^1, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>, {:datetime, {:from_now, [count: 1, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "negated {:>=, {:datetime, {:add, ...}}} wraps datetime_add with NOT" do
+      expected =
+        dynamic(
+          [q],
+          not (field(q, :inserted_at) >= datetime_add(field(q, :inserted_at), ^1, "day"))
+        )
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:not, {:>=, {:datetime, {:add, [field: :inserted_at, count: 1, interval: "day"]}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:datetime, {:ago, ...}}} produces datetime less-than using ago" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at < ago(^7, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:<, {:datetime, {:ago, [count: 7, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "{:<=, {:datetime, {:from_now, ...}}} produces datetime less-than-or-equal using from_now" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at <= from_now(^30, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:<=, {:datetime, {:from_now, [count: 30, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "negated {:<, {:datetime, {:ago, ...}}} wraps datetime less-than with NOT" do
+      expected =
+        from(p in Post,
+          where: not (p.inserted_at < ago(^7, "day"))
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:not, {:<, {:datetime, {:ago, [count: 7, interval: "day"]}}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
   end
 end

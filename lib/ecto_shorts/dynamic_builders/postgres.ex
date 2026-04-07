@@ -46,17 +46,23 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   import Ecto.Query, only: [dynamic: 1]
 
   alias EctoShorts.{
+    CommonFilters,
     CommonSchema,
-    CommonFilters.SetComparison,
+    CommonFilters.Select,
     DynamicBuilders.Postgres.ArrayExpr,
     DynamicBuilders.Postgres.CommonExpr,
+    DynamicBuilders.Postgres.MapExpr,
     DynamicBuilders.Postgres.Normalizer,
-    DynamicBuilders.Postgres.ScalarExpr
+    DynamicBuilders.Postgres.ScalarExpr,
+    Types
   }
 
   @behaviour EctoShorts.Adapter.DynamicBuilder
 
+  @logger_prefix "EctoShorts.DynamicBuilders.Postgres"
+
   @quantifier_operators [:all, :any]
+  @common_expr_operators CommonExpr.operators()
 
   @impl true
   @doc """
@@ -131,11 +137,15 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   end
 
   def build_dynamic(source, selected_binding, {key, params}, opts) do
-    params = maybe_dump_param(source, key, params)
+    field_types = Keyword.get(opts, :field_types, [])
+
+    field_type =
+      Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
 
     expr =
       params
       |> then(&Normalizer.normalize_params(source, &1, opts))
+      |> Enum.map(&cast_value(field_type, &1))
       |> Enum.reduce(nil, fn entry, acc ->
         {merge_op, expr_entry} = expr_entry(key, entry)
         dyn = apply_expr(source, selected_binding, expr_entry, opts)
@@ -172,25 +182,41 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   defp build_expr(source, selected_binding, key, term, opts) do
     if binding_selector?(selected_binding) do
       {negated, term} = normalize_negation_term(term)
-
       term = normalize_quantified_term(key, term, opts)
+      dispatch_expr(source, selected_binding, key, negated, term, opts)
+    end
+  end
 
-      cond do
-        key in CommonExpr.operators() ->
-          CommonExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+  defp dispatch_expr(_source, selected_binding, key, negated, term, opts)
+       when key in @common_expr_operators do
+    CommonExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+  end
 
-        array_field?(source, key) ->
-          ArrayExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, inner_entries}, opts) do
+    Enum.reduce(inner_entries, nil, fn inner_entry, dyn_acc ->
+      dyn = ArrayExpr.dynamic_expr(selected_binding, key, negated, inner_entry, opts)
+      merge_dynamic(dyn_acc, :and, dyn)
+    end)
+  end
 
-        true ->
-          ScalarExpr.dynamic_expr(
-            selected_binding,
-            key,
-            negated,
-            term,
-            opts
-          )
-      end
+  defp dispatch_expr(source, selected_binding, key, negated, term, opts) do
+    cond do
+      invalid_schema_field?(source, key) ->
+        EctoShorts.Logger.warning(
+          @logger_prefix,
+          "Field \"#{key}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
+        )
+
+        nil
+
+      map_field?(source, key, opts) ->
+        MapExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+
+      array_field?(source, key, opts) ->
+        ArrayExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+
+      true ->
+        ScalarExpr.dynamic_expr(selected_binding, key, negated, term, opts)
     end
   end
 
@@ -200,7 +226,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   defp normalize_quantified_term(key, {quantifier, payload}, opts)
        when quantifier in @quantifier_operators do
     if quantified_query_payload?(payload) do
-      {:==, {quantifier, SetComparison.build_quantified_query(key, payload, opts)}}
+      {:==, {quantifier, build_quantified_query(key, payload, opts)}}
     else
       {quantifier, payload}
     end
@@ -209,13 +235,95 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   defp normalize_quantified_term(key, {op, {quantifier, payload}}, opts)
        when quantifier in @quantifier_operators do
     if quantified_query_payload?(payload) do
-      {op, {quantifier, SetComparison.build_quantified_query(key, payload, opts)}}
+      {op, {quantifier, build_quantified_query(key, payload, opts)}}
     else
       {op, {quantifier, payload}}
     end
   end
 
   defp normalize_quantified_term(_key, term, _opts), do: term
+
+  def build_quantified_query(outer_key, params, opts)
+      when is_map(params) and not is_struct(params) do
+    build_quantified_query(outer_key, Map.to_list(params), opts)
+  end
+
+  def build_quantified_query(outer_key, params, opts) do
+    if Keyword.keyword?(params) do
+      {source, params_without_from} = Keyword.pop(params, :from, [])
+      {select_spec, where_params} = Keyword.pop(params_without_from, :select)
+
+      select_term =
+        case select_spec || outer_key do
+          field when is_atom(field) and field !== nil ->
+            field
+
+          field when is_binary(field) ->
+            normalize_field_name(source, field, opts) || outer_key
+
+          params ->
+            if (is_map(params) and not is_struct(params)) or Keyword.keyword?(params) do
+              normalize_field_name(source, params[:field], opts) || outer_key
+            else
+              outer_key
+            end
+        end
+
+      inner_query = CommonFilters.convert_params_to_filter(source, where_params, opts)
+
+      Select.build_query(:select, source, inner_query, {:as, nil}, select_term, opts)
+    else
+      EctoShorts.Logger.warning(
+        @logger_prefix,
+        "Expected a map or keyword list, got: #{inspect(params)}"
+      )
+
+      params
+    end
+  end
+
+  defp normalize_field_name(source, field_name, opts) when is_binary(field_name) do
+    case {CommonSchema.get_schema(source), opts[:allowed_keys]} do
+      {schema, _} when schema !== nil ->
+        string_fields =
+          source
+          |> CommonSchema.get_schema_reflection(:fields)
+          |> MapSet.new(&Atom.to_string/1)
+
+        if MapSet.member?(string_fields, field_name) do
+          String.to_existing_atom(field_name)
+        else
+          EctoShorts.Logger.warning(
+            @logger_prefix,
+            "Field \"#{field_name}\" does not exist on schema #{inspect(schema)}, skipping field reference"
+          )
+
+          nil
+        end
+
+      {_, allowed_keys} when is_list(allowed_keys) ->
+        allowed_set = MapSet.new(allowed_keys)
+
+        if MapSet.member?(allowed_set, field_name) do
+          String.to_atom(field_name)
+        else
+          EctoShorts.Logger.warning(
+            @logger_prefix,
+            "Field \"#{field_name}\" is not in the :allowed_keys list, skipping field reference"
+          )
+
+          nil
+        end
+
+      _ ->
+        EctoShorts.Logger.warning(
+          @logger_prefix,
+          "Field \"#{field_name}\" cannot be resolved: no schema or :allowed_keys available, skipping field reference"
+        )
+
+        nil
+    end
+  end
 
   defp quantified_query_payload?(payload) when is_map(payload) and not is_struct(payload) do
     Map.has_key?(payload, :from)
@@ -227,39 +335,107 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
 
   defp quantified_query_payload?(_payload), do: false
 
-  defp array_field?(source, key) do
-    case CommonSchema.get_schema_reflection(source, :type, key) do
-      {:array, _} -> true
+  defp invalid_schema_field?(source, key) when is_atom(key) do
+    case CommonSchema.get_schema_reflection(source, :fields) do
+      fields when is_list(fields) -> key not in fields
+      _ -> false
+    end
+  end
+
+  defp invalid_schema_field?(_source, _key), do: false
+
+  defp array_field?(source, key, opts) do
+    field_types = Keyword.get(opts, :field_types, [])
+
+    resolved =
+      Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
+
+    match?({:array, _}, resolved)
+  end
+
+  defp map_field?(source, key, opts) do
+    field_types = Keyword.get(opts, :field_types, [])
+
+    resolved =
+      Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
+
+    case resolved do
+      :map -> true
       {:map, _} -> true
       _ -> false
     end
   end
 
-  defp maybe_dump_param(source, key, params) do
-    case CommonSchema.get_schema_reflection(source, :type, key) do
-      nil -> params
-      field_type -> dump_param(field_type, params)
+  @short_ops [:eq, :ne, :gt, :gte, :lt, :lte]
+
+  defp cast_value(nil, entry), do: entry
+
+  defp cast_value(field_type, {op, entry}) when op in @short_ops do
+    cast_value(field_type, {Normalizer.normalize_operator(op), entry})
+  end
+
+  defp cast_value(field_type, {:and, entry}), do: {:and, cast_value(field_type, entry)}
+  defp cast_value(field_type, {:or, entry}), do: {:or, cast_value(field_type, entry)}
+
+  defp cast_value({:array, _} = field_type, {:==, values}) when is_list(values) do
+    {:==, Types.cast(field_type, values)}
+  end
+
+  defp cast_value({:array, _} = field_type, {:!=, values}) when is_list(values) do
+    {:!=, Types.cast(field_type, values)}
+  end
+
+  defp cast_value({:array, inner_type}, {:in, values}) when is_list(values) do
+    {:in, Enum.map(values, &Types.cast(inner_type, &1))}
+  end
+
+  defp cast_value({:array, _}, {:count, {op, value}})
+       when op in [:>, :>=, :<, :<=, :==, :!=] do
+    {:count, {op, Types.cast(:integer, value)}}
+  end
+
+  defp cast_value({:array, inner_type}, {:all, {op, value}})
+       when op in [:>, :>=, :<, :<=] do
+    {:all, {op, Types.cast(inner_type, value)}}
+  end
+
+  defp cast_value({:array, inner_type}, {op, value})
+       when op in [:==, :!=, :in, :>, :>=, :<, :<=, :lower, :upper, :like, :ilike] do
+    {op, Types.cast(inner_type, value)}
+  end
+
+  defp cast_value(field_type, {op, values})
+       when op in [:==, :!=, :in] and is_list(values) do
+    {op, Enum.map(values, &Types.cast(field_type, &1))}
+  end
+
+  defp cast_value(field_type, {op, {:value, value}})
+       when op in [:==, :!=, :>, :>=, :<, :<=] do
+    {op, {:value, Types.cast(field_type, value)}}
+  end
+
+  defp cast_value(field_type, {op, value})
+       when op in [:==, :!=, :>, :>=, :<, :<=] do
+    {op, Types.cast(field_type, value)}
+  end
+
+  defp cast_value({:array, _} = field_type, value) when is_list(value) do
+    if Keyword.keyword?(value) do
+      value
+    else
+      Types.cast(field_type, value)
     end
   end
 
-  defp dump_param(field_type, {op, values}) when is_atom(op) and is_list(values) do
-    {op, Enum.map(values, &dump_param(field_type, &1))}
+  defp cast_value(field_type, value) when is_list(value) do
+    Enum.map(value, &Types.cast(field_type, &1))
   end
 
-  defp dump_param(field_type, {op, value}) when is_atom(op) do
-    {op, dump_param(field_type, value)}
+  defp cast_value(field_type, value) when not is_tuple(value) do
+    Types.cast(field_type, value)
   end
 
-  defp dump_param(field_type, values) when is_list(values) do
-    Enum.map(values, &dump_param(field_type, &1))
-  end
-
-  defp dump_param(field_type, value) do
-    case Ecto.Type.dump(field_type, value) do
-      {:ok, dumped} -> dumped
-      :error -> value
-    end
-  end
+  defp cast_value(_field_type, entry), do: entry
 
   defp binding_selector?({:as, nil}), do: true
   defp binding_selector?({:as, name}) when is_atom(name), do: true

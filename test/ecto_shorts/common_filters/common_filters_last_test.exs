@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.LastTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 last shapes" do
+  describe "last shapes" do
     test "returns query unchanged when last is a non-keyword list" do
       import ExUnit.CaptureLog
       expected = from(p in Post)
@@ -137,6 +137,25 @@ defmodule EctoShorts.CommonFilters.LastTest do
         CommonFilters.convert_params_to_filter(
           Post,
           [last: 2, order_by: :title],
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "casts a string integer last payload" do
+      expected =
+        Post
+        |> exclude(:order_by)
+        |> order_by([], desc: :id)
+        |> limit(^2)
+        |> subquery()
+        |> order_by([], asc: :id)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{last: "2"},
           []
         )
 

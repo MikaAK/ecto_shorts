@@ -5,8 +5,8 @@ defmodule EctoShorts.Adapter.QueryBuilder do
   A query builder is a module that knows how to translate a filter key into a
   modification of an `Ecto.Query.t()`.
 
-  `EctoShorts.CommonFilters` is the default implementation which routes each
-  filter key to the appropriate sub-module (e.g. `Where`, `Join`, `OrderBy`)
+  `EctoShorts.CommonFilters.Builder` is the default implementation which routes
+  each filter key to the appropriate sub-module (e.g. `Where`, `Join`, `OrderBy`)
   and applies the result to the query.
 
   You can supply a custom query builder to intercept or override filter
@@ -18,7 +18,7 @@ defmodule EctoShorts.Adapter.QueryBuilder do
         @impl true
         def build_query(filter, source, query, selected_binding, term, opts) do
           # Custom logic; fall through to default if desired:
-          EctoShorts.CommonFilters.build_query(filter, source, query, selected_binding, term, opts)
+          EctoShorts.CommonFilters.Builder.build_query(filter, source, query, selected_binding, term, opts)
         end
       end
 

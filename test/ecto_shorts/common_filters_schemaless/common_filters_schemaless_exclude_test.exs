@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessExcludeTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 exclude shapes (schemaless)" do
+  describe "exclude shapes (schemaless)" do
     test "matches Ecto.Query for excluding where" do
       source = from(p in "posts", where: p.published == ^true)
       expected = exclude(source, :where)

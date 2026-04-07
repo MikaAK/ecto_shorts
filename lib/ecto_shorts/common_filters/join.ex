@@ -1,4 +1,7 @@
 defmodule EctoShorts.CommonFilters.Join do
+  @moduledoc since: "3.0.0"
+  @moduledoc false
+
   compiled_hints =
     case Application.compile_env(:ecto_shorts, :hints) do
       nil ->
@@ -16,49 +19,31 @@ defmodule EctoShorts.CommonFilters.Join do
 
   @hints compiled_hints
 
-  @join_types [:association, :schema, :table, :query, :subquery, :fragment]
-
-  import Ecto.Query, only: [dynamic: 1]
-
   alias EctoShorts.DynamicBuilders
   alias EctoShorts.CommonFilters
+  alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema
   alias EctoShorts.QueryBinding
   alias EctoShorts.Config
   alias EctoShorts.Adapter.QueryProvider
-  alias EctoShorts.Logger
 
   alias Ecto.Query
   require Ecto.Query
 
   @logger_prefix "EctoShorts.CommonFilters.Join"
 
-  {target_binding_var, binding_patterns} =
-    QueryBinding.query_binding_contracts(__MODULE__)
+  @join_types [:association, :schema, :table, :query, :subquery, :fragment]
 
   @doc false
   def hints, do: @hints
 
   def build_query(:join, schema_source, query, selected_binding, params, opts) do
-    params
-    |> normalize_join_entries()
-    |> reduce_join_entries(schema_source, query, selected_binding, opts)
+    reduce_params(params, schema_source, query, selected_binding, opts)
   end
 
-  defp reduce_join_entries(entries, schema_source, query, selected_binding, opts)
+  defp reduce_params(entries, schema_source, query, selected_binding, opts)
        when is_list(entries) do
-    Enum.reduce(entries, query, fn entry, query_acc ->
-      apply_join_op(schema_source, query_acc, selected_binding, entry, opts)
-    end)
-  end
-
-  defp normalize_join_entries(entries) when is_list(entries) do
-    if Keyword.keyword?(entries) and Keyword.has_key?(entries, :type) and
-         Keyword.has_key?(entries, :source) do
-      [{Keyword.fetch!(entries, :type), Keyword.delete(entries, :type)}]
-    else
-      entries
-    end
+    apply_join_op(schema_source, query, selected_binding, entries, opts)
   end
 
   defp apply_join_op(schema_source, query, selected_binding, {key, join_options}, opts) do
@@ -72,7 +57,7 @@ defmodule EctoShorts.CommonFilters.Join do
 
         reduce_join(schema_source, query, selected_binding, join_expr, opts)
       else
-        Logger.warning(
+        EctoShorts.Logger.warning(
           @logger_prefix,
           "Expected join type to be one of #{inspect(@join_types)}, got: #{inspect(key)}"
         )
@@ -84,15 +69,16 @@ defmodule EctoShorts.CommonFilters.Join do
 
   defp apply_join_op(schema_source, query, selected_binding, nested, opts) do
     if is_list(nested) do
-      if Keyword.keyword?(nested) do
-        reduce_join_entries(nested, schema_source, query, selected_binding, opts)
+      if Keyword.keyword?(nested) and Keyword.has_key?(nested, :source) do
+        {type, options} = Keyword.pop(nested, :type, :association)
+        apply_join_op(schema_source, query, selected_binding, {type, options}, opts)
       else
         Enum.reduce(nested, query, fn entry, inner_acc ->
           apply_join_op(schema_source, inner_acc, selected_binding, entry, opts)
         end)
       end
     else
-      Logger.warning(
+      EctoShorts.Logger.warning(
         @logger_prefix,
         "Expected :join params to be a map or keyword list, got: #{inspect(nested)}"
       )
@@ -113,7 +99,7 @@ defmodule EctoShorts.CommonFilters.Join do
         opts
       )
     else
-      Logger.warning(
+      EctoShorts.Logger.warning(
         @logger_prefix,
         "Expected join options to have a :source key, got: #{inspect(join_options)}"
       )
@@ -122,13 +108,9 @@ defmodule EctoShorts.CommonFilters.Join do
     end
   end
 
-  defp query_provider(params, opts) do
-    params[:query_provider] || opts[:query_provider] || Config.query_provider()
-  end
-
   defp resolve_expr_source(selected_binding, source_key, source_params, opts) do
-    case source_params
-         |> query_provider(opts)
+    case opts
+         |> query_provider()
          |> QueryProvider.query_expression(
            selected_binding,
            source_key,
@@ -142,7 +124,7 @@ defmodule EctoShorts.CommonFilters.Join do
         {:ok, source}
 
       {:error, reason} ->
-        Logger.warning(
+        EctoShorts.Logger.warning(
           @logger_prefix,
           "Join source callback returned error for key #{inspect(source_key)}: #{inspect(reason)}"
         )
@@ -150,7 +132,7 @@ defmodule EctoShorts.CommonFilters.Join do
         :error
 
       other ->
-        Logger.warning(
+        EctoShorts.Logger.warning(
           @logger_prefix,
           "Expected join source callback to return {:ok, source} | {:error, reason} | nil, got: #{inspect(other)}"
         )
@@ -161,11 +143,13 @@ defmodule EctoShorts.CommonFilters.Join do
 
   defp resolve_join_operation(
          schema_source,
+         query,
          selected_binding,
          {join_type, op_source, join_options},
          opts
        ) do
-    with {:ok, on_value} <- on_expr(schema_source, selected_binding, join_options[:on], opts),
+    with {:ok, on_value} <-
+           reduce_on_params(schema_source, query, selected_binding, join_options[:on], opts),
          {:ok, source} <-
            resolve_join_source(schema_source, selected_binding, join_type, op_source, opts) do
       {:ok,
@@ -250,19 +234,25 @@ defmodule EctoShorts.CommonFilters.Join do
     end
   end
 
-  defp on_expr(schema_source, selected_binding, on_param, opts) do
+  defp reduce_on_params(schema_source, query, selected_binding, on_param, opts) do
     case on_param do
-      true ->
+      on_param when on_param in [true, nil] ->
         {:ok, true}
 
-      nil ->
-        {:ok, true}
+      map when is_map(map) and not is_struct(map) ->
+        case build_on_dynamic(schema_source, query, selected_binding, map, opts) do
+          nil -> :error
+          dyn -> {:ok, dyn}
+        end
 
       list when is_list(list) ->
         if Keyword.keyword?(list) do
-          {:ok, build_on_dynamic(schema_source, selected_binding, list, opts)}
+          case build_on_dynamic(schema_source, query, selected_binding, list, opts) do
+            nil -> :error
+            dyn -> {:ok, dyn}
+          end
         else
-          Logger.warning(
+          EctoShorts.Logger.warning(
             @logger_prefix,
             "Expected :on to be a keyword list, map, or true, got: #{inspect(list)}"
           )
@@ -274,7 +264,7 @@ defmodule EctoShorts.CommonFilters.Join do
         {:ok, dyn}
 
       term ->
-        Logger.warning(
+        EctoShorts.Logger.warning(
           @logger_prefix,
           "Expected :on to be a keyword list, map, or true, got: #{inspect(term)}"
         )
@@ -283,12 +273,34 @@ defmodule EctoShorts.CommonFilters.Join do
     end
   end
 
-  defp build_on_dynamic(schema_source, selected_binding, entries, opts) when is_list(entries) do
+  defp build_on_dynamic(schema_source, query, selected_binding, entries, opts) do
+    effective_source = resolve_source(schema_source, query, selected_binding)
+
     Enum.reduce(entries, nil, fn {key, value}, acc ->
-      dyn = DynamicBuilders.build_dynamic(schema_source, selected_binding, {key, value}, opts)
+      dyn = DynamicBuilders.build_dynamic(effective_source, selected_binding, {key, value}, opts)
       merge_dynamic(acc, :and, dyn)
     end)
   end
+
+  defp resolve_source(source, _query, {:as, nil}), do: source
+
+  defp resolve_source(source, query, {:as, name}) when is_atom(name) do
+    CommonQuery.get_query_binding_source(query, name) || source
+  end
+
+  defp resolve_source(source, query, {:at, pos}) when is_integer(pos) do
+    CommonQuery.get_query_binding_source(query, pos) || source
+  end
+
+  defp resolve_source(source, _query, _selected_binding), do: source
+
+  defp merge_dynamic(nil, _, b), do: b
+  defp merge_dynamic(a, _, nil), do: a
+  defp merge_dynamic(a, :and, b), do: Query.dynamic(^a and ^b)
+
+  ## Generated Functions
+
+  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
 
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     defp apply_join_expr(
@@ -298,9 +310,9 @@ defmodule EctoShorts.CommonFilters.Join do
            join_expr,
            opts
          ) do
-      case resolve_join_operation(schema_source, selected_binding, join_expr, opts) do
+      case resolve_join_operation(schema_source, query, selected_binding, join_expr, opts) do
         {:ok, join_op} ->
-          build_join(
+          join_expr(
             query,
             selected_binding,
             join_op.qualifier,
@@ -317,7 +329,7 @@ defmodule EctoShorts.CommonFilters.Join do
     end
 
     for {hint_key, hint_value} <- @hints do
-      defp build_join(
+      defp join_expr(
              query,
              unquote(quoted_binding_head) = _selected_binding,
              qualifier,
@@ -339,7 +351,7 @@ defmodule EctoShorts.CommonFilters.Join do
         )
       end
 
-      defp build_join(
+      defp join_expr(
              query,
              unquote(quoted_binding_head) = _selected_binding,
              qualifier,
@@ -361,7 +373,7 @@ defmodule EctoShorts.CommonFilters.Join do
         )
       end
 
-      defp build_join(
+      defp join_expr(
              query,
              unquote(quoted_binding_head) = _selected_binding,
              qualifier,
@@ -384,7 +396,7 @@ defmodule EctoShorts.CommonFilters.Join do
       end
     end
 
-    defp build_join(
+    defp join_expr(
            query,
            unquote(quoted_binding_head) = _selected_binding,
            qualifier,
@@ -405,7 +417,7 @@ defmodule EctoShorts.CommonFilters.Join do
       )
     end
 
-    defp build_join(
+    defp join_expr(
            query,
            unquote(quoted_binding_head) = _selected_binding,
            qualifier,
@@ -426,7 +438,7 @@ defmodule EctoShorts.CommonFilters.Join do
       )
     end
 
-    defp build_join(
+    defp join_expr(
            query,
            unquote(quoted_binding_head) = _selected_binding,
            qualifier,
@@ -448,7 +460,7 @@ defmodule EctoShorts.CommonFilters.Join do
     end
   end
 
-  defp merge_dynamic(nil, _, b), do: b
-  defp merge_dynamic(a, _, nil), do: a
-  defp merge_dynamic(a, :and, b), do: dynamic(^a and ^b)
+  defp query_provider(opts) do
+    opts[:query_provider_module] || Config.query_provider_module()
+  end
 end

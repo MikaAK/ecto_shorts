@@ -11,7 +11,7 @@ defmodule EctoShorts.CommonFilters.DateWrappersTest do
   # Both the field and the RHS are wrapped in `fragment("date(?)", ...)` before
   # the comparison is applied. Supported RHS shapes: `%{ago: ...}`,
   # `%{from_now: ...}`, `%{add: ...}`.
-  describe "convert_params_to_filter/3 date wrappers" do
+  describe "date wrappers" do
     test "rule statement 7: inserted_at equals ago 1 day using date wrapper" do
       expected =
         from(p in Post,

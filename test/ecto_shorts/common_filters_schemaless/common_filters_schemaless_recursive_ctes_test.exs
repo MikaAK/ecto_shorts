@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessRecursiveCtesTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 recursive_ctes shapes (schemaless)" do
+  describe "recursive_ctes shapes (schemaless)" do
     test "matches Ecto.Query for recursive_ctes true" do
       expected = recursive_ctes("posts", true)
 

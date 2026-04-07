@@ -1,9 +1,11 @@
 defmodule EctoShorts.CommonFilters.WithNamedBinding do
+  @moduledoc since: "3.0.0"
   @moduledoc false
 
-  alias Ecto.Query
   alias EctoShorts.CommonFilters
-  alias EctoShorts.Logger
+
+  alias Ecto.Query
+  require Ecto.Query
 
   @logger_prefix "EctoShorts.CommonFilters.WithNamedBinding"
 
@@ -14,20 +16,9 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
 
   def build_query(:with_named_binding, _source, query, _selected_binding, params, opts) do
     if Keyword.keyword?(params) do
-      Enum.reduce(params, query, fn
-        {key, value}, query_acc ->
-          apply_entry(query_acc, key, value, opts)
-
-        other, query_acc ->
-          Logger.warning(
-            @logger_prefix,
-            "Expected :with_named_binding params to be a map or keyword list, got: #{inspect(other)}"
-          )
-
-          query_acc
-      end)
+      reduce_params(query, params, opts)
     else
-      Logger.warning(
+      EctoShorts.Logger.warning(
         @logger_prefix,
         "Expected :with_named_binding params to be a map or keyword list, got: #{inspect(params)}"
       )
@@ -36,10 +27,25 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
     end
   end
 
-  defp apply_entry(query, key, params, opts) do
+  defp reduce_params(query, params, opts) do
+    Enum.reduce(params, query, fn
+      {key, value}, query_acc ->
+        apply_params(query_acc, key, value, opts)
+
+      other, query_acc ->
+        EctoShorts.Logger.warning(
+          @logger_prefix,
+          "Expected :with_named_binding params to be a map or keyword list, got: #{inspect(other)}"
+        )
+
+        query_acc
+    end)
+  end
+
+  defp apply_params(query, key, params, opts) do
     cond do
       not is_atom(key) ->
-        Logger.warning(
+        EctoShorts.Logger.warning(
           @logger_prefix,
           "Expected :with_named_binding key to be an atom, got: #{inspect(key)}"
         )
@@ -50,14 +56,14 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
         query
 
       true ->
-        new_query = CommonFilters.convert_params_to_filter(query, params, opts)
+        query_acc = CommonFilters.convert_params_to_filter(query, params, opts)
 
-        if Query.has_named_binding?(new_query, key) do
-          new_query
+        if Query.has_named_binding?(query_acc, key) do
+          query_acc
         else
-          Logger.warning(
+          EctoShorts.Logger.warning(
             @logger_prefix,
-            "callback function for with_named_binding/3 should create a named binding for key #{inspect(key)}"
+            "Filters provided for :with_named_binding key #{inspect(key)} did not create a named binding"
           )
 
           query

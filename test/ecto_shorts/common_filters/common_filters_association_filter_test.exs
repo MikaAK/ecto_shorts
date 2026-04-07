@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.AssociationFilterTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 association filter shorthand" do
+  describe "association filter shorthand" do
     test "routes a map value for a known association key through the association handler" do
       expected =
         from(p in Post,

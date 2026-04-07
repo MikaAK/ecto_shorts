@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessBooleanCompositionTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 :and shapes (schemaless)" do
+  describe ":and shapes (schemaless)" do
     test ":and map with a single field produces a where clause" do
       expected = from(p in "posts", where: p.views == ^15)
       actual = CommonFilters.convert_params_to_filter("posts", %{and: %{views: 15}}, [])
@@ -47,7 +47,7 @@ defmodule EctoShorts.CommonFilters.SchemalessBooleanCompositionTest do
     end
   end
 
-  describe "convert_params_to_filter/3 :or shapes (schemaless)" do
+  describe ":or shapes (schemaless)" do
     test ":or map with a single field produces an or_where clause" do
       expected = from(p in "posts", or_where: p.views == ^15)
       actual = CommonFilters.convert_params_to_filter("posts", %{or: %{views: 15}}, [])
@@ -72,7 +72,7 @@ defmodule EctoShorts.CommonFilters.SchemalessBooleanCompositionTest do
     end
   end
 
-  describe "convert_params_to_filter/3 list-of-maps / list-of-keyword-lists (schemaless)" do
+  describe "list-of-maps / list-of-keyword-lists (schemaless)" do
     test ":and with a list of maps applies each map as a separate where clause" do
       expected = from(p in "posts", where: p.views == ^5, where: p.published == ^true)
 
@@ -152,7 +152,7 @@ defmodule EctoShorts.CommonFilters.SchemalessBooleanCompositionTest do
     end
   end
 
-  describe "convert_params_to_filter/3 keyword list compositions (schemaless)" do
+  describe "keyword list compositions (schemaless)" do
     test "two where: entries AND together" do
       expected = from(p in "posts", where: p.published == ^true, where: p.views == ^5)
 

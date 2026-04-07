@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessNegationTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 negation (schemaless)" do
+  describe "negation (schemaless)" do
     test "excludes records where the field is in the given list" do
       expected =
         from(p in "posts", where: is_nil(p.published) or p.published not in ^[true, false])

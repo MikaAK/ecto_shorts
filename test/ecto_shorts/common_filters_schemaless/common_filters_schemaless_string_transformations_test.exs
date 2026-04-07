@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessStringTransformationsTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 string transformations (schemaless)" do
+  describe "string transformations (schemaless)" do
     test "matches records by comparing the lowercased field to the value" do
       expected = from(p in "posts", where: fragment("lower(?)", p.title) == ^"hello")
       q2 = CommonFilters.convert_params_to_filter("posts", %{title: %{==: %{lower: "hello"}}}, [])

@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDateWrappersTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 date wrappers (schemaless)" do
+  describe "date wrappers (schemaless)" do
     test "inserted_at equals ago 1 day using date wrapper" do
       actual =
         CommonFilters.convert_params_to_filter(

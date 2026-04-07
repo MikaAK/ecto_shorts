@@ -9,7 +9,7 @@ defmodule EctoShorts.CommonFilters.SchemalessPreloadTest do
   # For schemaless sources, `preload:` compiles into the query AST correctly.
   # Resolving preloaded associations at runtime requires a schema; that is out of
   # scope for this test file. Only query-structure assertions are made here.
-  describe "convert_params_to_filter/3 preload shapes (schemaless)" do
+  describe "preload shapes (schemaless)" do
     test "matches Ecto.Query for a root preload atom" do
       expected = from(p in "posts", preload: :author)
 

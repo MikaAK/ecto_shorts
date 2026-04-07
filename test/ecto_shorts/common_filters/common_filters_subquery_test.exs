@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.SubqueryTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 subquery shapes" do
+  describe "subquery shapes" do
     test "matches Ecto.Query for a root subquery map payload" do
       expected =
         Post
@@ -46,7 +46,7 @@ defmodule EctoShorts.CommonFilters.SubqueryTest do
     test "matches Ecto.Query for terminal subquery wrapping after local filters" do
       expected =
         Post
-        |> order_by([], desc: :title)
+        |> order_by([], asc: :title)
         |> where([p], p.id == ^2)
         |> subquery()
 

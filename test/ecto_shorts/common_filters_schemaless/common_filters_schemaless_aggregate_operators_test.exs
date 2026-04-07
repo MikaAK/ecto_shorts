@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessAggregateOperatorsTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 aggregate operators (schemaless)" do
+  describe "aggregate operators (schemaless)" do
     test "avg views greater than" do
       expected = from(p in "posts", where: avg(p.views) > ^10)
       actual = CommonFilters.convert_params_to_filter("posts", %{views: %{avg: %{>: 10}}}, [])

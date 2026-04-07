@@ -1,7 +1,11 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
-  import Ecto.Query
+  @moduledoc since: "3.0.0"
+  @moduledoc false
 
   alias EctoShorts.QueryBinding
+  alias EctoShorts.DynamicBuilders.Postgres.Normalizer
+
+  import Ecto.Query
 
   @aggregate_helpers [:avg, :count, :max, :min, :sum]
   @operators [:membership, :comparison, :string_transform, :string]
@@ -9,13 +13,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @equality_operators [:==, :!=]
   @string_operators [:like, :ilike]
 
-  {target_binding_var, binding_patterns} =
-    QueryBinding.query_binding_contracts(__MODULE__)
-
   context = __MODULE__
   key_var = Macro.var(:key, context)
 
   def operators, do: @operators
+
+  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
 
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     # Thin entry shim - delegates entirely to non-generated dispatch_expr
@@ -594,6 +597,23 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
         f = field_dyn(binding, key)
         apply_scalar_comparison(op_v, f, v, :plain)
 
+      # parent_as: compare current binding field against a field on a named parent binding
+      {:parent_as, {pb, pf}} ->
+        f = field_dyn(binding, key)
+        dynamic([], ^f == field(parent_as(^pb), ^pf))
+
+      {:not, {:parent_as, {pb, pf}}} ->
+        f = field_dyn(binding, key)
+        dynamic([], ^f != field(parent_as(^pb), ^pf))
+
+      {op_g, {:parent_as, {pb, pf}}} when op_g in @comparison_operators ->
+        f = field_dyn(binding, key)
+        apply_parent_as_comparison(op_g, f, pb, pf, :plain)
+
+      {:not, {op_g, {:parent_as, {pb, pf}}}} when op_g in @comparison_operators ->
+        f = field_dyn(binding, key)
+        apply_parent_as_comparison(op_g, f, pb, pf, :negated)
+
       # Generic scalar fallback (catches any remaining value)
       {:not, {op_g, v}} when op_g in @comparison_operators ->
         f = field_dyn(binding, key)
@@ -626,6 +646,42 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp apply_scalar_comparison(:<, f, v, :negated), do: dynamic([], not (^f < ^v))
   defp apply_scalar_comparison(:<=, f, v, :plain), do: dynamic([], ^f <= ^v)
   defp apply_scalar_comparison(:<=, f, v, :negated), do: dynamic([], not (^f <= ^v))
+
+  defp apply_parent_as_comparison(:==, f, pb, pf, :plain),
+    do: dynamic([], ^f == field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:==, f, pb, pf, :negated),
+    do: dynamic([], ^f != field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:!=, f, pb, pf, :plain),
+    do: dynamic([], ^f != field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:!=, f, pb, pf, :negated),
+    do: dynamic([], ^f == field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:>, f, pb, pf, :plain),
+    do: dynamic([], ^f > field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:>, f, pb, pf, :negated),
+    do: dynamic([], not (^f > field(parent_as(^pb), ^pf)))
+
+  defp apply_parent_as_comparison(:>=, f, pb, pf, :plain),
+    do: dynamic([], ^f >= field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:>=, f, pb, pf, :negated),
+    do: dynamic([], not (^f >= field(parent_as(^pb), ^pf)))
+
+  defp apply_parent_as_comparison(:<, f, pb, pf, :plain),
+    do: dynamic([], ^f < field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:<, f, pb, pf, :negated),
+    do: dynamic([], not (^f < field(parent_as(^pb), ^pf)))
+
+  defp apply_parent_as_comparison(:<=, f, pb, pf, :plain),
+    do: dynamic([], ^f <= field(parent_as(^pb), ^pf))
+
+  defp apply_parent_as_comparison(:<=, f, pb, pf, :negated),
+    do: dynamic([], not (^f <= field(parent_as(^pb), ^pf)))
 
   defp apply_arith_comparison(:==, f, f2, :+, v, :plain), do: dynamic([], ^f == ^f2 + ^v)
   defp apply_arith_comparison(:==, f, f2, :+, v, :negated), do: dynamic([], not (^f == ^f2 + ^v))
@@ -750,22 +806,14 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   end
 
   defp normalize_term({op, value}) do
-    normalized_op = normalize_operator(op)
+    normalized_op = Normalizer.normalize_operator(op)
     {normalized_op, normalize_term_value(normalized_op, value)}
   end
 
   defp normalize_term(value), do: {:==, value}
 
-  defp normalize_operator(:eq), do: :==
-  defp normalize_operator(:ne), do: :!=
-  defp normalize_operator(:gt), do: :>
-  defp normalize_operator(:gte), do: :>=
-  defp normalize_operator(:lt), do: :<
-  defp normalize_operator(:lte), do: :<=
-  defp normalize_operator(op), do: op
-
   defp normalize_term_value(op, {nested_op, nested_value}) when op in @aggregate_helpers do
-    {normalize_operator(nested_op), nested_value}
+    {Normalizer.normalize_operator(nested_op), nested_value}
   end
 
   defp normalize_term_value(_op, value), do: value

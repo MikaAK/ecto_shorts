@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.WithNamedBindingTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 with_named_binding shapes" do
+  describe "with_named_binding shapes" do
     test "matches Ecto.Query for the documented with_named_binding workflow" do
       expected =
         from(p in Post,
@@ -48,7 +48,7 @@ defmodule EctoShorts.CommonFilters.WithNamedBindingTest do
     end
   end
 
-  describe "convert_params_to_filter/3 with_named_binding warning paths" do
+  describe "with_named_binding warning paths" do
     test "logs a warning and returns query unchanged when params is not a map or keyword list" do
       expected = from(p in Post)
 
@@ -100,7 +100,8 @@ defmodule EctoShorts.CommonFilters.WithNamedBindingTest do
           assert_query(expected, actual)
         end)
 
-      assert log =~ "callback function for with_named_binding/3 should create a named binding"
+      assert log =~
+               "Filters provided for :with_named_binding key :author did not create a named binding"
     end
   end
 end

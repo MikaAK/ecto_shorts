@@ -1,4 +1,5 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
+  @moduledoc since: "3.0.0"
   @moduledoc """
   Input normalization for the Postgres dynamic expression adapter.
 
@@ -53,7 +54,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
   """
 
   alias EctoShorts.CommonSchema
-  alias EctoShorts.Logger
 
   @quantifier_operators [:all, :any]
   @arithmetic_value_operators [:+, :-, :*, :/]
@@ -120,6 +120,18 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
   def normalize_keyword_params(_source, {quantifier, payload}, acc, _opts)
       when quantifier in @quantifier_operators do
     [{quantifier, payload} | acc]
+  end
+
+  def normalize_keyword_params(source, {:arithmetic, params}, acc, opts) do
+    [normalize_arithmetic(source, params, opts) | acc]
+  end
+
+  def normalize_keyword_params(_source, {:aggregate, params}, acc, _opts) do
+    [normalize_aggregate(params) | acc]
+  end
+
+  def normalize_keyword_params(source, {:elements, inner_term}, acc, opts) do
+    [{:elements, normalize_params(source, inner_term, opts)} | acc]
   end
 
   def normalize_keyword_params(source, {op, inner_term}, acc, opts)
@@ -280,6 +292,25 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
     end
   end
 
+  @doc """
+  Normalizes a short-form operator alias to its canonical long-form symbol.
+
+      iex> Normalizer.normalize_operator(:eq)
+      :==
+      iex> Normalizer.normalize_operator(:>=)
+      :>=
+  """
+  @spec normalize_operator(atom()) :: atom()
+  def normalize_operator(:eq), do: :==
+  def normalize_operator(:ne), do: :!=
+  def normalize_operator(:gt), do: :>
+  def normalize_operator(:gte), do: :>=
+  def normalize_operator(:lt), do: :<
+  def normalize_operator(:lte), do: :<=
+  def normalize_operator(:downcase), do: :lower
+  def normalize_operator(:upcase), do: :upper
+  def normalize_operator(op), do: op
+
   defp normalize_field_name(_source, field_name, _opts) when is_atom(field_name), do: field_name
 
   defp normalize_field_name(source, field_name, opts) when is_binary(field_name) do
@@ -291,7 +322,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
         if MapSet.member?(string_fields, field_name) do
           String.to_existing_atom(field_name)
         else
-          Logger.warning(
+          EctoShorts.Logger.warning(
             @logger_prefix,
             "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
           )
@@ -308,7 +339,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
           if MapSet.member?(allowed_set, field_name) do
             String.to_atom(field_name)
           else
-            Logger.warning(
+            EctoShorts.Logger.warning(
               @logger_prefix,
               "Field \"#{field_name}\" is not in the :allowed_keys list, skipping field reference"
             )
@@ -320,7 +351,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
             String.to_existing_atom(field_name)
           rescue
             ArgumentError ->
-              Logger.warning(
+              EctoShorts.Logger.warning(
                 @logger_prefix,
                 "Field \"#{field_name}\" could not be resolved to an existing atom, skipping field reference"
               )
@@ -341,5 +372,82 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
 
   defp maybe_put_datetime_field(source, field_name, params, opts) do
     [{:field, normalize_field_name(source, field_name, opts)} | params]
+  end
+
+  # Aggregate: {fn: :avg, compare: :>, value: 5} → {:avg, {:>, 5}}
+  defp normalize_aggregate(params) when is_map(params) and not is_struct(params) do
+    normalize_aggregate(Map.to_list(params))
+  end
+
+  defp normalize_aggregate(params) when is_list(params) do
+    agg_fn = Keyword.fetch!(params, :fn)
+    compare_op = normalize_operator(Keyword.fetch!(params, :compare))
+    value = Keyword.fetch!(params, :value)
+    {agg_fn, {compare_op, value}}
+  end
+
+  # Arithmetic: dispatches to numeric or datetime branch based on presence of :interval.
+  defp normalize_arithmetic(source, params, opts) when is_map(params) and not is_struct(params) do
+    normalize_arithmetic(source, Map.to_list(params), opts)
+  end
+
+  defp normalize_arithmetic(source, params, opts) when is_list(params) do
+    compare_op = normalize_operator(Keyword.fetch!(params, :compare))
+    {arith_key, operand} = find_arithmetic_operation(params)
+
+    operand_map =
+      if is_map(operand) and not is_struct(operand), do: Map.to_list(operand), else: operand
+
+    if Keyword.keyword?(operand_map) and Keyword.has_key?(operand_map, :interval) do
+      normalize_datetime_arithmetic(source, compare_op, arith_key, operand_map, opts)
+    else
+      normalize_numeric_arithmetic(source, compare_op, arith_key, operand_map, opts)
+    end
+  end
+
+  # Finds the operation key (:add, :subtract, :multiply, :divide, :ago, :from_now)
+  # and its operand payload from an arithmetic params list.
+  defp find_arithmetic_operation(params) do
+    Enum.find_value(params, fn
+      {:add, operand} -> {:add, operand}
+      {:subtract, operand} -> {:subtract, operand}
+      {:multiply, operand} -> {:multiply, operand}
+      {:divide, operand} -> {:divide, operand}
+      {:ago, operand} -> {:ago, operand}
+      {:from_now, operand} -> {:from_now, operand}
+      _ -> nil
+    end)
+  end
+
+  # Numeric arithmetic: operation key → internal symbol, operand → {left, right} pair.
+  defp normalize_numeric_arithmetic(source, compare_op, arith_key, operand, opts) do
+    internal_op = numeric_op_to_internal(arith_key)
+    operands = normalize_arithmetic_operands(source, operand, opts)
+    {compare_op, {:value, {internal_op, operands}}}
+  end
+
+  defp numeric_op_to_internal(:add), do: :+
+  defp numeric_op_to_internal(:subtract), do: :-
+  defp numeric_op_to_internal(:multiply), do: :*
+  defp numeric_op_to_internal(:divide), do: :/
+
+  # Converts {:field, name} and {:value, v} operand pairs to the internal form.
+  defp normalize_arithmetic_operands(source, operand, opts) when is_list(operand) do
+    field_name = Keyword.get(operand, :field)
+    value = Keyword.get(operand, :value)
+    left = if field_name, do: {:field, normalize_field_name(source, field_name, opts)}, else: nil
+    right = if value != nil, do: {:value, value}, else: nil
+    {left, right}
+  end
+
+  defp normalize_arithmetic_operands(_source, operand, _opts), do: operand
+
+  # Datetime arithmetic: routes to the internal datetime/date wrapper form.
+  # cast: :date in the operand payload triggers the :date wrapper; default is :datetime.
+  defp normalize_datetime_arithmetic(source, compare_op, datetime_op, operand, opts) do
+    cast = Keyword.get(operand, :cast, :datetime)
+    operand_without_cast = Keyword.delete(operand, :cast)
+    params = normalize_datetime_node(source, operand_without_cast, opts)
+    {compare_op, {cast, {datetime_op, params}}}
   end
 end

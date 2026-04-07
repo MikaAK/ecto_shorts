@@ -10,7 +10,7 @@ defmodule EctoShorts.CommonFilters.AggregateOperatorsTest do
   # Aggregate operator shape: `%{field: %{agg_fn: %{comparator: value}}}`.
   # The aggregate function wraps the field; the comparator applies to the result.
   # Negated form: `%{field: %{not: %{agg_fn: %{comparator: value}}}}`.
-  describe "convert_params_to_filter/3 aggregate operators" do
+  describe "aggregate operators" do
     test "rule statement 1: avg views greater than" do
       expected = from(p in Post, where: avg(p.views) > ^10)
       actual = CommonFilters.convert_params_to_filter(Post, %{views: %{avg: %{>: 10}}}, [])

@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessUpdateTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 update shapes (schemaless)" do
+  describe "update shapes (schemaless)" do
     test "matches Ecto.Query for a root update set payload" do
       updates = [set: [title: "After"]]
       expected = update("posts", [], ^updates)

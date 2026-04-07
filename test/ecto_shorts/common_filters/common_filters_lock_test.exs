@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 lock shapes" do
+  describe "lock shapes" do
     # Built-in lock aliases (`:for_update`, `:for_share`) are resolved without a
     # provider. The `name:` key is checked against the built-in alias table first;
     # unrecognized names are forwarded to the query provider if one is configured.
@@ -47,7 +47,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :provider_for_update}},
-          query_provider: EctoShorts.TestQueryProvider
+          query_provider_module: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)
@@ -60,7 +60,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :for_update_with_clause, values: %{clause: "SKIP LOCKED"}}},
-          query_provider: EctoShorts.TestQueryProvider
+          query_provider_module: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)
@@ -112,7 +112,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :provider_for_update}},
-          query_provider: EctoShorts.TestNoOpQueryProvider
+          query_provider_module: EctoShorts.TestNoOpQueryProvider
         )
 
       assert_query(expected, actual)
@@ -127,7 +127,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
             CommonFilters.convert_params_to_filter(
               Post,
               %{lock: %{name: :error_fragment}},
-              query_provider: EctoShorts.TestQueryProvider
+              query_provider_module: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -148,7 +148,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
             CommonFilters.convert_params_to_filter(
               Post,
               %{lock: %{name: :legacy_for_update}},
-              query_provider: EctoShorts.TestQueryProvider
+              query_provider_module: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -159,7 +159,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
     end
   end
 
-  describe "convert_params_to_filter/3 lock extended paths" do
+  describe "lock extended paths" do
     test "keeps the query unchanged when lock params map has no :name key" do
       expected = from(p in Post)
 
@@ -182,7 +182,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
             CommonFilters.convert_params_to_filter(
               Post,
               %{lock: %{name: :callback_bad_return}},
-              query_provider: EctoShorts.TestQueryProvider
+              query_provider_module: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -200,7 +200,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
             CommonFilters.convert_params_to_filter(
               Post,
               %{lock: %{name: :callback_not_function}},
-              query_provider: EctoShorts.TestQueryProvider
+              query_provider_module: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)

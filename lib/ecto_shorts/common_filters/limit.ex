@@ -1,16 +1,20 @@
 defmodule EctoShorts.CommonFilters.Limit do
-  alias Ecto.Query
-  alias EctoShorts.QueryBinding
+  @moduledoc since: "3.0.0"
+  @moduledoc false
 
+  alias EctoShorts.QueryBinding
+  alias EctoShorts.Types
+
+  alias Ecto.Query
   require Ecto.Query
 
-  {_, binding_patterns} =
-    QueryBinding.query_binding_contracts(__MODULE__)
-
-  def build_query(filter, _source, query, selected_binding, expr, _opts)
-      when filter in [:first, :limit] do
-    apply_limit(query, selected_binding, expr)
+  def build_query(:limit, _source, query, selected_binding, expr, _opts) do
+    apply_limit(query, selected_binding, Types.cast(:integer, expr))
   end
+
+  ## Generated Functions
+
+  {_, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
 
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     defp apply_limit(query, unquote(quoted_binding_head), expr) do

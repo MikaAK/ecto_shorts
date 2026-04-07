@@ -41,13 +41,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
     end
 
     test "normalizes an atom field name inside a field marker" do
-      result = Normalizer.normalize_params(nil, [{:inserted_at, {:field, :inserted_at}}], [])
+      result = Normalizer.normalize_params(nil, [inserted_at: %{field: :inserted_at}], [])
       assert [{:inserted_at, {:field, :inserted_at}}] = result
     end
 
     test "normalizes a string field name inside a field marker using schema validation" do
-      result = Normalizer.normalize_params(Post, [{:views, {:field, "views"}}], [])
-      assert [{:views, {:field, :views}}] = result
+      result = Normalizer.normalize_value_node(Post, {:field, "views"}, [])
+      assert {:field, :views} = result
     end
   end
 
@@ -220,6 +220,270 @@ defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
     test "returns entries in original order" do
       result = Normalizer.normalize_keyword_params(nil, [a: 1, b: 2, c: 3], [], [])
       assert [{:a, 1}, {:b, 2}, {:c, 3}] = result
+    end
+  end
+
+  describe "normalize_operator/1 aliases" do
+    test ":downcase normalizes to :lower" do
+      assert :lower = Normalizer.normalize_operator(:downcase)
+    end
+
+    test ":upcase normalizes to :upper" do
+      assert :upper = Normalizer.normalize_operator(:upcase)
+    end
+
+    test "existing aliases are unchanged" do
+      assert :== = Normalizer.normalize_operator(:eq)
+      assert :!= = Normalizer.normalize_operator(:ne)
+      assert :> = Normalizer.normalize_operator(:gt)
+      assert :>= = Normalizer.normalize_operator(:gte)
+      assert :< = Normalizer.normalize_operator(:lt)
+      assert :<= = Normalizer.normalize_operator(:lte)
+    end
+
+    test "unrecognized atoms pass through" do
+      assert :lower = Normalizer.normalize_operator(:lower)
+      assert :upper = Normalizer.normalize_operator(:upper)
+      assert :in = Normalizer.normalize_operator(:in)
+    end
+  end
+
+  describe ":aggregate wrapper" do
+    test "normalizes fn:, compare:, value: map to {fn, {op, value}}" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:aggregate, %{fn: :avg, compare: :>, value: 5}}],
+          [],
+          []
+        )
+
+      assert [{:avg, {:>, 5}}] = result
+    end
+
+    test "accepts a keyword list payload" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:aggregate, [fn: :sum, compare: :>=, value: 100]}],
+          [],
+          []
+        )
+
+      assert [{:sum, {:>=, 100}}] = result
+    end
+
+    test "normalizes the compare operator alias" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:aggregate, %{fn: :count, compare: :gt, value: 0}}],
+          [],
+          []
+        )
+
+      assert [{:count, {:>, 0}}] = result
+    end
+
+    test "supports all aggregate functions" do
+      for fn_name <- [:avg, :sum, :min, :max, :count] do
+        result =
+          Normalizer.normalize_keyword_params(
+            nil,
+            [{:aggregate, %{fn: fn_name, compare: :==, value: 0}}],
+            [],
+            []
+          )
+
+        assert [{^fn_name, {:==, 0}}] = result
+      end
+    end
+
+    test "is produced by normalize_params on a field aggregate map" do
+      result =
+        Normalizer.normalize_params(
+          nil,
+          %{score: %{aggregate: %{fn: :avg, compare: :>, value: 5}}},
+          []
+        )
+
+      assert [{:score, {:avg, {:>, 5}}}] = result
+    end
+  end
+
+  describe ":arithmetic wrapper - numeric" do
+    test "add: produces {:>, {:value, {:+, {left, right}}}}" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>, add: %{field: :base_score, value: 5}}}],
+          [],
+          []
+        )
+
+      assert [{:>, {:value, {:+, {{:field, :base_score}, {:value, 5}}}}}] = result
+    end
+
+    test "subtract: produces :- internal op" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>, subtract: %{field: :base, value: 3}}}],
+          [],
+          []
+        )
+
+      assert [{:>, {:value, {:-, {{:field, :base}, {:value, 3}}}}}] = result
+    end
+
+    test "multiply: produces :* internal op" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>=, multiply: %{field: :base, value: 2}}}],
+          [],
+          []
+        )
+
+      assert [{:>=, {:value, {:*, {{:field, :base}, {:value, 2}}}}}] = result
+    end
+
+    test "divide: produces :/ internal op" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :<, divide: %{field: :base, value: 4}}}],
+          [],
+          []
+        )
+
+      assert [{:<, {:value, {:/, {{:field, :base}, {:value, 4}}}}}] = result
+    end
+
+    test "compare operator alias is normalized" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :gte, add: %{field: :base, value: 1}}}],
+          [],
+          []
+        )
+
+      assert [{:>=, {:value, {:+, _}}}] = result
+    end
+
+    test "is produced by normalize_params on a field arithmetic map" do
+      result =
+        Normalizer.normalize_params(
+          nil,
+          %{score: %{arithmetic: %{compare: :>, add: %{field: :base_score, value: 5}}}},
+          []
+        )
+
+      assert [{:score, {:>, {:value, {:+, {{:field, :base_score}, {:value, 5}}}}}}] = result
+    end
+  end
+
+  describe ":arithmetic wrapper - datetime" do
+    test "ago: with interval: produces {:datetime, {:ago, params}}" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>, ago: %{count: 7, interval: "day"}}}],
+          [],
+          []
+        )
+
+      assert [{:>, {:datetime, {:ago, [count: 7, interval: "day"]}}}] = result
+    end
+
+    test "from_now: with interval: produces {:datetime, {:from_now, params}}" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :<, from_now: %{count: 1, interval: "month"}}}],
+          [],
+          []
+        )
+
+      assert [{:<, {:datetime, {:from_now, [count: 1, interval: "month"]}}}] = result
+    end
+
+    test "add: with interval: produces {:datetime, {:add, params}} (not numeric)" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>=, add: %{count: 1, interval: "hour"}}}],
+          [],
+          []
+        )
+
+      assert [{:>=, {:datetime, {:add, [count: 1, interval: "hour"]}}}] = result
+    end
+
+    test "cast: :date wraps in :date instead of :datetime" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>, ago: %{count: 30, interval: "day", cast: :date}}}],
+          [],
+          []
+        )
+
+      assert [{:>, {:date, {:ago, [count: 30, interval: "day"]}}}] = result
+    end
+
+    test "cast: :date is stripped from the datetime params" do
+      [{:>, {:date, {:ago, params}}}] =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>, ago: %{count: 30, interval: "day", cast: :date}}}],
+          [],
+          []
+        )
+
+      refute Keyword.has_key?(params, :cast)
+    end
+  end
+
+  describe ":elements wrapper" do
+    test "normalizes inner term and preserves :elements wrapper" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:elements, %{in: ["a", "b"]}}],
+          [],
+          []
+        )
+
+      assert [{:elements, [{:in, ["a", "b"]}]}] = result
+    end
+
+    test "normalizes a scalar inner term" do
+      result = Normalizer.normalize_keyword_params(nil, [{:elements, "elixir"}], [], [])
+      assert [{:elements, ["elixir"]}] = result
+    end
+
+    test "normalizes nil inner term" do
+      result = Normalizer.normalize_keyword_params(nil, [{:elements, nil}], [], [])
+      assert [{:elements, [nil]}] = result
+    end
+
+    test "normalizes count operator inside elements" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:elements, %{count: %{>: 3}}}],
+          [],
+          []
+        )
+
+      assert [{:elements, [{:count, {:>, 3}}]}] = result
+    end
+
+    test "is produced by normalize_params on a field elements map" do
+      result = Normalizer.normalize_params(nil, %{tags: %{elements: %{in: ["a", "b"]}}}, [])
+      assert [{:tags, {:elements, [{:in, ["a", "b"]}]}}] = result
     end
   end
 end

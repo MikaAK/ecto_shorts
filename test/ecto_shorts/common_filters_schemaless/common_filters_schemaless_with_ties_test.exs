@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.SchemalessWithTiesTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 with_ties shapes (schemaless)" do
+  describe "with_ties shapes (schemaless)" do
     test "matches Ecto.Query for root with_ties true with existing limit and order_by" do
       expected =
         "posts"

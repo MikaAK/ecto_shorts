@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.ExcludeTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 exclude shapes" do
+  describe "exclude shapes" do
     test "matches Ecto.Query for excluding where" do
       source = from(p in Post, where: p.published == ^true)
       expected = exclude(source, :where)

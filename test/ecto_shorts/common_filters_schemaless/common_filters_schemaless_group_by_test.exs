@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessGroupByTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 group_by shapes (schemaless)" do
+  describe "group_by shapes (schemaless)" do
     test "matches Ecto.Query for a root group_by atom" do
       expected = from(p in "posts", group_by: :author_id)
 

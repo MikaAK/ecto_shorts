@@ -66,7 +66,7 @@ defmodule EctoShorts.Actions do
   alias EctoShorts.Actions.Source
   alias EctoShorts.Actions.Transaction
 
-  alias EctoShorts.{Config, CommonFilters}
+  alias EctoShorts.{CommonFilters, Config}
 
   @typedoc """
   Query source accepted by the public read helpers.

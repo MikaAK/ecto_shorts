@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessWithNamedBindingTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 with_named_binding shapes (schemaless)" do
+  describe "with_named_binding shapes (schemaless)" do
     test "matches Ecto.Query for the documented with_named_binding workflow" do
       expected =
         from(p in "posts",

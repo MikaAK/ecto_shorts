@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.HavingTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 having shapes" do
+  describe "having shapes" do
     test "returns query unchanged when having is nil" do
       expected = from(p in Post, group_by: p.author_id)
 

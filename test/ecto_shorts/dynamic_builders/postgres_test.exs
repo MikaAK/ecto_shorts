@@ -4,6 +4,7 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
 
   alias EctoShorts.DynamicBuilders.Postgres
   alias EctoShorts.Schema.EnumSchema
+  alias EctoShorts.Schema.Post
 
   import Ecto.Query
 
@@ -39,6 +40,27 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
     test "passes through nil without casting" do
       expected = dynamic([q], is_nil(field(q, :status)))
       actual = Postgres.build_dynamic(EnumSchema, {:as, nil}, {:status, nil})
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "casts a string integer for a scalar field" do
+      expected = dynamic([q], field(q, :id) == ^1)
+      actual = Postgres.build_dynamic(Post, {:as, nil}, {:id, "1"})
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "casts an operator-wrapped string integer" do
+      expected = dynamic([q], field(q, :views) > ^10)
+      actual = Postgres.build_dynamic(Post, {:as, nil}, {:views, {:>, "10"}})
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "casts a list of string integers for membership" do
+      expected = dynamic([q], field(q, :id) in ^[1, 2, 3])
+      actual = Postgres.build_dynamic(Post, {:as, nil}, {:id, ["1", "2", "3"]})
 
       assert_dynamic(expected, actual)
     end

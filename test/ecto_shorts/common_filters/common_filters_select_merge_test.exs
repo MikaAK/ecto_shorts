@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 select_merge shapes" do
+  describe "select_merge shapes" do
     test "matches Ecto.Query for a root select_merge keyword alias mapping" do
       source = from(p in Post, select: %{})
 

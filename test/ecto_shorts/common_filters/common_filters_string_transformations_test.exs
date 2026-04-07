@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.StringTransformationsTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 string transformations" do
+  describe "string transformations" do
     test "matches records by comparing the lowercased field to the value" do
       expected = from(p in Post, where: fragment("lower(?)", p.title) == ^"hello")
       q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{==: %{lower: "hello"}}}, [])

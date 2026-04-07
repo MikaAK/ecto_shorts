@@ -309,7 +309,7 @@ defmodule EctoShorts.Actions.MultiTest do
                  preload: [:comments]
                )
 
-      assert Enum.sort(Enum.map(posts, & &1.title)) === ["UM-A Updated", "UM-B Updated"]
+      assert posts |> Enum.map(& &1.title) |> Enum.sort() === ["UM-A Updated", "UM-B Updated"]
       assert Enum.all?(posts, fn post -> post.comments === [] end)
     end
   end
@@ -329,7 +329,7 @@ defmodule EctoShorts.Actions.MultiTest do
       assert {:ok, deleted_posts} =
                Actions.delete_many(Post, [post_a, post_b], preload: [:comments])
 
-      assert Enum.sort(Enum.map(deleted_posts, & &1.title)) === ["DM-A", "DM-B"]
+      assert deleted_posts |> Enum.map(& &1.title) |> Enum.sort() === ["DM-A", "DM-B"]
       assert Enum.all?(deleted_posts, fn post -> post.comments === [] end)
       assert Repo.get(Post, post_a.id) === nil
       assert Repo.get(Post, post_b.id) === nil
@@ -353,7 +353,7 @@ defmodule EctoShorts.Actions.MultiTest do
                  preload: [:comments]
                )
 
-      assert Enum.sort(Enum.map(posts, & &1.title)) === ["FOCM-Created", "FOCM-Existing"]
+      assert posts |> Enum.map(& &1.title) |> Enum.sort() === ["FOCM-Created", "FOCM-Existing"]
       assert Enum.all?(posts, fn post -> post.comments === [] end)
       assert Enum.any?(posts, fn post -> post.id === existing.id end)
     end
@@ -376,7 +376,7 @@ defmodule EctoShorts.Actions.MultiTest do
                  preload: [:comments]
                )
 
-      assert Enum.sort(Enum.map(posts, & &1.title)) === ["FAUM-Created", "FAUM-Updated"]
+      assert posts |> Enum.map(& &1.title) |> Enum.sort() === ["FAUM-Created", "FAUM-Updated"]
       assert Enum.all?(posts, fn post -> post.comments === [] end)
       assert Enum.any?(posts, fn post -> post.id === existing.id end)
     end

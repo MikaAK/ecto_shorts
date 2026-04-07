@@ -5,11 +5,13 @@ defmodule EctoShorts.Schema.UserData do
 
   schema "data_stores" do
     field :data, :map
+    field :typed_map, {:map, :string}
     belongs_to :creator, EctoShorts.Schema.User
   end
 
   @available_fields [
     :data,
+    :typed_map,
     :creator_id
   ]
 

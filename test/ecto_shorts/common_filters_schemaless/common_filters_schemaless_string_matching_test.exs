@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessStringMatchingTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 string matching (schemaless)" do
+  describe "string matching (schemaless)" do
     test "matches records where the field contains the text using like" do
       expected = from(p in "posts", where: like(p.title, ^"%hello%"))
       q2 = CommonFilters.convert_params_to_filter("posts", %{title: %{like: "hello"}}, [])

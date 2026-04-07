@@ -9,11 +9,11 @@ defmodule EctoShorts.CommonParamsTest do
       updates =
         CommonParams.convert_to_update_params(Post, %{
           title: "Hello",
-          views: {:inc, 1},
-          tags: {:push, "elixir"}
+          views: [inc: 1],
+          tags: [push: "elixir"]
         })
 
-      assert [{:inc, inc_ops}, {:push, push_ops}, {:set, set_ops}] = updates
+      assert [inc: inc_ops, push: push_ops, set: set_ops] = updates
 
       assert inc_ops === [views: 1]
       assert push_ops === [tags: "elixir"]
@@ -24,7 +24,7 @@ defmodule EctoShorts.CommonParamsTest do
 
     test "raises when using :push on a field that is not an array" do
       assert_raise ArgumentError, fn ->
-        CommonParams.convert_to_update_params(Post, %{views: {:push, "oops"}})
+        CommonParams.convert_to_update_params(Post, %{views: [push: "oops"]})
       end
     end
 
@@ -36,7 +36,7 @@ defmodule EctoShorts.CommonParamsTest do
           updated_at: false
         )
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
       assert set_ops === [title: "Hello"]
     end
 
@@ -48,23 +48,23 @@ defmodule EctoShorts.CommonParamsTest do
           updated_at_source: false
         )
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
       assert set_ops === [title: "Hello"]
     end
   end
 
   describe "convert_to_update_params/3 update operation variants" do
-    test "accepts an explicit set tuple for a field value" do
-      updates = CommonParams.convert_to_update_params(Post, %{title: {:set, "Explicit"}})
+    test "accepts an explicit set operation for a field value" do
+      updates = CommonParams.convert_to_update_params(Post, %{title: [set: "Explicit"]})
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
       assert Keyword.fetch!(set_ops, :title) === "Explicit"
     end
 
     test "accepts a list of operations on the same field" do
       updates =
         CommonParams.convert_to_update_params(Post, %{
-          tags: [{:push, "new_tag"}, {:pull, "old_tag"}]
+          tags: [push: "new_tag", pull: "old_tag"]
         })
 
       assert Keyword.has_key?(updates, :pull)
@@ -73,14 +73,25 @@ defmodule EctoShorts.CommonParamsTest do
 
     test "raises when incrementing with a non-integer value" do
       assert_raise ArgumentError, ~r/Expected value for key .* to be an integer/, fn ->
-        CommonParams.convert_to_update_params(Post, %{views: {:inc, "bad"}})
+        CommonParams.convert_to_update_params(Post, %{views: [inc: "bad"]})
       end
     end
 
     test "raises when incrementing a non-integer field" do
       assert_raise ArgumentError, ~r/is not a type of `:integer`/, fn ->
-        CommonParams.convert_to_update_params(Post, %{title: {:inc, 1}})
+        CommonParams.convert_to_update_params(Post, %{title: [inc: 1]})
       end
+    end
+
+    test "casts string values for set and inc update operations" do
+      updates =
+        CommonParams.convert_to_update_params(Post, %{
+          views: [inc: "2"],
+          id: "1"
+        })
+
+      assert Keyword.fetch!(updates, :inc) === [views: 2]
+      assert Keyword.fetch!(updates, :set)[:id] === 1
     end
   end
 
@@ -112,7 +123,7 @@ defmodule EctoShorts.CommonParamsTest do
           updated_at: ~U[2026-01-01 00:00:00Z]
         })
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
 
       assert Keyword.fetch!(set_ops, :made_up_field) === "value"
       assert %DateTime{} = Keyword.fetch!(set_ops, :updated_at)
@@ -125,7 +136,7 @@ defmodule EctoShorts.CommonParamsTest do
           updated_at: ~U[2026-01-01 00:00:00Z]
         })
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
 
       assert Keyword.fetch!(set_ops, :made_up_field) === "value"
       assert %DateTime{} = Keyword.fetch!(set_ops, :updated_at)
@@ -138,7 +149,7 @@ defmodule EctoShorts.CommonParamsTest do
           updated_at: ~U[2026-01-01 00:00:00Z]
         })
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
 
       assert Keyword.fetch!(set_ops, :made_up_field) === "value"
       assert %DateTime{} = Keyword.fetch!(set_ops, :updated_at)
@@ -151,7 +162,7 @@ defmodule EctoShorts.CommonParamsTest do
           made_up_field: "value"
         })
 
-      assert [{:set, set_ops}] = updates
+      assert [set: set_ops] = updates
 
       assert Keyword.fetch!(set_ops, :title) === "Hello"
       refute Keyword.has_key?(set_ops, :made_up_field)
@@ -228,6 +239,60 @@ defmodule EctoShorts.CommonParamsTest do
                CommonParams.convert_to_insert_params(Post, [[title: "KW"]], validate: false)
 
       assert insert_map.title === "KW"
+    end
+  end
+
+  describe "convert_to_insert_params/3 with usec timestamp types" do
+    test "produces DateTime with microsecond precision when type is :utc_datetime_usec" do
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "Hello"}],
+                 validate: false,
+                 timestamp_type: :utc_datetime_usec
+               )
+
+      assert %DateTime{microsecond: {_, precision}} = insert_map.inserted_at
+      assert precision === 6
+    end
+
+    test "produces NaiveDateTime with microsecond precision when type is :naive_datetime_usec" do
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "Hello"}],
+                 validate: false,
+                 timestamp_type: :naive_datetime_usec
+               )
+
+      assert %NaiveDateTime{microsecond: {_, precision}} = insert_map.inserted_at
+      assert precision === 6
+    end
+  end
+
+  describe "convert_to_update_params/3 with usec timestamp types" do
+    test "produces DateTime with microsecond precision when type is :utc_datetime_usec" do
+      updates =
+        CommonParams.convert_to_update_params(
+          Post,
+          %{title: "Hello"},
+          timestamp_type: :utc_datetime_usec
+        )
+
+      assert [set: set_ops] = updates
+      assert %DateTime{microsecond: {_, 6}} = Keyword.fetch!(set_ops, :updated_at)
+    end
+
+    test "produces NaiveDateTime with microsecond precision when type is :naive_datetime_usec" do
+      updates =
+        CommonParams.convert_to_update_params(
+          Post,
+          %{title: "Hello"},
+          timestamp_type: :naive_datetime_usec
+        )
+
+      assert [set: set_ops] = updates
+      assert %NaiveDateTime{microsecond: {_, 6}} = Keyword.fetch!(set_ops, :updated_at)
     end
   end
 

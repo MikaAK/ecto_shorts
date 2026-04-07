@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessLimitTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 limit shapes (schemaless)" do
+  describe "limit shapes (schemaless)" do
     test "matches Ecto.Query for a root integer limit" do
       expected = limit("posts", ^10)
 

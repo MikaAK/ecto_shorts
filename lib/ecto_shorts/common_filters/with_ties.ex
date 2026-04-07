@@ -1,12 +1,13 @@
 defmodule EctoShorts.CommonFilters.WithTies do
+  @moduledoc since: "3.0.0"
   @moduledoc false
 
   alias EctoShorts.{
     CommonFilters.Limit,
     CommonFilters.OrderBy,
     CommonSchema,
-    Logger,
-    QueryBinding
+    QueryBinding,
+    Types
   }
 
   alias Ecto.Query
@@ -15,18 +16,18 @@ defmodule EctoShorts.CommonFilters.WithTies do
   @logger_prefix "EctoShorts.CommonFilters.WithTies"
   @default_limit 1000
 
-  {_, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
-
   def build_query(:with_ties, source, query, selected_binding, map, opts)
       when is_map(map) and not is_struct(map) do
     build_query(:with_ties, source, query, selected_binding, Map.to_list(map), opts)
   end
 
   def build_query(:with_ties, source, query, selected_binding, params, opts) do
+    params = Types.cast(:boolean, params)
+
     if Keyword.keyword?(params) or is_boolean(params) do
-      apply_with_ties(source, query, selected_binding, params, opts)
+      apply_params(source, query, selected_binding, params, opts)
     else
-      Logger.warning(
+      EctoShorts.Logger.warning(
         @logger_prefix,
         "Expected :with_ties value to be a boolean or keyword/map payload, got: #{inspect(params)}"
       )
@@ -35,69 +36,59 @@ defmodule EctoShorts.CommonFilters.WithTies do
     end
   end
 
-  defp apply_with_ties(source, query, selected_binding, true, opts) do
-    query
-    |> ensure_limit(source, selected_binding, @default_limit, opts)
-    |> ensure_order(source, selected_binding, opts)
-    |> apply_with_ties_expr(selected_binding, true)
+  defp apply_params(source, query, selected_binding, bool, opts) when is_boolean(bool) do
+    query =
+      if bool,
+        do: prepare_query(query, source, selected_binding, @default_limit, opts),
+        else: query
+
+    if has_limit?(query), do: with_ties_expr(query, selected_binding, bool), else: query
   end
 
-  defp apply_with_ties(_source, query, selected_binding, false, _opts) do
-    if has_limit?(query) do
-      apply_with_ties_expr(query, selected_binding, false)
-    else
-      query
-    end
-  end
-
-  defp apply_with_ties(source, query, selected_binding, params, opts) do
-    unknown_keys =
-      params
-      |> Keyword.keys()
-      |> Enum.reject(&(&1 === :limit))
+  defp apply_params(source, query, selected_binding, params, opts) do
+    unknown_keys = params |> Keyword.keys() |> Enum.reject(&(&1 === :limit))
 
     if unknown_keys !== [] do
-      Logger.warning(
+      EctoShorts.Logger.warning(
         @logger_prefix,
         "Expected :with_ties params to only include :limit, got unsupported keys: #{inspect(unknown_keys)}"
       )
 
       query
     else
-      apply_limit_payload(source, query, selected_binding, Keyword.get(params, :limit), opts)
+      apply_limit_param(source, query, selected_binding, params[:limit], opts)
     end
   end
 
-  defp apply_limit_payload(source, query, selected_binding, nil, opts) do
+  defp apply_limit_param(source, query, selected_binding, nil, opts) do
     query
-    |> ensure_limit(source, selected_binding, @default_limit, opts)
-    |> ensure_order(source, selected_binding, opts)
-    |> apply_with_ties_expr(selected_binding, true)
+    |> prepare_query(source, selected_binding, @default_limit, opts)
+    |> with_ties_expr(selected_binding, true)
   end
 
-  defp apply_limit_payload(source, query, selected_binding, limit, opts) when is_integer(limit) do
-    query =
-      Limit.build_query(
-        :limit,
-        source,
-        query,
-        selected_binding,
-        limit,
-        opts
-      )
+  defp apply_limit_param(source, query, selected_binding, limit, opts) do
+    case Types.cast(:integer, limit) do
+      value when is_integer(value) ->
+        limited_query = Limit.build_query(:limit, source, query, selected_binding, value, opts)
 
-    query
-    |> ensure_order(source, selected_binding, opts)
-    |> apply_with_ties_expr(selected_binding, true)
+        limited_query
+        |> ensure_order(source, selected_binding, opts)
+        |> with_ties_expr(selected_binding, true)
+
+      other ->
+        EctoShorts.Logger.warning(
+          @logger_prefix,
+          "Expected :with_ties :limit to be an integer or nil, got: #{inspect(other)}"
+        )
+
+        query
+    end
   end
 
-  defp apply_limit_payload(_source, query, _selected_binding, value, _opts) do
-    Logger.warning(
-      @logger_prefix,
-      "Expected :with_ties :limit to be an integer or nil, got: #{inspect(value)}"
-    )
-
+  defp prepare_query(query, source, selected_binding, limit, opts) do
     query
+    |> ensure_limit(source, selected_binding, limit, opts)
+    |> ensure_order(source, selected_binding, opts)
   end
 
   defp ensure_limit(query, source, selected_binding, limit, opts) do
@@ -113,19 +104,29 @@ defmodule EctoShorts.CommonFilters.WithTies do
       query
     else
       sort_keys =
-        List.wrap(CommonSchema.get_schema_reflection(source, :primary_key) || :id)
+        source
+        |> CommonSchema.get_schema_reflection(:primary_key)
+        |> Kernel.||(:id)
+        |> List.wrap()
 
       order_entries = Enum.map(sort_keys, &{:asc, &1})
+
       OrderBy.build_query(:order_by, source, query, selected_binding, order_entries, opts)
     end
   end
 
-  defp has_limit?(query), do: not is_nil(query.limit)
-  defp has_order?(query), do: query.order_bys !== []
+  defp has_limit?(%{limit: nil}), do: false
+  defp has_limit?(%{limit: _}), do: true
+
+  defp has_order?(%{order_bys: []}), do: false
+  defp has_order?(%{order_bys: _}), do: true
+
+  ## Generated Functions
+
+  {_, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
 
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
-    defp apply_with_ties_expr(query, unquote(quoted_binding_head), value)
-         when is_boolean(value) do
+    defp with_ties_expr(query, unquote(quoted_binding_head), value) do
       Query.with_ties(
         query,
         [unquote_splicing(quoted_binding_body)],
@@ -134,7 +135,7 @@ defmodule EctoShorts.CommonFilters.WithTies do
     end
   end
 
-  defp apply_with_ties_expr(query, _selected_binding, value) when is_boolean(value) do
+  defp with_ties_expr(query, _selected_binding, value) do
     Query.with_ties(query, ^value)
   end
 end

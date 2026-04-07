@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessFirstTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 first shapes (schemaless)" do
+  describe "first shapes (schemaless)" do
     test "matches Ecto.Query for a root integer first" do
       expected = limit("posts", ^10)
 

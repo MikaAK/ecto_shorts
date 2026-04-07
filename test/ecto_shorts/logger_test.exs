@@ -1,9 +1,9 @@
 defmodule EctoShorts.LoggerTest do
   use ExUnit.Case
 
-  import ExUnit.CaptureLog
+  require Logger
 
-  alias EctoShorts.Logger
+  import ExUnit.CaptureLog
 
   describe "debug/2" do
     test "logs a debug message with prefix" do
@@ -13,7 +13,7 @@ defmodule EctoShorts.LoggerTest do
 
       log =
         capture_log(fn ->
-          Logger.debug("TestPrefix", "debug message")
+          EctoShorts.Logger.debug("TestPrefix", "debug message")
         end)
 
       Elixir.Logger.configure(level: original_level)
@@ -30,7 +30,7 @@ defmodule EctoShorts.LoggerTest do
 
       log =
         capture_log(fn ->
-          Logger.info("TestPrefix", "info message")
+          EctoShorts.Logger.info("TestPrefix", "info message")
         end)
 
       Elixir.Logger.configure(level: original_level)
@@ -43,7 +43,7 @@ defmodule EctoShorts.LoggerTest do
     test "logs an error message with prefix" do
       log =
         capture_log(fn ->
-          Logger.error("TestPrefix", "error message")
+          EctoShorts.Logger.error("TestPrefix", "error message")
         end)
 
       assert log =~ "[TestPrefix] error message"

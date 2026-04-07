@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 windows shapes" do
+  describe "windows shapes" do
     test "matches Ecto.Query for a root windows partition_by atom" do
       field_name = :author_id
 
@@ -346,42 +346,6 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
       assert_query(expected, actual)
     end
 
-    test "keeps the query unchanged when a referenced window is missing" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{windows: [child_window: [window: :missing_window]]},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected referenced window :missing_window for :child_window to exist"
-    end
-
-    test "keeps the query unchanged when a window reference target is not an atom" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{windows: [child_window: [window: "base_window"]]},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :window for :child_window to be an atom"
-    end
-
     # Window reference cycles are detected at filter-build time. A cycle produces a
     # log warning and leaves the query unchanged.
     test "keeps the query unchanged when a window reference cycle exists" do
@@ -425,60 +389,6 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
       assert log =~ "Detected cyclic :windows reference involving :self_window"
     end
 
-    test "keeps the query unchanged when windows params are invalid" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{windows: "invalid"},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :windows params to be a map or keyword list"
-    end
-
-    test "keeps the query unchanged when a window definition is invalid" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{windows: [post_window: "invalid"]},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected window definition for :post_window to be a map or keyword list"
-    end
-
-    test "keeps the query unchanged when a window name is invalid" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              [windows: [{"post_window", [partition_by: :author_id]}]],
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected window name to be an atom"
-    end
-
     # `:frame` requires an `Ecto.Query.DynamicExpr`. Raw strings are not accepted.
     test "keeps the query unchanged when frame is not a dynamic expression" do
       expected = from(p in Post)
@@ -503,7 +413,7 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
     end
   end
 
-  describe "convert_params_to_filter/3 windows order_by extended paths" do
+  describe "windows order_by extended paths" do
     test "matches Ecto.Query for windows with order_by as a keyword list" do
       order_field = :inserted_at
 

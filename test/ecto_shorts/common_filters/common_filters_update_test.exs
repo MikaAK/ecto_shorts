@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 subquery shapes" do
+  describe "subquery shapes" do
     test "wraps the filtered query in a subquery when given a map filter" do
       actual =
         CommonFilters.convert_params_to_filter(
@@ -39,7 +39,7 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
     end
   end
 
-  describe "convert_params_to_filter/3 update shapes" do
+  describe "update shapes" do
     test "matches Ecto.Query for a root update set payload" do
       updates = [set: [title: "After"]]
       expected = update(Post, [], ^updates)
@@ -141,6 +141,20 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
               }
             }
           },
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "casts string values in update payloads" do
+      updates = [set: [views: 10], inc: [views: 1]]
+      expected = update(Post, [], ^updates)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{update: [set: [views: "10"], inc: [views: "1"]]},
           []
         )
 

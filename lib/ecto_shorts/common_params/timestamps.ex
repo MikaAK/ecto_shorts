@@ -5,12 +5,15 @@ defmodule EctoShorts.CommonParams.Timestamps do
 
   Used internally by `EctoShorts.CommonParams` to automatically set
   timestamp fields on insert and update data. Supports configurable
-  source field names, timestamp types (`:utc_datetime`, `:naive_datetime`),
-  and manual override values via options.
+  source field names, timestamp types (`:utc_datetime`, `:utc_datetime_usec`,
+  `:naive_datetime`, `:naive_datetime_usec`), and manual override values via
+  options.
   """
 
   @utc_datetime :utc_datetime
+  @utc_datetime_usec :utc_datetime_usec
   @naive_datetime :naive_datetime
+  @naive_datetime_usec :naive_datetime_usec
 
   @inserted_at :inserted_at
   @updated_at :updated_at
@@ -80,7 +83,7 @@ defmodule EctoShorts.CommonParams.Timestamps do
 
     datetime
     |> cast_datetime(timestamp_type)
-    |> truncate_datetime()
+    |> truncate_datetime(timestamp_type)
   end
 
   defp put_timestamp_updated_at(input, datetime, schema, opts) do
@@ -108,13 +111,21 @@ defmodule EctoShorts.CommonParams.Timestamps do
     end
   end
 
-  defp cast_datetime(%NaiveDateTime{} = naive_datetime, _), do: naive_datetime
   defp cast_datetime(datetime, @naive_datetime), do: DateTime.to_naive(datetime)
+  defp cast_datetime(datetime, @naive_datetime_usec), do: DateTime.to_naive(datetime)
   defp cast_datetime(datetime, @utc_datetime), do: datetime
+  defp cast_datetime(datetime, @utc_datetime_usec), do: datetime
 
-  defp truncate_datetime(%DateTime{} = datetime), do: DateTime.truncate(datetime, :second)
+  defp truncate_datetime(%DateTime{} = datetime, @utc_datetime_usec),
+    do: DateTime.truncate(datetime, :microsecond)
 
-  defp truncate_datetime(%NaiveDateTime{} = naive_datetime),
+  defp truncate_datetime(%DateTime{} = datetime, _),
+    do: DateTime.truncate(datetime, :second)
+
+  defp truncate_datetime(%NaiveDateTime{} = naive_datetime, @naive_datetime_usec),
+    do: NaiveDateTime.truncate(naive_datetime, :microsecond)
+
+  defp truncate_datetime(%NaiveDateTime{} = naive_datetime, _),
     do: NaiveDateTime.truncate(naive_datetime, :second)
 
   defp timestamp_type(opts, key, type_source, schema) do
@@ -135,6 +146,6 @@ defmodule EctoShorts.CommonParams.Timestamps do
 
     datetime
     |> cast_datetime(timestamp_type)
-    |> truncate_datetime()
+    |> truncate_datetime(timestamp_type)
   end
 end

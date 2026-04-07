@@ -8,8 +8,8 @@ defmodule EctoShorts.Actions.Bulk do
   # and delete_all methods with proper parameter conversion and error handling.
 
   alias EctoShorts.{
-    Config,
     CommonFilters,
+    Config,
     CommonParams,
     CommonSchema
   }

@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessPutQueryPrefixTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 put_query_prefix shapes (schemaless)" do
+  describe "put_query_prefix shapes (schemaless)" do
     test "matches Ecto.Query for a root string prefix" do
       expected = put_query_prefix("posts", "tenant_1")
 

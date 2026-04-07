@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 negation" do
+  describe "negation" do
     test "excludes records where the field is in the given list" do
       expected = from(p in Post, where: is_nil(p.published) or p.published not in ^[true, false])
 
@@ -172,7 +172,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
   end
 
-  describe "convert_params_to_filter/3 negated string transforms" do
+  describe "negated string transforms" do
     test "includes records where the lowercased field matches the value using not !=" do
       expected = from(p in Post, where: fragment("lower(?)", p.title) == ^"hello")
 
@@ -200,7 +200,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
   end
 
-  describe "convert_params_to_filter/3 negated nil checks" do
+  describe "negated nil checks" do
     test "excludes nil using not ==" do
       expected = from(p in Post, where: not is_nil(p.published_at))
       q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{not: %{==: nil}}}, [])
@@ -216,7 +216,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
   end
 
-  describe "convert_params_to_filter/3 negated quantified comparisons" do
+  describe "negated quantified comparisons" do
     test "excludes records using negated != all comparison" do
       expected =
         from(p in Post,
@@ -448,7 +448,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
   end
 
-  describe "convert_params_to_filter/3 negated aggregate nil checks" do
+  describe "negated aggregate nil checks" do
     test "excludes nil aggregate using not ==" do
       expected = from(p in Post, where: not is_nil(avg(p.views)))
 

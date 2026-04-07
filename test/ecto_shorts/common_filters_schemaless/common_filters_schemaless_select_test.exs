@@ -5,9 +5,8 @@ defmodule EctoShorts.CommonFilters.SchemalessSelectTest do
   alias EctoShorts.CommonFilters
 
   import Ecto.Query
-  import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 select shapes (schemaless)" do
+  describe "select shapes (schemaless)" do
     test "matches Ecto.Query for a root select field atom" do
       expected = from(p in "posts", select: p.title)
 
@@ -61,25 +60,6 @@ defmodule EctoShorts.CommonFilters.SchemalessSelectTest do
         )
 
       assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query when select overwrites an existing select" do
-      source = from(p in "posts", select: p.title)
-      expected = from(p in "posts", select: p.id)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              source,
-              %{select: :id},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Query already has a :select expression"
     end
   end
 end

@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 preload shapes" do
+  describe "preload shapes" do
     test "matches Ecto.Query for a root preload atom" do
       expected = from(p in Post, preload: :author)
 
@@ -123,7 +123,7 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
     end
   end
 
-  describe "convert_params_to_filter/3 join-backed preload with where filters" do
+  describe "join-backed preload with where filters" do
     test "matches Ecto.Query for a join-backed preload with no filter on the binding" do
       source =
         from(p in Post,

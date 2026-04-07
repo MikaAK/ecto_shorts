@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 distinct shapes" do
+  describe "distinct shapes" do
     test "matches Ecto.Query for a root boolean distinct" do
       expected = from(p in Post, distinct: true)
 
@@ -150,7 +150,7 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
     end
   end
 
-  describe "convert_params_to_filter/3 distinct extended shapes" do
+  describe "distinct extended shapes" do
     test "matches Ecto.Query for a root distinct bare-atom list" do
       expected = from(p in Post, distinct: [asc: p.title, asc: p.views])
 
@@ -191,6 +191,19 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{distinct: false},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "casts a string boolean distinct payload" do
+      expected = from(p in Post, distinct: true)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{distinct: "true"},
           []
         )
 

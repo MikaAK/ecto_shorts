@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.BooleanCompositionTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 :and shapes" do
+  describe ":and shapes" do
     test ":and map with a single field produces a where clause" do
       expected = from(p in Post, where: p.views == ^15)
       actual = CommonFilters.convert_params_to_filter(Post, %{and: %{views: 15}}, [])
@@ -48,7 +48,7 @@ defmodule EctoShorts.CommonFilters.BooleanCompositionTest do
     end
   end
 
-  describe "convert_params_to_filter/3 :or shapes" do
+  describe ":or shapes" do
     test ":or map with a single field produces an or_where clause" do
       expected = from(p in Post, or_where: p.views == ^15)
       actual = CommonFilters.convert_params_to_filter(Post, %{or: %{views: 15}}, [])
@@ -74,7 +74,7 @@ defmodule EctoShorts.CommonFilters.BooleanCompositionTest do
     end
   end
 
-  describe "convert_params_to_filter/3 list-of-maps / list-of-keyword-lists" do
+  describe "list-of-maps / list-of-keyword-lists" do
     test ":and with a list of maps applies each map as a separate where clause" do
       expected = from(p in Post, where: p.views == ^5, where: p.published == ^true)
 
@@ -142,7 +142,7 @@ defmodule EctoShorts.CommonFilters.BooleanCompositionTest do
     end
   end
 
-  describe "convert_params_to_filter/3 keyword list compositions" do
+  describe "keyword list compositions" do
     test "two where: entries AND together" do
       expected = from(p in Post, where: p.published == ^true, where: p.views == ^5)
 

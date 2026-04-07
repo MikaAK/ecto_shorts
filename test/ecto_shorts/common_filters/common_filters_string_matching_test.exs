@@ -9,7 +9,7 @@ defmodule EctoShorts.CommonFilters.StringMatchingTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 string matching" do
+  describe "string matching" do
     test "matches records where the field contains the text using like" do
       expected = from(p in Post, where: like(p.title, ^"%hello%"))
       q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{like: "hello"}}, [])

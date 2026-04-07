@@ -11,7 +11,7 @@ defmodule EctoShorts.CommonFilters.SchemalessAssociationFilterTest do
   # shorthand on a schema source is treated as a plain field equality filter
   # instead. To join on a related table, the caller must use the explicit
   # `:join` filter key.
-  describe "convert_params_to_filter/3 unknown key with scalar value (schemaless)" do
+  describe "unknown key with scalar value (schemaless)" do
     test "treats an unknown key with a scalar value as a plain field equality filter" do
       expected = from(p in "posts", where: p.author_id == ^1)
 

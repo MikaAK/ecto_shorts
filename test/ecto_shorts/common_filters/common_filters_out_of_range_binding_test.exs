@@ -12,7 +12,7 @@ defmodule EctoShorts.CommonFilters.OutOfRangeBindingTest do
   # Position 11 is one beyond the default max.
   @out_of_range_position 11
 
-  describe "convert_params_to_filter/3 warns and skips out-of-range :at field filters" do
+  describe "warns and skips out-of-range :at field filters" do
     test "field filter at out-of-range position logs warning and returns query unchanged" do
       base_query =
         from(p in Post,
@@ -72,7 +72,7 @@ defmodule EctoShorts.CommonFilters.OutOfRangeBindingTest do
     end
   end
 
-  describe "convert_params_to_filter/3 warns and skips out-of-range :at structural filters" do
+  describe "warns and skips out-of-range :at structural filters" do
     test "having at out-of-range position logs warning and returns query unchanged" do
       base_query =
         from(p in Post,
@@ -119,7 +119,7 @@ defmodule EctoShorts.CommonFilters.OutOfRangeBindingTest do
     end
   end
 
-  describe "convert_params_to_filter/3 still applies in-range :at positions" do
+  describe "still applies in-range :at positions" do
     test "position within max applies the filter normally" do
       base_query =
         from(p in Post,

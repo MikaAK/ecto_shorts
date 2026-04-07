@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessOffsetTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 offset shapes (schemaless)" do
+  describe "offset shapes (schemaless)" do
     test "matches Ecto.Query for a root integer offset" do
       expected = offset("posts", ^5)
 

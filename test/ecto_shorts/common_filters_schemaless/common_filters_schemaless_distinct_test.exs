@@ -6,7 +6,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDistinctTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 distinct shapes (schemaless)" do
+  describe "distinct shapes (schemaless)" do
     test "matches Ecto.Query for a root boolean distinct" do
       expected = from(p in "posts", distinct: true)
 

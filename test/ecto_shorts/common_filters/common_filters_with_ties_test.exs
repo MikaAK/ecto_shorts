@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  describe "convert_params_to_filter/3 with_ties shapes" do
+  describe "with_ties shapes" do
     test "matches Ecto.Query for root with_ties true with existing limit and order_by" do
       expected =
         Post
@@ -215,6 +215,38 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
         end)
 
       assert log =~ "Expected :with_ties params to only include :limit"
+    end
+
+    test "casts string payloads for with_ties and its limit" do
+      expected =
+        Post
+        |> limit(^10)
+        |> order_by([], asc: :id)
+        |> with_ties(true)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_ties: %{limit: "10"}},
+          []
+        )
+
+      assert_query(expected, actual)
+
+      expected_true =
+        Post
+        |> limit(^1000)
+        |> order_by([], asc: :id)
+        |> with_ties(true)
+
+      actual_true =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_ties: "true"},
+          []
+        )
+
+      assert_query(expected_true, actual_true)
     end
   end
 end

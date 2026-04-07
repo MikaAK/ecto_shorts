@@ -222,89 +222,88 @@ defmodule EctoShorts.CommonFilters do
     `Ecto.Query`
   """
 
-  alias Ecto.Query
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema
   alias EctoShorts.Config
-  alias EctoShorts.DynamicBuilders
-  alias EctoShorts.Logger
 
-  alias EctoShorts.CommonFilters.{
-    Distinct,
-    GroupBy,
-    Having,
-    Join,
-    Last,
-    Limit,
-    Lock,
-    Offset,
-    OrderBy,
-    Preload,
-    Select,
-    SetOperation,
-    SubQuery,
-    Update,
-    Windows,
-    WithCte,
-    WithTies,
-    WithNamedBinding
-  }
-
-  require Ecto.Query
+  alias EctoShorts.CommonFilters.Builder
 
   @logger_prefix "EctoShorts.CommonFilters"
 
-  @binding_operator [:as, :at]
+  @type filters ::
+          :distinct
+          | :except
+          | :except_all
+          | :exclude
+          | :first
+          | :group_by
+          | :having
+          | :intersect
+          | :intersect_all
+          | :join
+          | :last
+          | :limit
+          | :lock
+          | :offset
+          | :order_by
+          | :or_having
+          | :or_where
+          | :prepend_order_by
+          | :preload
+          | :put_query_prefix
+          | :recursive_ctes
+          | :reverse_order
+          | :select
+          | :select_merge
+          | :subquery
+          | :union
+          | :union_all
+          | :update
+          | :where
+          | :windows
+          | :with_cte
+          | :with_named_binding
+          | :with_ties
 
-  @uniqueness_filters [:distinct]
-  @grouping_filters [:group_by]
-  @post_aggregate_filters [:having, :or_having]
-  @association_filters [:join]
-  @terminal_result_filters [:last]
-  @sorting_filters [:order_by, :prepend_order_by, :reverse_order]
-  @predicate_filters [:where, :or_where]
-  @eager_load_filters [:preload]
-  @namespace_filters [:put_query_prefix]
-  @recursive_cte_filters [:recursive_ctes]
-  @projection_filters [:select, :select_merge]
-  @set_composition_filters [:except, :except_all, :intersect, :intersect_all, :union, :union_all]
-  @nested_query_filters [:subquery]
-  @removal_filters [:exclude]
-  @concurrency_filters [:lock]
-  @cardinality_filters [:limit, :first]
-  @pagination_filters [:offset]
-  @mutation_filters [:update]
-  @window_function_filters [:windows]
-  @cte_filters [:with_cte]
-  @tie_handling_filters [:with_ties]
-  @binding_filters [:with_named_binding]
+  @filters [
+    :distinct,
+    :except,
+    :except_all,
+    :exclude,
+    :first,
+    :group_by,
+    :having,
+    :intersect,
+    :intersect_all,
+    :join,
+    :last,
+    :limit,
+    :lock,
+    :offset,
+    :order_by,
+    :or_having,
+    :or_where,
+    :prepend_order_by,
+    :preload,
+    :put_query_prefix,
+    :recursive_ctes,
+    :reverse_order,
+    :select,
+    :select_merge,
+    :subquery,
+    :union,
+    :union_all,
+    :update,
+    :where,
+    :windows,
+    :with_cte,
+    :with_named_binding,
+    :with_ties
+  ]
 
-  @all_filters Enum.concat([
-                 @uniqueness_filters,
-                 @grouping_filters,
-                 @post_aggregate_filters,
-                 @association_filters,
-                 @terminal_result_filters,
-                 @sorting_filters,
-                 @eager_load_filters,
-                 @namespace_filters,
-                 @recursive_cte_filters,
-                 @window_function_filters,
-                 @cte_filters,
-                 @tie_handling_filters,
-                 @projection_filters,
-                 @set_composition_filters,
-                 @nested_query_filters,
-                 @removal_filters,
-                 @concurrency_filters,
-                 @cardinality_filters,
-                 @pagination_filters,
-                 @mutation_filters,
-                 @binding_filters,
-                 @predicate_filters
-               ])
-
-  @behaviour EctoShorts.Adapter.QueryBuilder
+  @doc false
+  @spec filters() :: list(filters())
+  def filters, do: @filters
 
   @doc """
   Builds an `Ecto.Query` from `source` by applying each entry in `params`.
@@ -318,7 +317,7 @@ defmodule EctoShorts.CommonFilters do
   * `:sorter` - receives the normalized keyword list and returns it in the
     order to evaluate
   * `:query_builder` - custom `EctoShorts.Adapter.QueryBuilder`
-  * `:query_provider` - provider used by query families such as joins and
+  * `:query_provider_module` - provider used by query families such as joins and
     locks
 
   ## Examples
@@ -348,370 +347,152 @@ defmodule EctoShorts.CommonFilters do
           Ecto.Query.t()
   def convert_params_to_filter(source, params, opts \\ []) do
     query = CommonSchema.to_query(source)
-    sorter = opts[:sorter] || (&sort_filter_params/1)
 
-    params
-    |> to_keyword()
-    |> sorter.()
-    |> Enum.reduce(query, fn {key, value}, query_acc ->
-      apply_filters(:where, source, query_acc, {:as, nil}, {key, value}, opts)
-    end)
+    sorted =
+      case opts[:sorter] do
+        nil -> sort_filter_params(params)
+        sorter -> sorter.(params)
+      end
+
+    reduce_filters(:where, source, query, {:as, nil}, sorted, opts)
   end
 
-  defp apply_filters(filter, source, query, selected_binding, {key, term}, opts) do
+  defp reduce_filters(filter, source, query, selected_binding, params, opts) do
+    Enum.reduce(params, query, &apply_filter(filter, source, &2, selected_binding, &1, opts))
+  end
+
+  defp apply_filter(filter, source, query, selected_binding, {key, params}, opts) do
     cond do
-      key in @binding_operator ->
-        Enum.reduce(term, query, fn {inner_key, inner_value}, query_acc ->
-          case resolve_binding_selector(query_acc, key, inner_key) do
-            :skip ->
+      key in [:as, :at] ->
+        Enum.reduce(params, query, fn {next_key, next_value}, query_acc ->
+          case resolve_binding_selector(query_acc, key, next_key) do
+            :error ->
               query_acc
 
-            resolved ->
-              apply_filters(
+            {:ok, resolved} ->
+              apply_filter(
                 filter,
                 source,
                 query_acc,
                 resolved,
-                inner_value,
+                next_value,
                 opts
               )
           end
         end)
 
-      key in @predicate_filters ->
-        reduce_filter_group_or_build(key, source, query, selected_binding, term, opts)
+      key in [:having, :or_having, :where, :or_where] ->
+        cond do
+          list_of_params?(params) ->
+            reduce_filters(key, source, query, selected_binding, params, opts)
 
-      key in @post_aggregate_filters ->
-        reduce_filter_group_or_build(key, source, query, selected_binding, term, opts)
+          params?(params) ->
+            reduce_filters(key, source, query, selected_binding, params, opts)
 
-      association_key?(source, key) ->
-        if container?(term) do
-          query
-          |> ensure_association_binding(source, key, opts)
-          |> reduce_association_filters(filter, source, key, term, opts)
+          true ->
+            Builder.build_query(key, source, query, selected_binding, params, opts)
+        end
+
+      assoc_key?(source, key) ->
+        if params?(params) do
+          apply_assoc_filters(filter, source, query, key, params, opts)
         else
-          Logger.warning(
+          EctoShorts.Logger.warning(
             @logger_prefix,
-            "Expected association filter value to be a map or keyword list, got: #{inspect(term)}"
+            "Expected association filter value to be a map or keyword list, got: #{inspect(params)}"
           )
 
           query
         end
 
-      key in @all_filters ->
-        build_query(key, source, query, selected_binding, term, opts)
-
       key === :and ->
-        if filter_group_list?(term) do
-          Enum.reduce(term, query, fn entry, query_acc ->
-            entry
-            |> to_keyword()
-            |> then(&apply_filters(filter, source, query_acc, selected_binding, &1, opts))
-          end)
-        else
-          term
-          |> to_keyword()
-          |> Enum.reduce(query, fn {inner_key, inner_value}, query_acc ->
-            apply_filters(
-              filter,
-              source,
-              query_acc,
-              selected_binding,
-              {inner_key, inner_value},
-              opts
-            )
-          end)
-        end
+        reduce_filters(filter, source, query, selected_binding, params, opts)
 
       key === :or ->
-        if filter_group_list?(term) do
-          Enum.reduce(term, query, fn entry, query_acc ->
-            entry
-            |> to_keyword()
-            |> then(&apply_filters(:or_where, source, query_acc, selected_binding, &1, opts))
-          end)
+        if list_of_params?(params) do
+          reduce_filters(:or_where, source, query, selected_binding, params, opts)
         else
-          term
-          |> to_keyword()
-          |> Enum.reduce(query, fn {inner_key, inner_value}, query_acc ->
+          Enum.reduce(params, query, fn {inner_key, inner_value}, query_acc ->
             or_entries(source, query_acc, selected_binding, inner_key, inner_value, opts)
           end)
         end
 
       true ->
-        build_query(filter, source, query, selected_binding, {key, term}, opts)
+        if key in @filters do
+          Builder.build_query(key, source, query, selected_binding, params, opts)
+        else
+          Builder.build_query(filter, source, query, selected_binding, {key, params}, opts)
+        end
     end
   end
 
-  defp apply_filters(filter, source, query, selected_binding, term, opts) do
-    Enum.reduce(term, query, &apply_filters(filter, source, &2, selected_binding, &1, opts))
-  end
-
-  defp reduce_filter_group_or_build(filter, source, query, selected_binding, term, opts) do
-    cond do
-      filter_group_list?(term) ->
-        Enum.reduce(term, query, fn entry, query_acc ->
-          entry
-          |> to_keyword()
-          |> then(&apply_filters(filter, source, query_acc, selected_binding, &1, opts))
-        end)
-
-      container?(term) ->
-        term
-        |> to_keyword()
-        |> Enum.reduce(query, fn {inner_key, inner_value}, query_acc ->
-          apply_filters(
-            filter,
-            source,
-            query_acc,
-            selected_binding,
-            {inner_key, inner_value},
-            opts
-          )
-        end)
-
-      true ->
-        build_query(filter, source, query, selected_binding, term, opts)
-    end
+  defp apply_filter(filter, source, query, selected_binding, params, opts) do
+    reduce_filters(filter, source, query, selected_binding, params, opts)
   end
 
   defp or_entries(source, query, selected_binding, key, value, opts) do
-    build_query(:or_where, source, query, selected_binding, {key, value}, opts)
+    Builder.build_query(:or_where, source, query, selected_binding, {key, value}, opts)
   end
 
-  defp resolve_binding_selector(_query, :at, :first), do: {:at, 1}
+  defp apply_assoc_filters(filter, source, query, key, params, opts) do
+    assoc_source = get_assoc_source(source, key)
 
-  defp resolve_binding_selector(query, :at, :last),
-    do: {:at, CommonQuery.query_binding_count(query)}
+    query_acc =
+      Builder.build_query(
+        :join,
+        source,
+        query,
+        {:as, nil},
+        [association: [source: key, as: key]],
+        opts
+      )
+
+    apply_filter(filter, assoc_source, query_acc, {:as, key}, params, opts)
+  end
+
+  defp resolve_binding_selector(_query, :at, :first) do
+    {:ok, {:at, 1}}
+  end
+
+  defp resolve_binding_selector(query, :at, :last) do
+    {:ok, {:at, CommonQuery.query_binding_count(query)}}
+  end
 
   defp resolve_binding_selector(_query, :at, position) when is_integer(position) do
     max = Config.max_positional_bindings() || 10
 
     if position >= 1 and position <= max do
-      {:at, position}
+      {:ok, {:at, position}}
     else
-      Logger.warning(
+      EctoShorts.Logger.warning(
         @logger_prefix,
         "Positional binding :at position #{position} is out of range " <>
           "(compiled max: #{max}). Filter skipped."
       )
 
-      :skip
+      :error
     end
   end
 
-  defp resolve_binding_selector(_query, key, inner_key), do: {key, inner_key}
-
-  defp reduce_association_filters(query, filter, source, key, term, opts) do
-    assoc_source = resolve_association_source(source, key)
-
-    term
-    |> to_keyword()
-    |> Enum.reduce(query, fn {inner_key, inner_value}, query_acc ->
-      apply_filters(filter, assoc_source, query_acc, {:as, key}, {inner_key, inner_value}, opts)
-    end)
+  defp resolve_binding_selector(_query, key, inner_key) do
+    {:ok, {key, inner_key}}
   end
 
-  defp resolve_association_source(source, key) do
+  defp get_assoc_source(source, key) do
     case CommonSchema.get_schema_reflection(source, :association, key) do
-      %{queryable: queryable} when queryable != nil -> queryable
+      %{queryable: queryable} when queryable !== nil -> queryable
       _ -> source
     end
   end
 
-  defp ensure_association_binding(query, source, key, opts) do
-    build_query(
-      :with_named_binding,
-      source,
-      query,
-      {:as, nil},
-      %{key => %{join: [association: [source: key, as: key]]}},
-      opts
-    )
-  end
-
-  defp to_keyword(map) when is_map(map) and not is_struct(map),
-    do: map |> Map.to_list() |> to_keyword()
-
-  defp to_keyword([]), do: []
-  defp to_keyword([head | tail]), do: [to_keyword(head) | to_keyword(tail)]
-  defp to_keyword({k, v}), do: {k, to_keyword(v)}
-  defp to_keyword(term), do: term
-
-  defp association_key?(source, key) do
+  defp assoc_key?(source, key) do
     key in (CommonSchema.get_schema_reflection(source, :associations) || [])
   end
 
-  defp container?(term) do
-    (is_map(term) and not is_struct(term)) or Keyword.keyword?(term)
-  end
-
-  defp filter_group_list?([]), do: true
-  defp filter_group_list?([head | _]), do: container?(head)
-  defp filter_group_list?(_), do: false
-
-  @impl EctoShorts.Adapter.QueryBuilder
-  @doc """
-  Applies a single filter entry to the query.
-
-  This is the `EctoShorts.Adapter.QueryBuilder` implementation for
-  `EctoShorts.CommonFilters`. It dispatches `{filter, term}` to the
-  appropriate internal builder module via `EctoShorts.CommonFilters.API`,
-  or delegates to a custom `:query_builder` module when one is configured.
-
-  `filter` is the filter-group atom, such as `:where`, `:join`, or
-  `:order_by`. `selected_binding` is the active binding selector
-  (`{:as, atom()}` or `{:at, pos_integer()}`). `term` is either a
-  `{field, value}` pair for field filters or the raw filter payload for
-  structural filters.
-
-  Custom query builder implementations can call this function to fall
-  through to the default dispatch after applying their own logic:
-
-      defmodule MyApp.CustomQueryBuilder do
-        @behaviour EctoShorts.Adapter.QueryBuilder
-
-        @impl true
-        def build_query(filter, source, query, selected_binding, term, opts) do
-          EctoShorts.CommonFilters.build_query(filter, source, query, selected_binding, term, opts)
-        end
-      end
-
-  If `opts[:query_builder]` points to a module that does not export
-  `build_query/6`, the function logs a warning and returns the query
-  unchanged. If `:query_builder` is present but is not a module, it raises
-  `ArgumentError`.
-  """
-  def build_query(filter, source, query, selected_binding, term, opts) do
-    case opts[:query_builder] || Config.query_builder() do
-      nil ->
-        do_build_query(filter, source, query, selected_binding, term, opts)
-
-      module when is_atom(module) ->
-        if function_exported?(module, :build_query, 6) do
-          module.build_query(filter, source, query, selected_binding, term, opts)
-        else
-          Logger.warning(
-            @logger_prefix,
-            "Module does not export the required function build_query/6: #{inspect(module)}"
-          )
-
-          query
-        end
-
-      term ->
-        raise ArgumentError, "Expect :query_builder option to a module, got: #{inspect(term)}"
-    end
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @uniqueness_filters do
-    Distinct.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:last, source, query, selected_binding, term, opts) do
-    Last.build_query(:last, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:join, source, query, selected_binding, term, opts) do
-    Join.build_query(:join, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @grouping_filters do
-    GroupBy.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @post_aggregate_filters do
-    Having.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @sorting_filters do
-    OrderBy.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:preload, source, query, selected_binding, term, opts) do
-    Preload.build_query(:preload, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:subquery, source, query, selected_binding, term, opts) do
-    SubQuery.build_query(:subquery, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:put_query_prefix, _source, query, _selected_binding, prefix, _opts) do
-    Query.put_query_prefix(query, prefix)
-  end
-
-  defp do_build_query(:recursive_ctes, _source, query, _selected_binding, value, _opts) do
-    Query.recursive_ctes(query, value)
-  end
-
-  defp do_build_query(:windows, source, query, selected_binding, term, opts) do
-    Windows.build_query(:windows, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:with_cte, source, query, selected_binding, term, opts) do
-    WithCte.build_query(:with_cte, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:with_ties, source, query, selected_binding, term, opts) do
-    WithTies.build_query(:with_ties, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @projection_filters do
-    Select.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @set_composition_filters do
-    SetOperation.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:exclude, _source, query, _selected_binding, term, _opts) do
-    term
-    |> List.wrap()
-    |> Enum.reduce(query, fn field, query_acc ->
-      Query.exclude(query_acc, field)
-    end)
-  end
-
-  defp do_build_query(:lock, source, query, selected_binding, term, opts) do
-    Lock.build_query(:lock, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @cardinality_filters do
-    Limit.build_query(filter, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:offset, source, query, selected_binding, term, opts) do
-    Offset.build_query(:offset, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:update, source, query, selected_binding, term, opts) do
-    Update.build_query(:update, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(:with_named_binding, source, query, selected_binding, term, opts) do
-    WithNamedBinding.build_query(:with_named_binding, source, query, selected_binding, term, opts)
-  end
-
-  defp do_build_query(filter, source, query, selected_binding, term, opts)
-       when filter in @predicate_filters do
-    case DynamicBuilders.build_dynamic(source, selected_binding, term, opts) do
-      nil ->
-        query
-
-      dyn ->
-        case filter do
-          :where -> Query.where(query, ^dyn)
-          :or_where -> Query.or_where(query, ^dyn)
-        end
-    end
-  end
+  defp params?(term), do: (is_map(term) and not is_struct(term)) or Keyword.keyword?(term)
+  defp list_of_params?([]), do: true
+  defp list_of_params?([head | _]), do: params?(head)
+  defp list_of_params?(_), do: false
 
   defp sort_filter_params(params) do
     where_filters = Enum.filter(params, fn {key, _val} -> key === :where end)

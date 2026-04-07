@@ -1,13 +1,11 @@
 defmodule EctoShorts.CommonFilters.Preload do
+  @moduledoc since: "3.0.0"
   @moduledoc false
 
-  alias Ecto.Query
   alias EctoShorts.QueryBinding
 
+  alias Ecto.Query
   require Ecto.Query
-
-  {target_binding_var, binding_patterns} =
-    QueryBinding.query_binding_contracts(__MODULE__)
 
   def build_query(:preload, _source, query, selected_binding, params, _opts) do
     case selected_binding do
@@ -35,6 +33,10 @@ defmodule EctoShorts.CommonFilters.Preload do
     build_preload(query, selected_binding, assoc_key, nil)
   end
 
+  ## Generated Functions
+
+  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
+
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     defp build_preload(query, unquote(quoted_binding_head), assoc_key, nil) do
       Query.preload(
@@ -46,7 +48,7 @@ defmodule EctoShorts.CommonFilters.Preload do
 
     defp build_preload(query, unquote(quoted_binding_head), assoc_key, nested) do
       prepared_nested =
-        case normalize_preload(nested) do
+        case normalize(nested) do
           [{key, value}] -> {key, value}
           other -> other
         end
@@ -59,26 +61,27 @@ defmodule EctoShorts.CommonFilters.Preload do
     end
   end
 
-  defp build_preload(query, expr) do
-    Query.preload(query, ^normalize_preload(expr))
+  defp build_preload(query, value) do
+    preloads = normalize(value)
+    Query.preload(query, ^preloads)
   end
 
-  defp normalize_preload(params) when is_map(params) and not is_struct(params) do
+  defp normalize(params) when is_map(params) and not is_struct(params) do
     params
     |> Map.to_list()
-    |> normalize_preload()
+    |> normalize()
   end
 
-  defp normalize_preload(params) when is_list(params) do
+  defp normalize(params) when is_list(params) do
     if Keyword.keyword?(params) do
       Enum.map(params, fn {key, value} ->
-        {key, normalize_preload(value)}
+        {key, normalize(value)}
       end)
     else
       params
     end
   end
 
-  defp normalize_preload(name) when is_atom(name), do: [name]
-  defp normalize_preload(params), do: params
+  defp normalize(name) when is_atom(name), do: [name]
+  defp normalize(term), do: term
 end

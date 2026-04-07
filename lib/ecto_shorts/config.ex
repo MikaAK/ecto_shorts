@@ -12,9 +12,9 @@ defmodule EctoShorts.Config do
       config :ecto_shorts,
         repo: MyApp.Repo,
         replica: MyApp.Repo.Replica,
-        dynamic_builder: EctoShorts.DynamicBuilders.Postgres,
-        query_builder: MyApp.CustomQueryBuilder,
-        query_provider: MyApp.QueryProvider,
+        dynamic_builder_module: EctoShorts.DynamicBuilders.Postgres,
+        query_builder_module: MyApp.CustomQueryBuilder,
+        query_provider_module: MyApp.QueryProvider,
         error_module: EctoShorts.Actions.Error,
         max_positional_bindings: 10
 
@@ -22,9 +22,9 @@ defmodule EctoShorts.Config do
   |---|---|---|---|
   | `:repo` | `module()` | `nil` | Primary `Ecto.Repo` for write operations |
   | `:replica` | `module()` | `nil` | Read replica repo; falls back to `:repo` when absent |
-  | `:dynamic_builder` | `module()` | auto-detected | `EctoShorts.Adapter.DynamicBuilder` implementation; auto-detected from the repo's database adapter when not set |
-  | `:query_builder` | `module()` | `nil` | `EctoShorts.Adapter.QueryBuilder` implementation used by `EctoShorts.CommonFilters` |
-  | `:query_provider` | `module()` | `nil` | `EctoShorts.Adapter.QueryProvider` implementation for named query expressions |
+  | `:dynamic_builder_module` | `module()` | auto-detected | `EctoShorts.Adapter.DynamicBuilder` implementation; auto-detected from the repo's database adapter when not set |
+  | `:query_builder_module` | `module()` | `nil` | `EctoShorts.Adapter.QueryBuilder` implementation used by `EctoShorts.CommonFilters` |
+  | `:query_provider_module` | `module()` | `nil` | `EctoShorts.Adapter.QueryProvider` implementation for named query expressions |
   | `:error_module` | `module()` | `EctoShorts.Actions.Error` | Module used by `EctoShorts.Actions` to build error responses |
   | `:max_positional_bindings` | `integer()` | `nil` | Maximum positional bindings allowed before EctoShorts raises |
 
@@ -189,47 +189,47 @@ defmodule EctoShorts.Config do
 
   @doc since: "3.0.0"
   @doc """
-  Returns the configured `:dynamic_builder` value from the
+  Returns the configured `:dynamic_builder_module` value from the
   application environment. Defaults to `nil`.
 
   ## Examples
 
-      iex> EctoShorts.Config.dynamic_builder()
+      iex> EctoShorts.Config.dynamic_builder_module()
       nil
   """
-  @spec dynamic_builder :: module() | nil
-  def dynamic_builder do
-    Application.get_env(@app, :dynamic_builder)
+  @spec dynamic_builder_module :: module() | nil
+  def dynamic_builder_module do
+    Application.get_env(@app, :dynamic_builder_module)
   end
 
   @doc since: "3.0.0"
   @doc """
-  Returns the configured `:query_builder` value from the
+  Returns the configured `:query_builder_module` value from the
   application environment. Defaults to `nil`.
 
   ## Examples
 
-      iex> EctoShorts.Config.query_builder()
+      iex> EctoShorts.Config.query_builder_module()
       nil
   """
-  @spec query_builder :: module() | nil
-  def query_builder do
-    Application.get_env(@app, :query_builder)
+  @spec query_builder_module :: module() | nil
+  def query_builder_module do
+    Application.get_env(@app, :query_builder_module)
   end
 
   @doc since: "3.0.0"
   @doc """
-  Returns the configured `:query_provider` value from the
+  Returns the configured `:query_provider_module` value from the
   application environment. Defaults to `nil`.
 
   ## Examples
 
-      iex> EctoShorts.Config.query_provider()
+      iex> EctoShorts.Config.query_provider_module()
       nil
   """
-  @spec query_provider :: module() | nil
-  def query_provider do
-    Application.get_env(@app, :query_provider)
+  @spec query_provider_module :: module() | nil
+  def query_provider_module do
+    Application.get_env(@app, :query_provider_module)
   end
 
   @doc since: "3.0.0"

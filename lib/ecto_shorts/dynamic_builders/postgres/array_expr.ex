@@ -1,11 +1,16 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
+  @moduledoc since: "3.0.0"
+  @moduledoc false
+
   alias Ecto.Query
   alias EctoShorts.QueryBinding
+  alias EctoShorts.DynamicBuilders.Postgres.Normalizer
 
   require Ecto.Query
 
-  {target_binding_var, binding_patterns} =
-    QueryBinding.query_binding_contracts(__MODULE__)
+  @logger_prefix "EctoShorts.DynamicBuilders.Postgres.ArrayExpr"
+
+  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
 
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     def dynamic_expr(unquote(quoted_binding_head) = selected_binding, key, negated, term, _opts) do
@@ -79,6 +84,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
     nil_field_dyn?(binding, key)
   end
 
+  defp dispatch_expr(binding, key, {:!=, nil}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], not is_nil(^field))
+  end
+
   defp dispatch_expr(binding, key, {:==, values}) when is_list(values) do
     field = field_dyn(binding, key)
     # credo:disable-for-next-line
@@ -107,6 +117,85 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
     upper_not_exists_dyn(binding, key, value)
   end
 
+  defp dispatch_expr(_binding, key, {op, {:value, {arith_op, _}}})
+       when op in [:==, :!=, :>, :>=, :<, :<=] and arith_op in [:+, :-, :*, :/] do
+    EctoShorts.Logger.warning(
+      @logger_prefix,
+      "arithmetic comparison (#{arith_op}) is not supported on array field #{inspect(key)}, skipping"
+    )
+
+    nil
+  end
+
+  defp dispatch_expr(binding, key, {op, {:value, v}}) when op in [:==, :!=, :>, :>=, :<, :<=] do
+    dispatch_expr(binding, key, {op, v})
+  end
+
+  defp dispatch_expr(binding, key, {:==, {:any, qv}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field == any(qv))
+  end
+
+  defp dispatch_expr(binding, key, {:!=, {:any, qv}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field != any(qv))
+  end
+
+  defp dispatch_expr(binding, key, {:>, {:any, qv}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field > any(qv))
+  end
+
+  defp dispatch_expr(binding, key, {:>=, {:any, qv}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field >= any(qv))
+  end
+
+  defp dispatch_expr(binding, key, {:<, {:any, qv}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field < any(qv))
+  end
+
+  defp dispatch_expr(binding, key, {:<=, {:any, qv}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field <= any(qv))
+  end
+
+  defp dispatch_expr(binding, key, {:parent_as, {pb, pf}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field == field(parent_as(^pb), ^pf))
+  end
+
+  defp dispatch_expr(binding, key, {:==, {:parent_as, {pb, pf}}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field == field(parent_as(^pb), ^pf))
+  end
+
+  defp dispatch_expr(binding, key, {:!=, {:parent_as, {pb, pf}}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field != field(parent_as(^pb), ^pf))
+  end
+
+  defp dispatch_expr(binding, key, {:>, {:parent_as, {pb, pf}}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field > field(parent_as(^pb), ^pf))
+  end
+
+  defp dispatch_expr(binding, key, {:>=, {:parent_as, {pb, pf}}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field >= field(parent_as(^pb), ^pf))
+  end
+
+  defp dispatch_expr(binding, key, {:<, {:parent_as, {pb, pf}}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field < field(parent_as(^pb), ^pf))
+  end
+
+  defp dispatch_expr(binding, key, {:<=, {:parent_as, {pb, pf}}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], ^field <= field(parent_as(^pb), ^pf))
+  end
+
   defp dispatch_expr(binding, key, {:==, value}) do
     field = field_dyn(binding, key)
     Query.dynamic([], ^value in ^field)
@@ -127,15 +216,52 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
     Query.dynamic([], ^value in ^field)
   end
 
+  defp dispatch_expr(binding, key, {:count, {:==, 0}}) do
+    field = field_dyn(binding, key)
+    # credo:disable-for-next-line
+    Query.dynamic([], fragment("coalesce(array_length(?, 1), 0)", ^field) == ^0)
+  end
+
+  defp dispatch_expr(binding, key, {:count, {:==, value}}) do
+    field = field_dyn(binding, key)
+    # credo:disable-for-next-line
+    Query.dynamic([], fragment("array_length(?, 1)", ^field) == ^value)
+  end
+
+  defp dispatch_expr(binding, key, {:count, {:!=, value}}) do
+    field = field_dyn(binding, key)
+    # credo:disable-for-next-line
+    Query.dynamic([], fragment("array_length(?, 1)", ^field) != ^value)
+  end
+
   defp dispatch_expr(binding, key, {:count, {:>, value}}) do
     field = field_dyn(binding, key)
     Query.dynamic([], fragment("array_length(?, 1)", ^field) > ^value)
   end
 
-  defp dispatch_expr(binding, key, {:count, {:==, 0}}) do
+  defp dispatch_expr(binding, key, {:count, {:>=, value}}) do
     field = field_dyn(binding, key)
-    # credo:disable-for-next-line
-    Query.dynamic([], fragment("coalesce(array_length(?, 1), 0)", ^field) == ^0)
+    Query.dynamic([], fragment("array_length(?, 1)", ^field) >= ^value)
+  end
+
+  defp dispatch_expr(binding, key, {:count, {:<, value}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], fragment("array_length(?, 1)", ^field) < ^value)
+  end
+
+  defp dispatch_expr(binding, key, {:count, {:<=, value}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], fragment("array_length(?, 1)", ^field) <= ^value)
+  end
+
+  defp dispatch_expr(binding, key, {:all, {:==, value}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], fragment("? = ALL(?)", ^value, ^field))
+  end
+
+  defp dispatch_expr(binding, key, {:all, {:!=, value}}) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], fragment("? != ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:>, value}}) do
@@ -211,6 +337,42 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
     )
   end
 
+  defp dispatch_expr(_binding, key, {op, _}) when op in [:avg, :sum, :max, :min] do
+    EctoShorts.Logger.warning(
+      @logger_prefix,
+      "#{op} aggregate is not supported on array field #{inspect(key)}, skipping"
+    )
+
+    nil
+  end
+
+  defp dispatch_expr(_binding, key, {:any, _}) do
+    EctoShorts.Logger.warning(
+      @logger_prefix,
+      ":any subquery quantifier is not supported on array field #{inspect(key)}, skipping"
+    )
+
+    nil
+  end
+
+  defp dispatch_expr(_binding, key, {wrapper, _}) when wrapper in [:datetime, :date] do
+    EctoShorts.Logger.warning(
+      @logger_prefix,
+      "#{wrapper} comparison is not supported on array field #{inspect(key)}, skipping"
+    )
+
+    nil
+  end
+
+  defp dispatch_expr(_binding, key, {:parent_as, _}) do
+    EctoShorts.Logger.warning(
+      @logger_prefix,
+      ":parent_as requires a {binding, field} payload, got unexpected form for field #{inspect(key)}, skipping"
+    )
+
+    nil
+  end
+
   defp dispatch_expr(_binding, _key, _term), do: nil
 
   defp maybe_negate(nil, _negated), do: nil
@@ -222,7 +384,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp normalize_term({op, value}) do
-    {normalize_operator(op), value}
+    {Normalizer.normalize_operator(op), value}
   end
 
   defp normalize_term(nil) do
@@ -236,14 +398,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   defp normalize_term(value) do
     {:in, value}
   end
-
-  defp normalize_operator(:eq), do: :==
-  defp normalize_operator(:ne), do: :!=
-  defp normalize_operator(:gt), do: :>
-  defp normalize_operator(:gte), do: :>=
-  defp normalize_operator(:lt), do: :<
-  defp normalize_operator(:lte), do: :<=
-  defp normalize_operator(op), do: op
 
   defp normalize_all_payload(payload) when is_map(payload) and not is_struct(payload) do
     payload
@@ -259,13 +413,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp normalize_all_payload({op, value}) do
-    {normalize_operator(op), value}
+    {Normalizer.normalize_operator(op), value}
   end
 
   defp normalize_all_payload(payload), do: payload
 
   defp normalize_all_payload_entry({op, value}, payload) do
-    [{normalize_operator(op), value} | payload]
+    [{Normalizer.normalize_operator(op), value} | payload]
   end
 
   defp normalize_all_payload_entry(value, payload) do

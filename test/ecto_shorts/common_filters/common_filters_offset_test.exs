@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
 
   import Ecto.Query
 
-  describe "convert_params_to_filter/3 offset shapes" do
+  describe "offset shapes" do
     test "matches Ecto.Query for a root integer offset" do
       expected = offset(Post, ^5)
 
@@ -77,6 +77,19 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
               }
             }
           },
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "casts a string integer offset payload" do
+      expected = offset(Post, ^5)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{offset: "5"},
           []
         )
 
