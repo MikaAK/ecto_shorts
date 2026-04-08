@@ -112,4 +112,47 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
       assert result == params
     end
   end
+
+  # Covers cast_query_update_values line 166: push/pull with non-keyword list values.
+  describe "build_update_expr/2 push/pull with plain list values" do
+    test "returns plain list unchanged for push operator (not keyword)" do
+      result = UpdateExpr.build_update_expr(Post, push: ["item1", "item2"])
+
+      assert result == [push: ["item1", "item2"]]
+    end
+  end
+
+  describe "build_update_expr/2 set with scalar value" do
+    test "returns a non-list non-map set value unchanged" do
+      result = UpdateExpr.build_update_expr(Post, set: "bare_string")
+
+      assert result == [set: "bare_string"]
+    end
+  end
+
+  # Covers array_inner_type line 203 (the _ -> nil fallback):
+  # push on a non-array field (e.g. :title is :string) returns nil from array_inner_type.
+  describe "build_update_expr/2 push on non-array field" do
+    test "passes value through unchanged when field is not an array type" do
+      result = UpdateExpr.build_update_expr(Post, push: [title: "hello"])
+
+      assert result == [push: [title: "hello"]]
+    end
+  end
+
+  # Covers validate_field_type_of_int(nil, _) line 180 and
+  # validate_field_type_of_array(nil, _) line 189 via schemaless build_update_operations.
+  describe "build_update_operations/3 schemaless (nil source)" do
+    test "accepts :inc on schemaless source (nil schema)" do
+      result = UpdateExpr.build_update_operations(nil, %{views: {:inc, 1}})
+
+      assert [{:inc, :views, 1}] = result
+    end
+
+    test "accepts :push on schemaless source (nil schema)" do
+      result = UpdateExpr.build_update_operations(nil, %{tags: {:push, "item"}})
+
+      assert [{:push, :tags, "item"}] = result
+    end
+  end
 end

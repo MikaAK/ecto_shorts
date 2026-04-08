@@ -845,7 +845,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_sql(expected, actual)
     end
 
-    test "{:==, {:datetime, {:ago, ...}}} produces datetime equality via generic path" do
+    test "{:==, {:datetime, {:ago, ...}}} produces equality with an ago datetime value" do
       expected =
         from(p in Post,
           where: p.inserted_at == ago(^1, "day")

@@ -212,6 +212,7 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
 
     test "skips ordered-tuple entry for non-existent schema field, returns query unchanged" do
       import ExUnit.CaptureLog
+
       # :nonexistent_field not on Post → skip entry → exprs=[] while entries≠[] → query unchanged
       expected = from(p in Post)
 
@@ -258,6 +259,43 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{distinct: [dyn]},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    # Covers build_distinct/4 fallback (line 66): when distinct value is not boolean/atom/list
+    # (e.g. a bare DynamicExpr), the fallback clause applies ^expr directly.
+    test "applies a bare DynamicExpr directly via distinct fallback" do
+      dyn = dynamic([p], p.id)
+      expected = from(p in Post, distinct: ^dyn)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{distinct: dyn},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "raises when distinct list contains non-atom non-DynamicExpr entries" do
+      assert_raise ArgumentError, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{distinct: ["title"]}, [])
+      end
+    end
+
+    # Covers schema_field?/2 fallback (line 112): when source has no schema (schemaless),
+    # get_schema_reflection returns nil → fallback returns true (field assumed valid).
+    test "accepts any atom field on a schemaless source" do
+      expected = from(p in "posts", distinct: :any_field)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{distinct: :any_field},
           []
         )
 

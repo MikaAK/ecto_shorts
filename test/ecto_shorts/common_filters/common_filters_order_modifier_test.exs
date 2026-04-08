@@ -240,7 +240,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
       assert %Ecto.Query{} = actual
     end
 
-    test "order_by with a non-binding selector uses the fallthrough build_order_by" do
+    test "order_by accepts a keyword list of direction-field pairs" do
       actual =
         CommonFilters.convert_params_to_filter(
           Post,

@@ -485,4 +485,17 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
       assert {:comments, [[:author, :post]]} = preload_clause
     end
   end
+
+  # Covers preload.ex line 86: normalize/1 catch-all when the preload nested value
+  describe "preload with invalid nested value" do
+    test "raises when a nested preload value is not a map, list, or atom" do
+      assert_raise ArgumentError, fn ->
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{preload: [comments: "author"]},
+          []
+        )
+      end
+    end
+  end
 end
