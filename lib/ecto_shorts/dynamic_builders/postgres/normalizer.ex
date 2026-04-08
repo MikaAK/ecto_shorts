@@ -311,9 +311,9 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
   def normalize_operator(:upcase), do: :upper
   def normalize_operator(op), do: op
 
-  defp normalize_field_name(_source, field_name, _opts) when is_atom(field_name), do: field_name
+  def normalize_field_name(_source, field_name, _opts) when is_atom(field_name), do: field_name
 
-  defp normalize_field_name(source, field_name, opts) when is_binary(field_name) do
+  def normalize_field_name(source, field_name, opts) when is_binary(field_name) do
     case (source !== nil && CommonSchema.get_schema(source) !== nil &&
             CommonSchema.get_schema_reflection(source, :fields)) || nil do
       fields when is_list(fields) ->
@@ -347,17 +347,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Normalizer do
             nil
           end
         else
-          try do
-            String.to_existing_atom(field_name)
-          rescue
-            ArgumentError ->
-              EctoShorts.Logger.warning(
-                @logger_prefix,
-                "Field \"#{field_name}\" could not be resolved to an existing atom, skipping field reference"
-              )
+          EctoShorts.Logger.warning(
+            @logger_prefix,
+            "Field \"#{field_name}\" cannot be resolved: no schema or :allowed_keys available, skipping field reference"
+          )
 
-              nil
-          end
+          nil
         end
     end
   end

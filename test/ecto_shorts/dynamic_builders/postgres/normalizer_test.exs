@@ -51,6 +51,59 @@ defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
     end
   end
 
+  describe "normalize_value_node/3 datetime wrapper error paths" do
+    test "raises when datetime wrapper payload is a non-keyword list" do
+      assert_raise ArgumentError, ~r/keyword list or map/, fn ->
+        Normalizer.normalize_value_node(nil, {:datetime, [1, 2, 3]}, [])
+      end
+    end
+
+    test "raises when datetime wrapper payload is a map whose values form a multi-key keyword list" do
+      assert_raise ArgumentError, ~r/single-key keyword list/, fn ->
+        Normalizer.normalize_value_node(nil, {:datetime, %{add: [count: 1, interval: :day], ago: [count: 2, interval: :hour]}}, [])
+      end
+    end
+  end
+
+  describe "normalize_value_node/3 field name resolution" do
+    import ExUnit.CaptureLog
+
+    test "warns and returns nil when binary field name is not in schema fields" do
+      log =
+        capture_log(fn ->
+          result = Normalizer.normalize_value_node(Post, {:field, "nonexistent_xyz_field"}, [])
+          assert {:field, nil} = result
+        end)
+
+      assert log =~ "Field \"nonexistent_xyz_field\" does not exist on schema"
+    end
+
+    test "converts binary field name to atom when present in allowed_keys" do
+      result = Normalizer.normalize_value_node(nil, {:field, "title"}, allowed_keys: ["title"])
+      assert {:field, :title} = result
+    end
+
+    test "warns and returns nil when binary field name is not in allowed_keys" do
+      log =
+        capture_log(fn ->
+          result = Normalizer.normalize_value_node(nil, {:field, "not_allowed"}, allowed_keys: ["other_field"])
+          assert {:field, nil} = result
+        end)
+
+      assert log =~ "is not in the :allowed_keys list"
+    end
+
+    test "warns and returns nil for binary field when no schema or allowed_keys" do
+      log =
+        capture_log(fn ->
+          result = Normalizer.normalize_value_node(nil, {:field, "title"}, [])
+          assert {:field, nil} = result
+        end)
+
+      assert log =~ "cannot be resolved: no schema or :allowed_keys available"
+    end
+  end
+
   describe "normalize_value_node/3" do
     test "passes scalars through unchanged" do
       assert 42 = Normalizer.normalize_value_node(nil, 42, [])
@@ -68,9 +121,9 @@ defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
                Normalizer.normalize_value_node(nil, {:field, :inserted_at}, [])
     end
 
-    test "normalizes {:field, binary_name} using fallback (existing atom)" do
+    test "normalizes {:field, binary_name} using allowed_keys" do
       assert {:field, :inserted_at} =
-               Normalizer.normalize_value_node(nil, {:field, "inserted_at"}, [])
+               Normalizer.normalize_value_node(nil, {:field, "inserted_at"}, allowed_keys: ["inserted_at"])
     end
 
     test "normalizes {:value, inner}" do
@@ -381,6 +434,18 @@ defmodule EctoShorts.DynamicBuilders.Postgres.NormalizerTest do
         )
 
       assert [{:score, {:>, {:value, {:+, {{:field, :base_score}, {:value, 5}}}}}}] = result
+    end
+
+    test "passes a scalar operand through unchanged when it is not a list" do
+      result =
+        Normalizer.normalize_keyword_params(
+          nil,
+          [{:arithmetic, %{compare: :>, add: 5}}],
+          [],
+          []
+        )
+
+      assert [{:>, {:value, {:+, 5}}}] = result
     end
   end
 

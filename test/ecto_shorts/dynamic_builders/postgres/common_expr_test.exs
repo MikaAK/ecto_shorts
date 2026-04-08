@@ -102,4 +102,24 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExprTest do
       assert is_nil(CommonExpr.dynamic_expr(:unknown, :ids, nil, [1, 2], []))
     end
   end
+
+  describe "operators/0" do
+    test "returns the list of supported common expression operator keys" do
+      ops = CommonExpr.operators()
+      assert is_list(ops)
+      assert :before in ops
+      assert :after in ops
+      assert :since in ops
+      assert :until in ops
+    end
+  end
+
+  describe ":exists operator" do
+    test ":exists produces an exists(subquery) expression" do
+      sub = from(p in Post, where: p.published == ^true)
+      actual = CommonExpr.dynamic_expr({:as, nil}, :exists, nil, sub, [])
+
+      assert %Ecto.Query.DynamicExpr{} = actual
+    end
+  end
 end

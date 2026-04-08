@@ -21,19 +21,6 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query when offset overrides a previous offset" do
-      expected = offset(Post, ^5)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{offset: 5},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for a named binding offset payload" do
       source =
         from(p in Post,

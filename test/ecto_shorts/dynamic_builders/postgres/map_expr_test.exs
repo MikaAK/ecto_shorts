@@ -128,4 +128,22 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExprTest do
       assert nil == MapExpr.dynamic_expr({:as, nil}, :data, nil, {:unknown_op, "value"}, [])
     end
   end
+
+  describe "contained_by list form" do
+    test "{:contained_by, list} produces JSONB <@ from a list" do
+      expected = dynamic([q], fragment("? <@ ?::jsonb", field(q, :data), ^["a", "b"]))
+      actual = MapExpr.dynamic_expr({:as, nil}, :data, nil, {:contained_by, ["a", "b"]}, [])
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "normalize_term plain value" do
+    test "plain scalar value (not nil, not op tuple) normalizes to {:==, value}" do
+      expected = dynamic([q], field(q, :data) == ^"hello")
+      actual = MapExpr.dynamic_expr({:as, nil}, :data, nil, "hello", [])
+
+      assert_dynamic(expected, actual)
+    end
+  end
 end

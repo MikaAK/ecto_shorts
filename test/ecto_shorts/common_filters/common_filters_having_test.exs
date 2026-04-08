@@ -21,6 +21,19 @@ defmodule EctoShorts.CommonFilters.HavingTest do
       assert_query(expected, actual)
     end
 
+    test "returns query unchanged when or_having is nil" do
+      expected = from(p in Post, group_by: p.author_id)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          expected,
+          %{or_having: nil},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
     test "matches Ecto.Query for a root aggregate having" do
       source = from(p in Post, group_by: p.author_id)
       expected = from(p in Post, group_by: p.author_id, having: avg(p.views) > ^100)
@@ -60,6 +73,35 @@ defmodule EctoShorts.CommonFilters.HavingTest do
         CommonFilters.convert_params_to_filter(
           source,
           %{having: dynamic_expr},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "matches Ecto.Query for a root dynamic or_having" do
+      source = from(p in Post, group_by: p.author_id)
+      dynamic_expr = dynamic([p], avg(p.views) > 10)
+      expected = from(p in Post, group_by: p.author_id, or_having: ^dynamic_expr)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{or_having: dynamic_expr},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when or_having resolves to nil dynamic" do
+      source = from(p in Post, group_by: p.author_id)
+      expected = from(p in Post, group_by: p.author_id)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{or_having: %{nonexistent_field_xyz: 5}},
           []
         )
 

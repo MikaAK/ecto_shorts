@@ -178,5 +178,41 @@ defmodule EctoShorts.CommonFilters.SetOperationTest do
 
       assert_query(expected, actual)
     end
+
+    test "returns query unchanged when union is nil" do
+      expected = from(p in Post)
+      actual = CommonFilters.convert_params_to_filter(expected, %{union: nil}, [])
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when union_all is nil" do
+      expected = from(p in Post)
+      actual = CommonFilters.convert_params_to_filter(expected, %{union_all: nil}, [])
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when intersect is nil" do
+      expected = from(p in Post)
+      actual = CommonFilters.convert_params_to_filter(expected, %{intersect: nil}, [])
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when intersect_all is nil" do
+      expected = from(p in Post)
+      actual = CommonFilters.convert_params_to_filter(expected, %{intersect_all: nil}, [])
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when except is nil" do
+      expected = from(p in Post)
+      actual = CommonFilters.convert_params_to_filter(expected, %{except: nil}, [])
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when except_all is nil" do
+      expected = from(p in Post)
+      actual = CommonFilters.convert_params_to_filter(expected, %{except_all: nil}, [])
+      assert_query(expected, actual)
+    end
   end
 end

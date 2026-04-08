@@ -354,6 +354,104 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     end
   end
 
+  describe "order_by edge cases" do
+    test "accepts a map input for order_by" do
+      # Map.to_list(%{asc: :title}) = [{:asc, :title}] — valid direction-field tuple
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{order_by: %{asc: :title}},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
+    test "skips invalid schema field in order_by list and returns query unchanged" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{order_by: [{:asc, :nonexistent_field}]},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "nonexistent_field"
+    end
+  end
+
+  describe "prepend_order_by edge cases" do
+    test "accepts a map input for prepend_order_by" do
+      # Map input: Map.to_list(%{asc: :title}) = [{:asc, :title}] — valid direction-field tuple
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{prepend_order_by: %{asc: :title}},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
+    test "skips invalid schema field in ordered-tuple entry and returns query unchanged" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{prepend_order_by: [{:asc, :nonexistent_field}]},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "nonexistent_field"
+    end
+
+    test "skips invalid schema field in plain-atom entry and returns query unchanged" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{prepend_order_by: [:nonexistent_field]},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "nonexistent_field"
+    end
+  end
+
+  describe "reverse_order nil" do
+    test "reverses the query order when reverse_order is nil" do
+      source = from(p in Post, order_by: [asc: p.title])
+      expected = reverse_order(source)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{reverse_order: nil},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe "reverse_order warning" do
     test "logs a warning and returns the query unchanged when reverse_order is not true" do
       expected = from(p in Post, order_by: [asc: p.title])

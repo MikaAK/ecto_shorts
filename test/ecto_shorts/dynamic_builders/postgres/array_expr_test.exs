@@ -664,4 +664,94 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
       assert log =~ "not supported"
     end
   end
+
+  describe ":any subquery quantifier - remaining comparison operators" do
+    setup do
+      sub = from(p in "posts", select: p.score)
+      {:ok, sub: sub}
+    end
+
+    test "{:>=, {:any, subquery}} produces field >= any(subquery)", %{sub: sub} do
+      expected = dynamic([q], field(q, :score) >= any(sub))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :score, nil, {:>=, {:any, sub}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:any, subquery}} produces field < any(subquery)", %{sub: sub} do
+      expected = dynamic([q], field(q, :score) < any(sub))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :score, nil, {:<, {:any, sub}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:any, subquery}} produces field <= any(subquery)", %{sub: sub} do
+      expected = dynamic([q], field(q, :score) <= any(sub))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :score, nil, {:<=, {:any, sub}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe ":parent_as cross-binding reference - remaining comparison operators" do
+    test "{:>=, {:parent_as, {binding, field}}} produces >= comparison" do
+      expected = dynamic([q], field(q, :tags) >= field(parent_as(:post), :tags))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:>=, {:parent_as, {:post, :tags}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:parent_as, {binding, field}}} produces < comparison" do
+      expected = dynamic([q], field(q, :tags) < field(parent_as(:post), :tags))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:<, {:parent_as, {:post, :tags}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:parent_as, {binding, field}}} produces <= comparison" do
+      expected = dynamic([q], field(q, :tags) <= field(parent_as(:post), :tags))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:<=, {:parent_as, {:post, :tags}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:parent_as, invalid_payload} logs a warning and returns nil" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          result =
+            ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:parent_as, :not_a_pair}, [])
+
+          assert is_nil(result)
+        end)
+
+      assert log =~ ":parent_as requires a {binding, field} payload"
+    end
+  end
+
+  describe "normalize_all_payload edge cases" do
+    alias EctoShorts.DynamicBuilders.Postgres.ArrayExpr
+
+    test "collapse_all_payload returns single-entry payload unwrapped" do
+      # {all: scalar} exercises the non-list, non-map normalize_all_payload fallback
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :scores, nil, {:all, {:==, "a"}}, [])
+
+      assert %Ecto.Query.DynamicExpr{} = actual
+    end
+
+    test "normalize_all_payload with multiple entries returns nil (no dispatch clause for list payload)" do
+      # Multiple entries collapse to a list form that has no dispatch_expr clause
+      actual =
+        ArrayExpr.dynamic_expr(
+          {:as, nil},
+          :scores,
+          nil,
+          {:all, [eq: "a", ne: "b"]},
+          []
+        )
+
+      assert is_nil(actual)
+    end
+  end
 end

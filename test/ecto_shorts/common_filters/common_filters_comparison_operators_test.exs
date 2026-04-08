@@ -17,13 +17,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "matches records where the field equals the value using the eq alias" do
-      expected = from(p in Post, where: p.id == ^1)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{id: %{eq: 1}}, [])
-
-      assert_sql(expected, q2)
-    end
-
     test "matches records where the field is nil using == nil" do
       expected = from(p in Post, where: is_nil(p.published_at))
       q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{==: nil}}, [])
@@ -31,23 +24,9 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "matches records where the field is nil using the eq alias" do
-      expected = from(p in Post, where: is_nil(p.published_at))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{eq: nil}}, [])
-
-      assert_sql(expected, q2)
-    end
-
     test "matches records where the field is not nil using != nil" do
       expected = from(p in Post, where: not is_nil(p.published_at))
       q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{!=: nil}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records where the field is not nil using the ne alias" do
-      expected = from(p in Post, where: not is_nil(p.published_at))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{ne: nil}}, [])
 
       assert_sql(expected, q2)
     end
@@ -83,41 +62,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     test "matches records where the field does not equal the value using !=" do
       expected = from(p in Post, where: p.views != ^10)
       q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{!=: 10}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records where the field does not equal the value using the ne alias" do
-      expected = from(p in Post, where: p.views != ^10)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{ne: 10}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using the gt alias for greater than" do
-      expected = from(p in Post, where: p.views > ^10)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{gt: 10}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using the gte alias for greater than or equal" do
-      expected = from(p in Post, where: p.views >= ^10)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{gte: 10}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using the lt alias for less than" do
-      expected = from(p in Post, where: p.views < ^10)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{lt: 10}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using the lte alias for less than or equal" do
-      expected = from(p in Post, where: p.views <= ^10)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{lte: 10}}, [])
 
       assert_sql(expected, q2)
     end

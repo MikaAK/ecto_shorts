@@ -387,6 +387,75 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
     # preload keyword entry produces a double-wrapped result. `normalize_preload/1`
     # returns a non-keyword list unchanged, and the tuple path in `build_preload/4`
     # then wraps it as the nested spec, producing `{binding, [list]}` instead of
+    test "accepts a map input for preload under a named binding" do
+      source =
+        from(p in Post,
+          join: c in assoc(p, :comments),
+          as: :comments
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{
+            as: %{
+              comments: %{
+                preload: %{comments: :author}
+              }
+            }
+          },
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
+    test "handles bare atom preload key (nil nested) under a named binding" do
+      source =
+        from(p in Post,
+          join: c in assoc(p, :comments),
+          as: :comments
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{
+            as: %{
+              comments: %{
+                preload: [:author]
+              }
+            }
+          },
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
+    test "normalizes a map nested preload spec under a named binding" do
+      source =
+        from(p in Post,
+          join: c in assoc(p, :comments),
+          as: :comments
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{
+            as: %{
+              comments: %{
+                preload: [comments: %{author: :post}]
+              }
+            }
+          },
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
     # `{binding, list}`. Use a keyword list with atom keys for nested sub-associations:
     # `[comments: [author: [], post: []]]` rather than `[comments: [:author, :post]]`.
     test "produces a double-wrapped preload tuple when a non-keyword list is the nested spec" do

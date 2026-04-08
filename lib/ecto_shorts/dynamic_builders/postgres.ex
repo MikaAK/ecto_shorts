@@ -147,8 +147,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
       |> then(&Normalizer.normalize_params(source, &1, opts))
       |> Enum.map(&cast_value(field_type, &1))
       |> Enum.reduce(nil, fn entry, acc ->
-        {merge_op, expr_entry} = expr_entry(key, entry)
-        dyn = apply_expr(source, selected_binding, expr_entry, opts)
+        {merge_op, keyed_entry} =
+          case entry do
+            {op, term} when op in [:and, :or] -> {op, {key, term}}
+            term -> {:and, {key, term}}
+          end
+
+        dyn = apply_expr(source, selected_binding, keyed_entry, opts)
         merge_dynamic(acc, merge_op, dyn)
       end)
 
@@ -166,24 +171,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
           merge_dynamic(acc, :and, dyn)
         end)
 
+      binding_selector?(selected_binding) ->
+        {negated, term} = normalize_negation_term(term)
+        term = normalize_quantified_term(key, term, opts)
+        dispatch_expr(source, selected_binding, key, negated, term, opts)
+
       true ->
-        build_expr(source, selected_binding, key, term, opts)
-    end
-  end
-
-  defp expr_entry(key, {merge_op, term}) when merge_op in [:and, :or] do
-    {merge_op, {key, term}}
-  end
-
-  defp expr_entry(key, term) do
-    {:and, {key, term}}
-  end
-
-  defp build_expr(source, selected_binding, key, term, opts) do
-    if binding_selector?(selected_binding) do
-      {negated, term} = normalize_negation_term(term)
-      term = normalize_quantified_term(key, term, opts)
-      dispatch_expr(source, selected_binding, key, negated, term, opts)
+        nil
     end
   end
 
@@ -259,11 +253,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
             field
 
           field when is_binary(field) ->
-            normalize_field_name(source, field, opts) || outer_key
+            Normalizer.normalize_field_name(source, field, opts) || outer_key
 
           params ->
             if (is_map(params) and not is_struct(params)) or Keyword.keyword?(params) do
-              normalize_field_name(source, params[:field], opts) || outer_key
+              Normalizer.normalize_field_name(source, params[:field], opts) || outer_key
             else
               outer_key
             end
@@ -279,49 +273,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
       )
 
       params
-    end
-  end
-
-  defp normalize_field_name(source, field_name, opts) when is_binary(field_name) do
-    case {CommonSchema.get_schema(source), opts[:allowed_keys]} do
-      {schema, _} when schema !== nil ->
-        string_fields =
-          source
-          |> CommonSchema.get_schema_reflection(:fields)
-          |> MapSet.new(&Atom.to_string/1)
-
-        if MapSet.member?(string_fields, field_name) do
-          String.to_existing_atom(field_name)
-        else
-          EctoShorts.Logger.warning(
-            @logger_prefix,
-            "Field \"#{field_name}\" does not exist on schema #{inspect(schema)}, skipping field reference"
-          )
-
-          nil
-        end
-
-      {_, allowed_keys} when is_list(allowed_keys) ->
-        allowed_set = MapSet.new(allowed_keys)
-
-        if MapSet.member?(allowed_set, field_name) do
-          String.to_atom(field_name)
-        else
-          EctoShorts.Logger.warning(
-            @logger_prefix,
-            "Field \"#{field_name}\" is not in the :allowed_keys list, skipping field reference"
-          )
-
-          nil
-        end
-
-      _ ->
-        EctoShorts.Logger.warning(
-          @logger_prefix,
-          "Field \"#{field_name}\" cannot be resolved: no schema or :allowed_keys available, skipping field reference"
-        )
-
-        nil
     end
   end
 

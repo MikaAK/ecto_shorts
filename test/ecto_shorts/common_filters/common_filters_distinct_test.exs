@@ -209,5 +209,59 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
 
       assert_query(expected, actual)
     end
+
+    test "skips ordered-tuple entry for non-existent schema field, returns query unchanged" do
+      import ExUnit.CaptureLog
+      # :nonexistent_field not on Post → skip entry → exprs=[] while entries≠[] → query unchanged
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{distinct: [{:asc, :nonexistent_field}]},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "nonexistent_field"
+    end
+
+    test "skips plain-atom entry for non-existent schema field, returns query unchanged" do
+      import ExUnit.CaptureLog
+      # All entries invalid → exprs=[] while entries≠[] → query unchanged (no distinct)
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{distinct: [:nonexistent_field]},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "nonexistent_field"
+    end
+
+    test "accepts a DynamicExpr in a distinct list" do
+      dyn = dynamic([p], p.id)
+      expected = from(p in Post, distinct: ^[dyn])
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{distinct: [dyn]},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
   end
 end

@@ -66,6 +66,24 @@ defmodule EctoShorts.CommonFilters.LockTest do
       assert_query(expected, actual)
     end
 
+    test "logs warning and keeps query unchanged when no query provider module is configured" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{lock: %{name: :custom_advisory_lock}},
+              []
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "No query provider module configured for lock filter"
+    end
+
     # The accepted lock shape is `%{name: atom}` or `[name: atom]`. Raw strings and
     # bare functions are not accepted; both produce a log warning and a no-op.
     test "keeps the query unchanged for a direct raw string lock" do

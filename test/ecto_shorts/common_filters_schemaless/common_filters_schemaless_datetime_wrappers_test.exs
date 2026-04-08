@@ -16,7 +16,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDatetimeWrappersTest do
           "posts",
           %{
             inserted_at: %{
-              >=: %{datetime: %{add: %{field: "inserted_at", count: 1, interval: "day"}}}
+              >=: %{datetime: %{add: %{field: :inserted_at, count: 1, interval: "day"}}}
             }
           },
           []
@@ -62,7 +62,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDatetimeWrappersTest do
           "posts",
           %{
             inserted_at: %{
-              not: %{>=: %{datetime: %{add: %{field: "inserted_at", count: 1, interval: "day"}}}}
+              not: %{>=: %{datetime: %{add: %{field: :inserted_at, count: 1, interval: "day"}}}}
             }
           },
           []

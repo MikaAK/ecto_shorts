@@ -85,6 +85,24 @@ defmodule EctoShorts.CommonFilters.WithNamedBindingTest do
       assert log =~ "Expected :with_named_binding params to be a map or keyword list"
     end
 
+    test "logs a warning and returns query unchanged when key is not an atom" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{with_named_binding: %{"string_key" => %{limit: 1}}},
+              []
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected :with_named_binding key to be an atom"
+    end
+
     test "logs a warning when the callback does not create the named binding" do
       expected = from(p in Post)
 

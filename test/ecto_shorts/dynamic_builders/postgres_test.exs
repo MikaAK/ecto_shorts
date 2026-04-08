@@ -2,11 +2,45 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
+  alias EctoShorts.CommonFilters
   alias EctoShorts.DynamicBuilders.Postgres
   alias EctoShorts.Schema.EnumSchema
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
+
+  describe "build_dynamic/4 quantifier operators" do
+    test "builds :all quantifier expression for a single field" do
+      actual = Postgres.build_dynamic(Post, {:as, nil}, {:all, [published: true]})
+
+      assert %Ecto.Query.DynamicExpr{} = actual
+    end
+
+    test "builds :any quantifier expression for a single field" do
+      actual = Postgres.build_dynamic(Post, {:as, nil}, {:any, [published: true]})
+
+      assert %Ecto.Query.DynamicExpr{} = actual
+    end
+
+    test "returns nil when quantifier params normalize to empty" do
+      result = Postgres.build_dynamic(Post, {:as, nil}, {:any, []})
+
+      assert is_nil(result)
+    end
+  end
+
+  describe "build_dynamic/4 merge ops (:and/:or entries)" do
+    test "builds expression when entry has :or merge op from or-group" do
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{or: [published: true, views: %{>: 0}]},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+  end
 
   describe "build_dynamic/4 Ecto.Enum casting" do
     test "casts a bare Ecto.Enum atom to its integer mapping" do

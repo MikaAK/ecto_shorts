@@ -990,6 +990,17 @@ defmodule EctoShorts.CommonChangesTest do
       assert_raise ArgumentError, expected_error_message, func
     end
 
+    test "uses cast_assoc when params contain an empty list" do
+      params = %{comments: []}
+
+      changeset =
+        %Post{}
+        |> Post.changeset(params)
+        |> CommonChanges.put_or_cast_assoc(:comments)
+
+      assert %Changeset{valid?: true} = changeset
+    end
+
     test "raises when the key does not exist on the schema" do
       expected_error_message =
         "The key :invalid_association is not an association for the queryable EctoShorts.Schema.Comment."

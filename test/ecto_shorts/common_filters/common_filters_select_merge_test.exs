@@ -145,5 +145,32 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
 
       assert_query(expected, actual)
     end
+
+    test "accepts a DynamicExpr value in a keyword-list select_merge" do
+      dyn = dynamic([p], p.views + ^0)
+      source = from(p in Post, select: %{id: p.id})
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{select_merge: [extra_views: dyn]},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
+    test "accepts a non-atom, non-dynamic value in a keyword-list select_merge" do
+      source = from(p in Post, select: %{id: p.id})
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{select_merge: [label: "static_value"]},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
   end
 end

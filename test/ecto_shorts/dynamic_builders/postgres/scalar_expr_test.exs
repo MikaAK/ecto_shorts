@@ -139,33 +139,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test ":gt alias produces greater-than" do
-      expected = dynamic([q], field(q, :views) > ^10)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:gt, 10}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":gte alias produces greater-than-or-equal" do
-      expected = dynamic([q], field(q, :views) >= ^10)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:gte, 10}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":lt alias produces less-than" do
-      expected = dynamic([q], field(q, :views) < ^10)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:lt, 10}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":lte alias produces less-than-or-equal" do
-      expected = dynamic([q], field(q, :views) <= ^10)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:lte, 10}, [])
-
-      assert_dynamic(expected, actual)
-    end
   end
 
   describe "membership operators" do

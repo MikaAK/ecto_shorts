@@ -55,6 +55,20 @@ defmodule EctoShorts.CommonFilters.WithCteTest do
       assert_query(expected, actual)
     end
 
+    test "accepts a map for the CTE filter params" do
+      cte_query = from(p in Post, where: p.published == ^true)
+      expected = with_cte(Post, "published_posts", as: ^cte_query)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_cte: [published_posts: [as: %{published: true}]]},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
     test "matches Ecto.Query for with_cte with filter params using the default source" do
       cte_query = from(p in Post, where: p.published == ^true)
       expected = with_cte(Post, "published_posts", as: ^cte_query)

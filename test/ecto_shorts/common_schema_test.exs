@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonSchemaTest do
 
   alias Ecto.Changeset
   alias EctoShorts.CommonSchema
+  alias EctoShorts.Schema.EnumSchema
   alias EctoShorts.Schema.Post
   alias EctoShorts.Schema.PostAbstract
   alias EctoShorts.Schema.PostAbstractHasSchemaPrefix
@@ -48,6 +49,12 @@ defmodule EctoShorts.CommonSchemaTest do
     test "returns the prefix from a schema struct" do
       assert CommonSchema.get_schema_prefix(%PostHasSchemaPrefix{}) === "custom_schema_prefix"
     end
+
+    test "returns the prefix from an Ecto changeset" do
+      # The changeset's data is a schema struct; its __meta__ holds the prefix
+      changeset = PostHasSchemaPrefix.changeset(%PostHasSchemaPrefix{}, %{})
+      assert CommonSchema.get_schema_prefix(changeset) === "custom_schema_prefix"
+    end
   end
 
   describe "get_schema_source/1" do
@@ -69,6 +76,16 @@ defmodule EctoShorts.CommonSchemaTest do
     test "returns source tuple from query" do
       q = from(u in "users")
       assert CommonSchema.get_schema_source(q) === {"users", nil}
+    end
+
+    test "returns source tuple from an Ecto changeset" do
+      changeset = Post.changeset(%Post{}, %{})
+      assert CommonSchema.get_schema_source(changeset) === {"posts", Post}
+    end
+
+    test "returns nil for an unrecognized value" do
+      assert CommonSchema.get_schema_source("not_a_schema") === nil
+      assert CommonSchema.get_schema_source(42) === nil
     end
   end
 
@@ -96,6 +113,14 @@ defmodule EctoShorts.CommonSchemaTest do
       assert %Ecto.Schema.Metadata{} = meta
       assert meta.schema === Post
       assert meta.source === "posts"
+    end
+  end
+
+  describe "put_schema_metadata/1 (default attrs)" do
+    test "returns schema struct unchanged when called with no attrs" do
+      struct = CommonSchema.put_schema_metadata(%Post{})
+      meta = CommonSchema.get_schema_metadata(struct)
+      assert meta.schema === Post
     end
   end
 
@@ -390,6 +415,20 @@ defmodule EctoShorts.CommonSchemaTest do
 
     test "falls back to Changeset.change/2 when schema has no changeset/2" do
       result = CommonSchema.create_changeset(PostAbstract, %PostAbstract{}, %{title: "hello"}, [])
+      assert %Changeset{} = result
+    end
+
+    test "uses Changeset.change/2 in 4-arg form when schema truly has no changeset/2" do
+      result = CommonSchema.create_changeset(EnumSchema, %EnumSchema{}, %{views: 1}, [])
+      assert %Changeset{} = result
+    end
+
+    test "uses Changeset.change/2 in 1-arity callback when schema truly has no changeset/2" do
+      result =
+        CommonSchema.create_changeset(EnumSchema, %EnumSchema{}, %{views: 1},
+          changeset: fn cs -> cs end
+        )
+
       assert %Changeset{} = result
     end
   end

@@ -205,4 +205,25 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
       assert_query(expected, actual)
     end
   end
+
+  describe "group_by edge cases" do
+    test "skips invalid schema field atom, returns query unchanged" do
+      import ExUnit.CaptureLog
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{group_by: [:nonexistent_field]},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "nonexistent_field"
+    end
+  end
 end

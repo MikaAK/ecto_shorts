@@ -335,4 +335,68 @@ defmodule EctoShorts.CommonParamsTest do
       refute Map.has_key?(insert_map, :made_up_field)
     end
   end
+
+  describe "convert_to_insert_params/3 timestamp options" do
+    test "skips the inserted_at timestamp when inserted_at_source is false" do
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "No TS"}],
+                 validate: false,
+                 inserted_at_source: false
+               )
+
+      refute Map.has_key?(insert_map, :inserted_at)
+    end
+
+    test "uses a custom inserted_at field name when inserted_at_source is provided" do
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "Custom TS"}],
+                 validate: false,
+                 inserted_at_source: :created_on
+               )
+
+      assert Map.has_key?(insert_map, :created_on)
+      refute Map.has_key?(insert_map, :inserted_at)
+    end
+
+    test "preserves an existing non-nil inserted_at in params" do
+      existing_ts = ~U[2024-01-01 00:00:00Z]
+
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "Existing TS", inserted_at: existing_ts}],
+                 validate: false
+               )
+
+      assert %NaiveDateTime{year: 2024} = insert_map.inserted_at
+    end
+
+    test "skips the updated_at timestamp when updated_at_source is false" do
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "No Updated TS"}],
+                 validate: false,
+                 updated_at_source: false
+               )
+
+      refute Map.has_key?(insert_map, :updated_at)
+    end
+
+    test "skips the updated_at timestamp when updated_at value is false" do
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [%{title: "No Updated TS"}],
+                 validate: false,
+                 updated_at: false
+               )
+
+      refute Map.has_key?(insert_map, :updated_at)
+    end
+  end
 end

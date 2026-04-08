@@ -53,7 +53,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDateWrappersTest do
           "posts",
           %{
             inserted_at: %{
-              >=: %{date: %{add: %{field: "inserted_at", count: 7, interval: "day"}}}
+              >=: %{date: %{add: %{field: :inserted_at, count: 7, interval: "day"}}}
             }
           },
           []

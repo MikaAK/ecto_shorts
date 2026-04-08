@@ -456,4 +456,51 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
       assert_query(expected, actual)
     end
   end
+
+  describe "windows edge cases" do
+    test "accepts a map input for windows" do
+      source = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{windows: %{w: [partition_by: :author_id]}},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+
+    test "logs warning and returns query unchanged for non-map, non-keyword windows value" do
+      import ExUnit.CaptureLog
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{windows: :invalid},
+              []
+            )
+
+          assert inspect(actual) == inspect(expected)
+        end)
+
+      assert log =~ "Expected :windows params to be a map or keyword list"
+    end
+
+    test "accepts a plain atom in order_by within a window definition" do
+      source = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{windows: [w: [order_by: :author_id]]},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+  end
 end
