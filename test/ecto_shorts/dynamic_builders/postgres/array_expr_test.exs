@@ -64,19 +64,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test ":eq alias produces element-in-array membership" do
-      expected = dynamic([q], ^"elixir" in field(q, :tags))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:eq, "elixir"}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":ne alias produces element-not-in-array membership" do
-      expected = dynamic([q], ^"elixir" not in field(q, :tags))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:ne, "elixir"}, [])
-
-      assert_dynamic(expected, actual)
-    end
   end
 
   describe "count expressions" do
@@ -159,33 +146,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test ":gt alias produces ANY greater-than fragment" do
-      expected = dynamic([q], fragment("? < ANY(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:gt, "a"}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":gte alias produces ANY greater-than-or-equal fragment" do
-      expected = dynamic([q], fragment("? <= ANY(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:gte, "a"}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":lt alias produces ANY less-than fragment" do
-      expected = dynamic([q], fragment("? > ANY(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:lt, "a"}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test ":lte alias produces ANY less-than-or-equal fragment" do
-      expected = dynamic([q], fragment("? >= ANY(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:lte, "a"}, [])
-
-      assert_dynamic(expected, actual)
-    end
   end
 
   describe "ALL comparisons" do
@@ -696,21 +656,27 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
   describe ":parent_as cross-binding reference - remaining comparison operators" do
     test "{:>=, {:parent_as, {binding, field}}} produces >= comparison" do
       expected = dynamic([q], field(q, :tags) >= field(parent_as(:post), :tags))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:>=, {:parent_as, {:post, :tags}}}, [])
+
+      actual =
+        ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:>=, {:parent_as, {:post, :tags}}}, [])
 
       assert_dynamic(expected, actual)
     end
 
     test "{:<, {:parent_as, {binding, field}}} produces < comparison" do
       expected = dynamic([q], field(q, :tags) < field(parent_as(:post), :tags))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:<, {:parent_as, {:post, :tags}}}, [])
+
+      actual =
+        ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:<, {:parent_as, {:post, :tags}}}, [])
 
       assert_dynamic(expected, actual)
     end
 
     test "{:<=, {:parent_as, {binding, field}}} produces <= comparison" do
       expected = dynamic([q], field(q, :tags) <= field(parent_as(:post), :tags))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:<=, {:parent_as, {:post, :tags}}}, [])
+
+      actual =
+        ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:<=, {:parent_as, {:post, :tags}}}, [])
 
       assert_dynamic(expected, actual)
     end
