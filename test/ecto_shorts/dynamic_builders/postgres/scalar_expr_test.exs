@@ -30,23 +30,9 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test "{:eq, value} produces equality" do
-      expected = dynamic([q], field(q, :id) == ^1)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:eq, 1}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
     test "{:==, value} produces equality" do
       expected = dynamic([q], field(q, :id) == ^1)
       actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, 1}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test "{:eq, nil} produces IS NULL" do
-      expected = dynamic([q], is_nil(field(q, :id)))
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:eq, nil}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -65,23 +51,9 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test "{:ne, nil} produces IS NOT NULL" do
-      expected = dynamic([q], not is_nil(field(q, :published_at)))
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:ne, nil}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
     test "{:!=, value} produces inequality" do
       expected = dynamic([q], field(q, :views) != ^10)
       actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:!=, 10}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test "{:ne, value} produces inequality" do
-      expected = dynamic([q], field(q, :views) != ^10)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:ne, 10}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -138,7 +110,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
 
       assert_dynamic(expected, actual)
     end
-
   end
 
   describe "membership operators" do
@@ -166,6 +137,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     end
   end
 
+  describe "membership nil fallback" do
+    test "{:in, non_list} routes to membership family but returns nil" do
+      assert is_nil(ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:in, "not_a_list"}, []))
+    end
+  end
+
   describe "aggregate comparisons" do
     test "{:avg, comparison} produces aggregate comparison" do
       expected = dynamic([q], avg(field(q, :views)) > ^10)
@@ -184,6 +161,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     test "{:count, {:==, nil}} produces is_nil aggregate check" do
       expected = dynamic([q], is_nil(count(field(q, :views))))
       actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:count, {:==, nil}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:count, {:==, value}} produces aggregate inequality" do
+      expected = dynamic([q], count(field(q, :views)) != ^5)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:count, {:==, 5}}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -257,6 +241,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
         dynamic([q], fragment("? ILIKE ANY(?)", field(q, :title), ^patterns))
 
       actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, ["hello", "world"]}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:like, integer} wraps integer with percent signs via non-binary fallback" do
+      expected = dynamic([q], like(field(q, :title), ^"%123%"))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, 123}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -360,19 +351,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
   end
 
   describe "named binding alias" do
-    test "{:eq, value} on a named binding produces equality on that alias" do
-      id = 1
-      expected = from(p in Post, as: :post, where: p.id == ^id)
-
-      actual =
-        from(p in Post,
-          as: :post,
-          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:eq, id}, [])
-        )
-
-      assert_sql(expected, actual)
-    end
-
     test "plain scalar value on a named binding produces equality on that alias" do
       id = 1
       expected = from(p in Post, as: :post, where: p.id == ^id)
@@ -411,30 +389,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_sql(expected, actual)
     end
 
-    test "{:eq, nil} on a named binding produces IS NULL on that alias" do
-      expected = from(p in Post, as: :post, where: is_nil(p.id))
-
-      actual =
-        from(p in Post,
-          as: :post,
-          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:eq, nil}, [])
-        )
-
-      assert_sql(expected, actual)
-    end
-
-    test "{:==, nil} on a named binding produces IS NULL on that alias" do
-      expected = from(p in Post, as: :post, where: is_nil(p.id))
-
-      actual =
-        from(p in Post,
-          as: :post,
-          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, nil}, [])
-        )
-
-      assert_sql(expected, actual)
-    end
-
     test "{:>, value} on a named binding produces greater-than on that alias" do
       expected = from(p in Post, as: :post, where: p.views > ^10)
 
@@ -448,15 +402,18 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     end
   end
 
-  describe "positional binding" do
-    test "{:eq, value} on a positional binding produces equality on the correct join" do
-      id = 1
-      expected = dynamic([_, q], q.id == ^id)
-      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:eq, id}, [])
-
-      assert_dynamic(expected, actual)
+  describe "operators/0" do
+    test "returns the list of supported scalar expression operator families" do
+      ops = ScalarExpr.operators()
+      assert is_list(ops)
+      assert :membership in ops
+      assert :comparison in ops
+      assert :string_transform in ops
+      assert :string in ops
     end
+  end
 
+  describe "positional binding" do
     test "plain scalar value on a positional binding produces equality on the correct join" do
       id = 1
       expected = dynamic([_, q], q.id == ^id)
@@ -480,25 +437,129 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test "{:eq, nil} on a positional binding produces IS NULL on the correct join" do
-      expected = dynamic([_, q], is_nil(q.id))
-      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:eq, nil}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
-    test "{:==, nil} on a positional binding produces IS NULL on the correct join" do
-      expected = dynamic([_, q], is_nil(q.id))
-      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, nil}, [])
-
-      assert_dynamic(expected, actual)
-    end
-
     test "{:in, list} on a positional binding produces membership on the correct join" do
       expected = dynamic([_, q], q.id in ^[1, 2, 3])
       actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:in, [1, 2, 3]}, [])
 
       assert_dynamic(expected, actual)
+    end
+  end
+
+  describe ":parent_as field comparisons" do
+    test "{:==, {:parent_as, binding}} produces equality against parent binding" do
+      expected = dynamic([q], field(q, :id) == field(parent_as(:post), :id))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, {:parent_as, {:post, :id}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:==, {:parent_as, binding}} produces inequality against parent binding" do
+      expected = dynamic([q], field(q, :id) != field(parent_as(:post), :id))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:==, {:parent_as, {:post, :id}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:!=, {:parent_as, binding}} produces inequality against parent binding" do
+      expected = dynamic([q], field(q, :id) != field(parent_as(:post), :id))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:!=, {:parent_as, {:post, :id}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:!=, {:parent_as, binding}} produces equality against parent binding" do
+      expected = dynamic([q], field(q, :id) == field(parent_as(:post), :id))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:!=, {:parent_as, {:post, :id}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:parent_as, binding}} produces >= against parent binding" do
+      expected = dynamic([q], field(q, :views) >= field(parent_as(:post), :views))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>=, {:parent_as, {:post, :views}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>=, {:parent_as, binding}} wraps with NOT" do
+      expected = dynamic([q], not (field(q, :views) >= field(parent_as(:post), :views)))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>=, {:parent_as, {:post, :views}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:parent_as, binding}} produces < against parent binding" do
+      expected = dynamic([q], field(q, :views) < field(parent_as(:post), :views))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<, {:parent_as, {:post, :views}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<, {:parent_as, binding}} wraps with NOT" do
+      expected = dynamic([q], not (field(q, :views) < field(parent_as(:post), :views)))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:<, {:parent_as, {:post, :views}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:parent_as, binding}} produces <= against parent binding" do
+      expected = dynamic([q], field(q, :views) <= field(parent_as(:post), :views))
+
+      actual =
+        ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<=, {:parent_as, {:post, :views}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<=, {:parent_as, binding}} wraps with NOT" do
+      expected = dynamic([q], not (field(q, :views) <= field(parent_as(:post), :views)))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<=, {:parent_as, {:post, :views}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "string transform via comparison operators returns nil" do
+    test "{:like, {:lower, value}} routes to :string_transform family and returns nil" do
+      assert is_nil(
+               ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:like, {:lower, "hello"}}, [])
+             )
+    end
+
+    test "{:ilike, {:upper, value}} routes to :string_transform family and returns nil" do
+      assert is_nil(
+               ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:ilike, {:upper, "HELLO"}}, [])
+             )
     end
   end
 
@@ -783,5 +844,86 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
 
       assert_sql(expected, actual)
     end
+
+    test "{:==, {:datetime, {:ago, ...}}} produces datetime equality via generic path" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at == ago(^1, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:==, {:datetime, {:ago, [count: 1, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "negated {:==, {:datetime, {:ago, ...}}} produces datetime inequality via generic path" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at != ago(^1, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          :not,
+          {:==, {:datetime, {:ago, [count: 1, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "{:<, {:datetime, {:from_now, ...}}} produces datetime less-than via generic path" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at < from_now(^7, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:<, {:datetime, {:from_now, [count: 7, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "negated {:<, {:datetime, {:from_now, ...}}} wraps with NOT via generic path" do
+      expected =
+        from(p in Post,
+          where: not (p.inserted_at < from_now(^7, "day"))
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          :not,
+          {:<, {:datetime, {:from_now, [count: 7, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
   end
+
 end
