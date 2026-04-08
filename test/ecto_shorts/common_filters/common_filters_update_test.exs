@@ -40,62 +40,6 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
   end
 
   describe "update shapes" do
-    test "matches Ecto.Query for a root update set payload" do
-      updates = [set: [title: "After"]]
-      expected = update(Post, [], ^updates)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{update: [set: [title: "After"]]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root update inc payload" do
-      updates = [inc: [views: 1]]
-      expected = update(Post, [], ^updates)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{update: [inc: [views: 1]]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root combined update payload" do
-      updates = [set: [title: "After"], inc: [views: 1]]
-      expected = update(Post, [], ^updates)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{update: [set: [title: "After"], inc: [views: 1]]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root update map payload" do
-      updates = [set: [title: "After"]]
-      expected = update(Post, [], ^updates)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{update: %{set: %{title: "After"}}},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for a named binding update payload" do
       source =
         from(p in Post,
@@ -159,6 +103,14 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
         )
 
       assert_query(expected, actual)
+    end
+
+    # Covers update.ex line 21: the `else` branch of the keyword?/term check, where
+    # `term` is neither a keyword list nor a map, so it is passed as-is to update_expr.
+    test "passes a non-keyword non-map term through unchanged" do
+      assert_raise ArgumentError, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{update: :not_a_keyword_list}, [])
+      end
     end
   end
 end

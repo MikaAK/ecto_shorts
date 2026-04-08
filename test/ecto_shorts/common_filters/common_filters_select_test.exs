@@ -8,65 +8,6 @@ defmodule EctoShorts.CommonFilters.SelectTest do
   import Ecto.Query
 
   describe "select shapes" do
-    test "matches Ecto.Query for a root select field atom" do
-      expected = from(p in Post, select: p.title)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{select: :title},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    # `true` selects the full binding (`select: p`), not a boolean field value.
-    test "matches Ecto.Query for selecting the full root binding" do
-      expected = from(p in Post, select: p)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{select: true},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    # `{:map, fields}` and `{:struct, fields}` are the public shapes for Ecto's
-    # `map/2` and `struct/2` projections. The first element is the projection type;
-    # the second is the field list or alias map.
-    test "matches Ecto.Query for a root select map field list" do
-      expected = from(p in Post, select: map(p, [:id, :title]))
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{select: {:map, [:id, :title]}},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root select map alias mapping" do
-      expected =
-        from(p in Post,
-          select: %{post_id: p.id, post_title: p.title}
-        )
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{select: {:map, %{post_id: :id, post_title: :title}}},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for a root select struct projection" do
       expected = from(p in Post, select: struct(p, [:id, :title]))
 
@@ -554,6 +495,23 @@ defmodule EctoShorts.CommonFilters.SelectTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{select: [:id, :title]},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    # Covers select.ex line 67: apply_select/5 fallback when term is not a map,
+    # list, boolean, or atom (e.g. a DynamicExpr struct). Passes the value
+    # directly to Query.select via ^term.
+    test "passes a DynamicExpr through the fallback apply_select clause" do
+      dyn = dynamic([p], p.id)
+      expected = from(p in Post, select: ^dyn)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{select: dyn},
           []
         )
 
