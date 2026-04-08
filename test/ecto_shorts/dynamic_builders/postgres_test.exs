@@ -42,6 +42,85 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
     end
   end
 
+  describe "build_dynamic/4 :and/:or merge ops in params list" do
+    test ":or entry in params list produces an OR-merged dynamic expression" do
+      actual =
+        Postgres.build_dynamic(Post, {:as, nil}, {:views, [and: {:<, 10}, or: {:>, 5}]}, [])
+
+      assert %Ecto.Query.DynamicExpr{} = actual
+    end
+
+    test ":and entry in params list produces a dynamic expression" do
+      actual = Postgres.build_dynamic(Post, {:as, nil}, {:views, [and: {:>, 0}]}, [])
+
+      assert %Ecto.Query.DynamicExpr{} = actual
+    end
+  end
+
+  describe "build_dynamic/4 nil dynamic handling" do
+    test "nil dynamic from an invalid field is skipped when accumulating :all quantifier results" do
+      result =
+        Postgres.build_dynamic(
+          Post,
+          {:as, nil},
+          {:all, [published: true, nonexistent_xyz: 5]},
+          []
+        )
+
+      assert %Ecto.Query.DynamicExpr{} = result
+    end
+  end
+
+  describe "build_dynamic/4 non-quantified payload values" do
+    test "empty list payload is not treated as a quantified query" do
+      result = Postgres.build_dynamic(Post, {:as, nil}, {:id, {:any, []}}, [])
+
+      assert is_nil(result)
+    end
+
+    test "non-list non-map payload is not treated as a quantified query" do
+      result = Postgres.build_dynamic(Post, {:as, nil}, {:id, {:any, :not_a_payload}}, [])
+
+      assert is_nil(result)
+    end
+  end
+
+  describe "build_quantified_query/3 when params is not a keyword list" do
+    test "warns and returns params when params is not a keyword list" do
+      import ExUnit.CaptureLog
+
+      log =
+        capture_log(fn ->
+          result = Postgres.build_quantified_query(:id, "not_a_keyword_list", [])
+          assert result == "not_a_keyword_list"
+        end)
+
+      assert log =~ "Expected a map or keyword list"
+    end
+  end
+
+  describe "build_quantified_query/3 with a binary select spec" do
+    test "resolves a binary select spec to the correct select field" do
+      result = Postgres.build_quantified_query(:id, [from: Post, select: "id"], [])
+      assert %Ecto.Query{} = result
+    end
+  end
+
+  describe "build_quantified_query/3 with a map select spec" do
+    test "uses the :field value from a map select spec as the select field" do
+      result = Postgres.build_quantified_query(:id, [from: Post, select: %{field: :id}], [])
+      assert %Ecto.Query{} = result
+    end
+  end
+
+  describe "build_quantified_query/3 with an unrecognized select spec type" do
+    test "falls back to the outer key when select spec is not an atom, binary, or map" do
+      result = Postgres.build_quantified_query(:id, [from: Post, select: 42], [])
+      assert %Ecto.Query{} = result
+    end
+  end
+
+
   describe "build_dynamic/4 Ecto.Enum casting" do
     test "casts a bare Ecto.Enum atom to its integer mapping" do
       expected = dynamic([q], field(q, :status) == ^1)

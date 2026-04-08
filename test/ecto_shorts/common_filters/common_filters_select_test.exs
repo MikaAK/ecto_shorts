@@ -504,7 +504,7 @@ defmodule EctoShorts.CommonFilters.SelectTest do
     # Covers select.ex line 67: apply_select/5 fallback when term is not a map,
     # list, boolean, or atom (e.g. a DynamicExpr struct). Passes the value
     # directly to Query.select via ^term.
-    test "passes a DynamicExpr through the fallback apply_select clause" do
+    test "accepts a DynamicExpr as a select value" do
       dyn = dynamic([p], p.id)
       expected = from(p in Post, select: ^dyn)
 

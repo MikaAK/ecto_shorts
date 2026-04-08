@@ -123,7 +123,7 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
   # plain list is not a valid select_merge expression; the line is still covered
   # because it executes before the exception.
   describe "select_merge non-keyword list" do
-    test "covers the non-keyword list branch via select_merge_expr" do
+    test "raises when select_merge value is a plain list instead of a keyword list" do
       source = from(p in Post, select: %{})
 
       assert_raise Ecto.QueryError, fn ->
@@ -161,7 +161,7 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
   # Query.select_merge(query, ^value). Ecto then raises because a DynamicExpr
   # cannot be merged into a %{} select; line 78 is still covered.
   describe "select_merge catch-all with DynamicExpr value" do
-    test "covers the catch-all apply_select_merge clause with a bare DynamicExpr" do
+    test "raises when select_merge value is a bare DynamicExpr" do
       source = from(p in Post, select: %{})
       dyn = dynamic([p], p.id)
 

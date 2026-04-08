@@ -277,7 +277,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
       assert %Ecto.Query{} = actual
     end
 
-    test "prepend_order_by with a raw keyword list uses fallthrough path" do
+    test "prepend_order_by accepts a raw keyword list as input" do
       actual =
         CommonFilters.convert_params_to_filter(
           Post,
@@ -412,7 +412,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
   # struct falls through all earlier guards and reaches the fallback which calls
   # `order_by_expr(query, expr)` directly.
   describe "order_by fallback for non-standard expr" do
-    test "passes a DynamicExpr through the fallback build_query clause" do
+    test "accepts a bare DynamicExpr as an order_by value" do
       dyn = dynamic([p], p.id)
       expected = from(p in Post, order_by: ^dyn)
 

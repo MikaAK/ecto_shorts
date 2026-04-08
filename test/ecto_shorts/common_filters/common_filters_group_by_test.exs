@@ -188,7 +188,7 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
 
     # Covers reduce_params/4 fallback (line 40): when group_by value is not an atom or list
     # (e.g. a DynamicExpr), the fallback clause applies ^expr directly.
-    test "applies a bare DynamicExpr directly via group_by fallback" do
+    test "accepts a bare DynamicExpr as a group_by value" do
       dyn = dynamic([p], p.author_id)
       expected = from(p in Post, group_by: ^dyn)
 
@@ -204,7 +204,7 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
 
     # Covers reduce_params_exprs/4 catch-all (line 55): non-atom, non-DynamicExpr entries
     # are passed through as-is. Ecto raises at query-build time, but coverage is recorded first.
-    test "passes non-atom non-DynamicExpr entries through the catch-all clause" do
+    test "raises when group_by list contains non-atom non-DynamicExpr entries" do
       assert_raise ArgumentError, fn ->
         CommonFilters.convert_params_to_filter(Post, %{group_by: ["author_id"]}, [])
       end
