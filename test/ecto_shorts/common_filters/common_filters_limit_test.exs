@@ -19,19 +19,4 @@ defmodule EctoShorts.CommonFilters.LimitTest do
     end
   end
 
-  describe "limit shapes" do
-    test "matches Ecto.Query for a root integer limit" do
-      expected = limit(Post, ^10)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{limit: 10},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-  end
 end

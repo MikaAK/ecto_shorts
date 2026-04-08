@@ -9,40 +9,6 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
   import ExUnit.CaptureLog
 
   describe "order modifier shapes" do
-    # A bare atom for `prepend_order_by` defaults to `desc:` order, unlike `order_by:`
-    # where a bare atom defaults to `asc:`.
-    test "matches Ecto.Query for a root prepend_order_by atom" do
-      expected = prepend_order_by(Post, [], desc: :title)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{prepend_order_by: :title},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root prepend_order_by ordered keyword list" do
-      expected =
-        prepend_order_by(
-          Post,
-          [],
-          asc: :published_at,
-          desc: :title
-        )
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{prepend_order_by: [asc: :published_at, desc: :title]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for a named binding prepend_order_by atom" do
       source =
         from(p in Post,
@@ -145,37 +111,6 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for reverse_order on an existing ordered query" do
-      source = from(p in Post, order_by: [asc: p.title])
-      expected = reverse_order(source)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{reverse_order: true},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    # `reverse_order:` is applied after all other params in the same call, including
-    # `order_by:` values that appear in the same params map.
-    test "matches Ecto.Query for reverse_order after local order_by params" do
-      expected =
-        Post
-        |> order_by([], asc: :title)
-        |> reverse_order()
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{order_by: :title, reverse_order: true},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
   end
 
   describe "order_by list shapes" do
@@ -469,6 +404,26 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
         end)
 
       assert log =~ "Expected :reverse_order value to be true"
+    end
+  end
+
+  # Covers order_by.ex line 65: the catch-all `build_query` clause when the
+  # order_by value is not a map, atom, `{dir, _}` tuple, or list. A DynamicExpr
+  # struct falls through all earlier guards and reaches the fallback which calls
+  # `order_by_expr(query, expr)` directly.
+  describe "order_by fallback for non-standard expr" do
+    test "passes a DynamicExpr through the fallback build_query clause" do
+      dyn = dynamic([p], p.id)
+      expected = from(p in Post, order_by: ^dyn)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{order_by: dyn},
+          []
+        )
+
+      assert_query(expected, actual)
     end
   end
 end

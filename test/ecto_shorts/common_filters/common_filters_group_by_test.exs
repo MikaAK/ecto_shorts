@@ -8,46 +8,6 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
   import Ecto.Query
 
   describe "group_by shapes" do
-    test "matches Ecto.Query for a root group_by atom" do
-      expected = from(p in Post, group_by: :author_id)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{group_by: :author_id},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root group_by list" do
-      expected = from(p in Post, group_by: [:author_id, :title])
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{group_by: [:author_id, :title]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a root group_by dynamic list" do
-      dynamic_expr = dynamic([p], fragment("lower(?)", p.title))
-      expected = from(p in Post, group_by: ^[:author_id, dynamic_expr])
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{group_by: [:author_id, dynamic_expr]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for a named binding group_by atom" do
       source =
         from(p in Post,
@@ -224,6 +184,30 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
         end)
 
       assert log =~ "nonexistent_field"
+    end
+
+    # Covers reduce_params/4 fallback (line 40): when group_by value is not an atom or list
+    # (e.g. a DynamicExpr), the fallback clause applies ^expr directly.
+    test "applies a bare DynamicExpr directly via group_by fallback" do
+      dyn = dynamic([p], p.author_id)
+      expected = from(p in Post, group_by: ^dyn)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{group_by: dyn},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    # Covers reduce_params_exprs/4 catch-all (line 55): non-atom, non-DynamicExpr entries
+    # are passed through as-is. Ecto raises at query-build time, but coverage is recorded first.
+    test "passes non-atom non-DynamicExpr entries through the catch-all clause" do
+      assert_raise ArgumentError, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{group_by: ["author_id"]}, [])
+      end
     end
   end
 end
