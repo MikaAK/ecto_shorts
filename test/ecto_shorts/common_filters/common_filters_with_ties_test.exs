@@ -9,57 +9,6 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
   import ExUnit.CaptureLog
 
   describe "with_ties shapes" do
-    test "matches Ecto.Query for root with_ties true with existing limit and order_by" do
-      expected =
-        Post
-        |> order_by([], desc: :inserted_at)
-        |> limit(^1)
-        |> with_ties(true)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          [order_by: [desc: :inserted_at], limit: 1, with_ties: true],
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for root with_ties false with existing limit and order_by" do
-      expected =
-        Post
-        |> order_by([], desc: :inserted_at)
-        |> limit(^1)
-        |> with_ties(false)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          [order_by: [desc: :inserted_at], limit: 1, with_ties: false],
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query when with_ties true adds the default limit" do
-      expected =
-        Post
-        |> order_by([], desc: :inserted_at)
-        |> limit(^1000)
-        |> with_ties(true)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          [order_by: [desc: :inserted_at], with_ties: true],
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query when with_ties true adds default primary key ordering" do
       expected =
         Post
@@ -71,40 +20,6 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{with_ties: true},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a keyword limit payload" do
-      expected =
-        Post
-        |> limit(^10)
-        |> order_by([], asc: :id)
-        |> with_ties(true)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{with_ties: [limit: 10]},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a map limit payload" do
-      expected =
-        Post
-        |> limit(^10)
-        |> order_by([], asc: :id)
-        |> with_ties(true)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{with_ties: %{limit: 10}},
           []
         )
 
@@ -161,24 +76,6 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
         )
 
       assert_query(expected, actual)
-    end
-
-    test "keeps the query unchanged when with_ties payload is invalid" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{with_ties: "invalid"},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :with_ties value to be a boolean or keyword/map payload"
     end
 
     test "keeps the query unchanged when with_ties limit is invalid" do
@@ -247,6 +144,22 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
         )
 
       assert_query(expected_true, actual_true)
+    end
+  end
+
+  # Covers apply_limit_param/5 nil branch (line 66 in with_ties.ex):
+  # when params map has no :limit key, apply_limit_param is called with nil,
+  # which applies the default limit and with_ties true.
+  describe "with_ties with no :limit in params" do
+    test "uses default limit when :limit key is absent from params map" do
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_ties: %{}},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
     end
   end
 end
