@@ -726,7 +726,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
   end
 
   describe "generic datetime comparisons" do
-    test "matches records using generic datetime ago comparison via catch-all" do
+    test "matches records using a datetime ago comparison with date casting" do
       expected =
         from(p in Post,
           where: fragment("date(?)", p.published_at) == fragment("date(?)", ago(^1, "month"))
@@ -742,7 +742,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "excludes records using negated generic datetime comparison via catch-all" do
+    test "excludes records using a negated datetime ago comparison with date casting" do
       expected =
         from(p in Post,
           where: fragment("date(?)", p.published_at) != fragment("date(?)", ago(^1, "month"))

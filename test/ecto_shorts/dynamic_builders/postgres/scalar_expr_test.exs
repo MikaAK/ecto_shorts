@@ -865,7 +865,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_sql(expected, actual)
     end
 
-    test "negated {:==, {:datetime, {:ago, ...}}} produces datetime inequality via generic path" do
+    test "negated {:==, {:datetime, {:ago, ...}}} produces inequality with an ago datetime value" do
       expected =
         from(p in Post,
           where: p.inserted_at != ago(^1, "day")
@@ -885,7 +885,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_sql(expected, actual)
     end
 
-    test "{:<, {:datetime, {:from_now, ...}}} produces datetime less-than via generic path" do
+    test "{:<, {:datetime, {:from_now, ...}}} produces less-than comparison with a from_now datetime value" do
       expected =
         from(p in Post,
           where: p.inserted_at < from_now(^7, "day")
@@ -905,7 +905,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_sql(expected, actual)
     end
 
-    test "negated {:<, {:datetime, {:from_now, ...}}} wraps with NOT via generic path" do
+    test "negated {:<, {:datetime, {:from_now, ...}}} wraps the less-than comparison with NOT" do
       expected =
         from(p in Post,
           where: not (p.inserted_at < from_now(^7, "day"))
