@@ -7,6 +7,10 @@ defmodule EctoShorts.CommonFilters.SchemalessDateWrappersTest do
   import Ecto.Query
 
   describe "date wrappers (schemaless)" do
+    # ago/from_now macros capture a timestamp at query-build time, so expected and
+    # actual will always differ by microseconds. assert_query and assert_sql both
+    # fail for this reason. The operator-shape check on .wheres is the narrowest
+    # assertion that still verifies the correct comparison is produced.
     test "inserted_at equals ago 1 day using date wrapper" do
       actual =
         CommonFilters.convert_params_to_filter(

@@ -25,6 +25,10 @@ defmodule EctoShorts.CommonFilters.SchemalessDatetimeWrappersTest do
       assert_query(expected, actual)
     end
 
+    # ago/from_now macros capture a timestamp at query-build time, so expected and
+    # actual will always differ by microseconds. assert_query and assert_sql both
+    # fail for this reason. The operator-shape check on .wheres is the narrowest
+    # assertion that still verifies the correct comparison is produced.
     test "matches records using ago before comparison" do
       actual =
         CommonFilters.convert_params_to_filter(
@@ -33,10 +37,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDatetimeWrappersTest do
           []
         )
 
-      expected = from(p in "posts", where: p.inserted_at > ago(^1, "day"))
-
       assert [%{expr: {:>, _, [_, _]}}] = actual.wheres
-      assert [%{expr: {:>, _, [_, _]}}] = expected.wheres
     end
 
     test "matches records using from_now before comparison" do
@@ -47,10 +48,7 @@ defmodule EctoShorts.CommonFilters.SchemalessDatetimeWrappersTest do
           []
         )
 
-      expected = from(p in "posts", where: p.inserted_at > from_now(^1, "day"))
-
       assert [%{expr: {:>, _, [_, _]}}] = actual.wheres
-      assert [%{expr: {:>, _, [_, _]}}] = expected.wheres
     end
 
     test "excludes records using negated datetime_add comparison" do

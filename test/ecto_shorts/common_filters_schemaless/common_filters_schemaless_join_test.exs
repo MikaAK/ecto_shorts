@@ -77,6 +77,8 @@ defmodule EctoShorts.CommonFilters.SchemalessJoinTest do
           []
         )
 
+      # The subquery join produces a different internal AST (^sub_q vs subquery(...)),
+      # so assert_query cannot be used here. Verify the join binding and qualifier instead.
       assert [%{as: :users, qual: :inner}] = actual.joins
     end
 
