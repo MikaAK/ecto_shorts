@@ -230,6 +230,145 @@ defmodule EctoShorts.Actions.BatchTest do
     end
   end
 
+  describe "batch/4 (4-arg: no opts)" do
+    test "returns an empty map when batch_keys is an empty list" do
+      %Post{}
+      |> Post.changeset(%{title: "A"})
+      |> Repo.insert!()
+
+      # build_batch_params/4 with empty batch_keys returns [] which causes batch to return %{}
+      result = Actions.batch(Post, [%{title: "A"}], [], :many)
+      assert result === %{}
+    end
+
+    test "raises ArgumentError when batch_keys contains a key not in the schema's query fields" do
+      assert_raise ArgumentError, fn ->
+        Actions.batch(Post, [%{title: "A"}], [:nonexistent_field_xyz], :many)
+      end
+    end
+  end
+
+  describe "Batch.normalize_batch_key/2" do
+    alias EctoShorts.Actions.Batch
+
+    test "converts a keyword list params to a map and extracts the given keys" do
+      result = Batch.normalize_batch_key([title: "Hello", views: 5], [:title])
+      assert result === %{title: "Hello"}
+    end
+
+    test "wraps a scalar value as a map keyed by the given atom" do
+      result = Batch.normalize_batch_key("my_permalink", :permalink)
+      assert result === %{permalink: "my_permalink"}
+    end
+
+    test "takes the given keys from a map when params is a map and keys is a list" do
+      result = Batch.normalize_batch_key(%{title: "Hello", views: 5}, [:title])
+      assert result === %{title: "Hello"}
+    end
+  end
+
+  describe "Batch.handle_batch_response/4 without preload" do
+    alias EctoShorts.Actions.Batch
+
+    test "returns the grouped results map unchanged when no :preload option is given" do
+      input = [{"key_a", [%Post{title: "A"}]}]
+
+      result = Batch.handle_batch_response(input, :many, :title, [])
+
+      assert %{"key_a" => [%Post{title: "A"}]} = result
+    end
+
+    test "returns the grouped results map unchanged when :preload is an empty list" do
+      input = [{"key_b", [%Post{title: "B"}]}]
+
+      result = Batch.handle_batch_response(input, :many, :title, preload: [])
+
+      assert %{"key_b" => [%Post{title: "B"}]} = result
+    end
+
+    test "returns an empty map unchanged when records are empty and :preload is set" do
+      result = Batch.handle_batch_response([], :many, :title, preload: [:comments])
+      assert result === %{}
+    end
+  end
+
+  describe "Batch.extract_lookup_params/2 with true key" do
+    alias EctoShorts.Actions.Batch
+
+    test "uses the whole params map as the batch key when keys is true" do
+      input = %{id: 1, title: "Hello"}
+
+      {params_list, index_map} = Batch.extract_lookup_params([input], true)
+
+      assert params_list === [input]
+      assert index_map === %{0 => input}
+    end
+  end
+
+  describe "Batch.extract_lookup_params/2 with list keys" do
+    alias EctoShorts.Actions.Batch
+
+    test "extracts the given fields as the batch key when keys is a list" do
+      input = %{id: 1, title: "Hello", views: 5}
+
+      {params_list, index_map} = Batch.extract_lookup_params([input], [:id, :title])
+
+      assert params_list === [%{id: 1, title: "Hello"}]
+      assert index_map === %{0 => %{id: 1, title: "Hello"}}
+    end
+  end
+
+  describe "Batch.handle_batch_response/4 :one cardinality" do
+    alias EctoShorts.Actions.Batch
+
+    test "raises ArgumentError when a single batch key resolves to multiple values" do
+      assert_raise ArgumentError, fn ->
+        Batch.handle_batch_response(
+          [{"key", [%Post{title: "A"}, %Post{title: "B"}]}],
+          :one,
+          :title,
+          []
+        )
+      end
+    end
+  end
+
+  describe "Batch.normalize_key_fields/1" do
+    alias EctoShorts.Actions.Batch
+
+    test "returns a list unchanged when given a list" do
+      assert Batch.normalize_key_fields([:id, :title]) === [:id, :title]
+    end
+
+    test "returns a non-atom non-list value unchanged" do
+      key_fn = fn params -> params end
+      assert Batch.normalize_key_fields(key_fn) === key_fn
+    end
+  end
+
+  describe "Batch.extract_lookup_params/2 with a function key" do
+    alias EctoShorts.Actions.Batch
+
+    test "extracts the batch key using the function when the function returns a map" do
+      key_fn = fn params -> Map.take(params, [:permalink]) end
+      input = %{permalink: "my-slug", title: "Anything"}
+
+      {params_list, index_map} = Batch.extract_lookup_params([input], key_fn)
+
+      assert params_list === [%{permalink: "my-slug"}]
+      assert index_map === %{0 => %{permalink: "my-slug"}}
+    end
+
+    test "raises RuntimeError when the function key returns a non-map value" do
+      key_fn = fn _params -> :not_a_map end
+      input = %{title: "Bad"}
+
+      assert_raise RuntimeError, fn ->
+        Batch.extract_lookup_params([input], key_fn)
+      end
+    end
+  end
+
   describe "batch/5 with :preload" do
     test "preloads associations on batched structs with :one cardinality" do
       %Post{}

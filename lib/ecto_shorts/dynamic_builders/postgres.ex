@@ -52,12 +52,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     DynamicBuilders.Postgres.ArrayExpr,
     DynamicBuilders.Postgres.CommonExpr,
     DynamicBuilders.Postgres.MapExpr,
-    DynamicBuilders.Postgres.Normalizer,
     DynamicBuilders.Postgres.ScalarExpr,
     Types
   }
 
-  @behaviour EctoShorts.Adapter.DynamicBuilder
+  @behaviour EctoShorts.DynamicBuilder
 
   @logger_prefix "EctoShorts.DynamicBuilders.Postgres"
 
@@ -126,25 +125,27 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   def build_dynamic(source, selected_binding, {quantifier_op, params}, opts)
       when quantifier_op in @quantifier_operators do
     expr =
-      params
-      |> then(&Normalizer.normalize_params(source, &1, opts))
-      |> Enum.reduce(nil, fn entry, acc ->
-        dyn = apply_expr(source, selected_binding, entry, opts)
+      Enum.reduce(params, nil, fn {key, term}, acc ->
+        dyn = build_dynamic(source, selected_binding, {key, term}, opts)
         merge_dynamic(acc, quantifier_op, dyn)
       end)
 
     merge_dynamic(nil, :and, expr)
   end
 
-  def build_dynamic(source, selected_binding, {key, params}, opts) do
+  def build_dynamic(source, selected_binding, {key, params}, opts)
+      when is_map(params) and not is_struct(params) do
+    build_dynamic(source, selected_binding, {key, Map.to_list(params)}, opts)
+  end
+
+  def build_dynamic(source, selected_binding, {key, params}, opts) when is_list(params) do
     field_types = Keyword.get(opts, :field_types, [])
 
     field_type =
       Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
 
-    expr =
+    if Keyword.keyword?(params) do
       params
-      |> then(&Normalizer.normalize_params(source, &1, opts))
       |> Enum.map(&cast_value(field_type, &1))
       |> Enum.reduce(nil, fn entry, acc ->
         {merge_op, keyed_entry} =
@@ -156,8 +157,23 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
         dyn = apply_expr(source, selected_binding, keyed_entry, opts)
         merge_dynamic(acc, merge_op, dyn)
       end)
+      |> then(&merge_dynamic(nil, :and, &1))
+    else
+      casted = cast_value(field_type, params)
+      dyn = apply_expr(source, selected_binding, {key, casted}, opts)
+      merge_dynamic(nil, :and, dyn)
+    end
+  end
 
-    merge_dynamic(nil, :and, expr)
+  def build_dynamic(source, selected_binding, {key, params}, opts) do
+    field_types = Keyword.get(opts, :field_types, [])
+
+    field_type =
+      Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
+
+    casted = cast_value(field_type, params)
+    dyn = apply_expr(source, selected_binding, {key, casted}, opts)
+    merge_dynamic(nil, :and, dyn)
   end
 
   defp apply_expr(source, selected_binding, {key, term}, opts) do
@@ -171,29 +187,286 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
           merge_dynamic(acc, :and, dyn)
         end)
 
-      binding_selector?(selected_binding) ->
-        {negated, term} = normalize_negation_term(term)
-        term = normalize_quantified_term(key, term, opts)
-        dispatch_expr(source, selected_binding, key, negated, term, opts)
-
       true ->
-        nil
+        dispatch_expr(source, selected_binding, key, nil, term, opts)
     end
   end
 
+  defp dispatch_expr(source, selected_binding, key, _negated, {:not, term}, opts) do
+    dispatch_expr(source, selected_binding, key, :not, term, opts)
+  end
+
+  # Bare map term (e.g. after :not stripping or as a keyword-list value) —
+  # expand each entry as an op-value pair and dispatch individually.
+  # Example: %{avg: %{>: 10}} → dispatch {:avg, %{>: 10}} which hits the agg shorthand clause.
+  # Example: %{>=: %{value: 5}} → dispatch {:>=, %{value: 5}} which hits {op, rhs_params} clause.
+  defp dispatch_expr(source, selected_binding, key, negated, term, opts)
+       when is_map(term) and not is_struct(term) do
+    term
+    |> Map.to_list()
+    |> Enum.map(fn {inner_op, inner_value} ->
+      dispatch_expr(source, selected_binding, key, negated, {inner_op, inner_value}, opts)
+    end)
+    |> Enum.reduce(nil, &merge_dynamic(&2, :and, &1))
+  end
+
+  @short_ops [:eq, :ne, :gt, :gte, :lt, :lte]
+
+  defp dispatch_expr(source, selected_binding, key, negated, {quantifier, payload}, opts)
+       when quantifier in @quantifier_operators do
+    if subquery_spec?(payload) do
+      subquery = build_quantified_query(key, payload, opts)
+
+      dispatch_field_expr(
+        source,
+        selected_binding,
+        key,
+        negated,
+        {:==, {quantifier, subquery}},
+        opts
+      )
+    else
+      canonical_payload =
+        if is_map(payload) and not is_struct(payload) and not subquery_spec?(payload) do
+          case Map.to_list(payload) do
+            [{op, val}] ->
+              canonical_op = if op in @short_ops, do: op_alias(op), else: op
+              {canonical_op, val}
+
+            _ ->
+              payload
+          end
+        else
+          payload
+        end
+
+      dispatch_field_expr(
+        source,
+        selected_binding,
+        key,
+        negated,
+        {quantifier, canonical_payload},
+        opts
+      )
+    end
+  end
+
+  defp dispatch_expr(source, selected_binding, key, negated, {op, {quantifier, payload}}, opts)
+       when quantifier in @quantifier_operators do
+    if subquery_spec?(payload) do
+      subquery = build_quantified_query(key, payload, opts)
+
+      dispatch_field_expr(
+        source,
+        selected_binding,
+        key,
+        negated,
+        {op, {quantifier, subquery}},
+        opts
+      )
+    else
+      dispatch_field_expr(
+        source,
+        selected_binding,
+        key,
+        negated,
+        {op, {quantifier, payload}},
+        opts
+      )
+    end
+  end
+
+  # Short-form operator aliases (:eq, :ne, :gt, :gte, :lt, :lte) — normalize to canonical form.
+  defp dispatch_expr(source, selected_binding, key, negated, {short_op, term}, opts)
+       when short_op in @short_ops do
+    dispatch_expr(source, selected_binding, key, negated, {op_alias(short_op), term}, opts)
+  end
+
+  # Common expression operators (:before, :after, :since, :until, :exists, etc.) —
+  # route directly to CommonExpr regardless of term shape.
   defp dispatch_expr(_source, selected_binding, key, negated, term, opts)
        when key in @common_expr_operators do
     CommonExpr.dynamic_expr(selected_binding, key, negated, term, opts)
   end
 
-  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, inner_entries}, opts) do
-    Enum.reduce(inner_entries, nil, fn inner_entry, dyn_acc ->
-      dyn = ArrayExpr.dynamic_expr(selected_binding, key, negated, inner_entry, opts)
-      merge_dynamic(dyn_acc, :and, dyn)
+  # Scalar (non-tuple, non-list) — the bare value shape means equality.
+  defp dispatch_expr(source, selected_binding, key, negated, term, opts)
+       when not is_tuple(term) and not is_list(term) do
+    dispatch_field_expr(source, selected_binding, key, negated, {:==, term}, opts)
+  end
+
+  defp dispatch_expr(source, selected_binding, key, negated, {transform, value}, opts)
+       when transform in [:lower, :upper, :downcase, :upcase] do
+    op = if transform in [:lower, :downcase], do: :lower, else: :upper
+    dispatch_field_expr(source, selected_binding, key, negated, {:==, {op, value}}, opts)
+  end
+
+  defp dispatch_expr(source, selected_binding, key, negated, {:arithmetic, params}, opts)
+       when is_map(params) do
+    dispatch_expr(
+      source,
+      selected_binding,
+      key,
+      negated,
+      {:arithmetic, Map.to_list(params)},
+      opts
+    )
+  end
+
+  defp dispatch_expr(_source, selected_binding, key, negated, {:arithmetic, params}, opts)
+       when is_list(params) do
+    compare_op = Keyword.fetch!(params, :compare)
+
+    {arith_key, operand} =
+      Enum.find_value(params, fn
+        {op, v} when op in [:add, :subtract, :multiply, :divide, :ago, :from_now] -> {op, v}
+        _ -> nil
+      end)
+
+    operand =
+      if is_map(operand) and not is_struct(operand), do: Map.to_list(operand), else: operand
+
+    canonical =
+      if Keyword.keyword?(operand) and Keyword.has_key?(operand, :interval) do
+        cast = Keyword.get(operand, :cast, :datetime)
+        {compare_op, {cast, {arith_key, Keyword.delete(operand, :cast)}}}
+      else
+        arith_op =
+          case arith_key do
+            :add -> :+
+            :subtract -> :-
+            :multiply -> :*
+            :divide -> :/
+          end
+
+        field = operand[:field]
+        value = operand[:value]
+        {compare_op, {:value, {arith_op, {{:field, field}, {:value, value}}}}}
+      end
+
+    ScalarExpr.dynamic_expr(selected_binding, key, negated, canonical, opts)
+  end
+
+  defp dispatch_expr(source, selected_binding, key, negated, {:aggregate, params}, opts)
+       when is_map(params) do
+    dispatch_expr(source, selected_binding, key, negated, {:aggregate, Map.to_list(params)}, opts)
+  end
+
+  defp dispatch_expr(source, selected_binding, key, negated, {:aggregate, params}, opts)
+       when is_list(params) do
+    agg_fn = Keyword.fetch!(params, :fn)
+    compare_op = Keyword.fetch!(params, :compare)
+    value = Keyword.fetch!(params, :value)
+
+    dispatch_field_expr(
+      source,
+      selected_binding,
+      key,
+      negated,
+      {agg_fn, {compare_op, value}},
+      opts
+    )
+  end
+
+  # Shorthand aggregate form: {agg_fn, map_or_keyword} where agg_fn is one of
+  # :avg, :sum, :max, :min, :count and the payload is a single-entry map or
+  # keyword list mapping a comparison operator to its value.
+  # Example: {:avg, %{>: 10}} → ScalarExpr with {:avg, {:>, 10}}
+  @agg_fns [:avg, :sum, :max, :min, :count]
+
+  defp dispatch_expr(source, selected_binding, key, negated, {agg_fn, params}, opts)
+       when agg_fn in @agg_fns and is_map(params) and not is_struct(params) do
+    dispatch_expr(source, selected_binding, key, negated, {agg_fn, Map.to_list(params)}, opts)
+  end
+
+  defp dispatch_expr(source, selected_binding, key, negated, {agg_fn, params}, opts)
+       when agg_fn in @agg_fns and is_list(params) do
+    [{compare_op, value}] = params
+
+    dispatch_field_expr(
+      source,
+      selected_binding,
+      key,
+      negated,
+      {agg_fn, {compare_op, value}},
+      opts
+    )
+  end
+
+  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, params}, opts)
+       when is_map(params) and not is_struct(params) do
+    Enum.reduce(params, nil, fn {op, value}, acc ->
+      dyn =
+        ArrayExpr.dynamic_expr(
+          selected_binding,
+          key,
+          negated,
+          {op, resolve_elements_value(value)},
+          opts
+        )
+
+      merge_dynamic(acc, :and, dyn)
     end)
   end
 
+  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, params}, opts)
+       when is_list(params) do
+    if Keyword.keyword?(params) do
+      Enum.reduce(params, nil, fn {op, value}, acc ->
+        dyn =
+          ArrayExpr.dynamic_expr(
+            selected_binding,
+            key,
+            negated,
+            {op, resolve_elements_value(value)},
+            opts
+          )
+
+        merge_dynamic(acc, :and, dyn)
+      end)
+    else
+      ArrayExpr.dynamic_expr(selected_binding, key, negated, {:==, params}, opts)
+    end
+  end
+
+  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, nil}, opts) do
+    ArrayExpr.dynamic_expr(selected_binding, key, negated, {:==, nil}, opts)
+  end
+
+  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, term}, opts)
+       when is_tuple(term) do
+    ArrayExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+  end
+
+  defp dispatch_expr(_source, selected_binding, key, negated, {:elements, term}, opts) do
+    ArrayExpr.dynamic_expr(selected_binding, key, negated, {:in, term}, opts)
+  end
+
+  # {op, rhs_params} where rhs_params is a map — walk entries to build the RHS expression.
+  # Meaning is assigned at each {key, value} entry boundary, not at the container level.
+  # After building the RHS, re-dispatch so that quantifier clauses ({op, {all/any, payload}})
+  # can fire if the RHS resolved to a quantified-query tuple.
+  defp dispatch_expr(source, selected_binding, key, negated, {op, rhs_params}, opts)
+       when is_map(rhs_params) and not is_struct(rhs_params) do
+    rhs =
+      Enum.reduce(rhs_params, nil, fn {rhs_key, rhs_val}, _acc ->
+        build_rhs_entry(source, rhs_key, rhs_val, opts)
+      end)
+
+    case rhs do
+      {quantifier, _payload} when quantifier in @quantifier_operators ->
+        dispatch_expr(source, selected_binding, key, negated, {op, rhs}, opts)
+
+      _ ->
+        dispatch_field_expr(source, selected_binding, key, negated, {op, rhs}, opts)
+    end
+  end
+
   defp dispatch_expr(source, selected_binding, key, negated, term, opts) do
+    dispatch_field_expr(source, selected_binding, key, negated, term, opts)
+  end
+
+  defp dispatch_field_expr(source, selected_binding, key, negated, term, opts) do
     cond do
       invalid_schema_field?(source, key) ->
         EctoShorts.Logger.warning(
@@ -204,38 +477,46 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
         nil
 
       map_field?(source, key, opts) ->
-        MapExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+        # A keyword list value for JSONB ops expands into multiple AND-combined clauses.
+        # e.g. {:contains, [role: "admin", active: "true"]} → two separate @> conditions.
+        case term do
+          {op, values} when is_list(values) and values !== [] ->
+            if Keyword.keyword?(values) do
+              values
+              |> Enum.map(fn kv ->
+                MapExpr.dynamic_expr(selected_binding, key, negated, {op, kv}, opts)
+              end)
+              |> Enum.reduce(nil, &merge_dynamic(&2, :and, &1))
+            else
+              MapExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+            end
+
+          _ ->
+            MapExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+        end
 
       array_field?(source, key, opts) ->
-        ArrayExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+        canonical =
+          cond do
+            is_list(term) and not Keyword.keyword?(term) -> {:==, term}
+            is_nil(term) -> {:==, nil}
+            is_tuple(term) -> term
+            true -> {:==, term}
+          end
+
+        ArrayExpr.dynamic_expr(selected_binding, key, negated, canonical, opts)
 
       true ->
-        ScalarExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+        canonical =
+          if is_tuple(term) do
+            term
+          else
+            {:==, term}
+          end
+
+        ScalarExpr.dynamic_expr(selected_binding, key, negated, canonical, opts)
     end
   end
-
-  defp normalize_negation_term({:not, term}), do: {:not, term}
-  defp normalize_negation_term(term), do: {nil, term}
-
-  defp normalize_quantified_term(key, {quantifier, payload}, opts)
-       when quantifier in @quantifier_operators do
-    if quantified_query_payload?(payload) do
-      {:==, {quantifier, build_quantified_query(key, payload, opts)}}
-    else
-      {quantifier, payload}
-    end
-  end
-
-  defp normalize_quantified_term(key, {op, {quantifier, payload}}, opts)
-       when quantifier in @quantifier_operators do
-    if quantified_query_payload?(payload) do
-      {op, {quantifier, build_quantified_query(key, payload, opts)}}
-    else
-      {op, {quantifier, payload}}
-    end
-  end
-
-  defp normalize_quantified_term(_key, term, _opts), do: term
 
   def build_quantified_query(outer_key, params, opts)
       when is_map(params) and not is_struct(params) do
@@ -253,11 +534,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
             field
 
           field when is_binary(field) ->
-            Normalizer.normalize_field_name(source, field, opts) || outer_key
+            field_name_to_atom(source, field, opts) || outer_key
 
           params ->
             if (is_map(params) and not is_struct(params)) or Keyword.keyword?(params) do
-              Normalizer.normalize_field_name(source, params[:field], opts) || outer_key
+              field_name_to_atom(source, params[:field], opts) || outer_key
             else
               outer_key
             end
@@ -276,15 +557,15 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     end
   end
 
-  defp quantified_query_payload?(payload) when is_map(payload) and not is_struct(payload) do
+  defp subquery_spec?(payload) when is_map(payload) and not is_struct(payload) do
     Map.has_key?(payload, :from)
   end
 
-  defp quantified_query_payload?(payload) when is_list(payload) do
+  defp subquery_spec?(payload) when is_list(payload) do
     Keyword.keyword?(payload) and Keyword.has_key?(payload, :from)
   end
 
-  defp quantified_query_payload?(_payload), do: false
+  defp subquery_spec?(_payload), do: false
 
   defp invalid_schema_field?(source, key) when is_atom(key) do
     case CommonSchema.get_schema_reflection(source, :fields) do
@@ -293,36 +574,25 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     end
   end
 
-  defp invalid_schema_field?(_source, _key), do: false
-
   defp array_field?(source, key, opts) do
-    field_types = Keyword.get(opts, :field_types, [])
-
-    resolved =
-      Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
-
-    match?({:array, _}, resolved)
+    case opts[:field_types] || CommonSchema.get_schema_reflection(source, :type, key) do
+      {:array, _} -> true
+      _ -> false
+    end
   end
 
   defp map_field?(source, key, opts) do
-    field_types = Keyword.get(opts, :field_types, [])
-
-    resolved =
-      Keyword.get(field_types, key) || CommonSchema.get_schema_reflection(source, :type, key)
-
-    case resolved do
+    case opts[:field_types] || CommonSchema.get_schema_reflection(source, :type, key) do
       :map -> true
       {:map, _} -> true
       _ -> false
     end
   end
 
-  @short_ops [:eq, :ne, :gt, :gte, :lt, :lte]
-
   defp cast_value(nil, entry), do: entry
 
   defp cast_value(field_type, {op, entry}) when op in @short_ops do
-    cast_value(field_type, {Normalizer.normalize_operator(op), entry})
+    cast_value(field_type, {op_alias(op), entry})
   end
 
   defp cast_value(field_type, {:and, entry}), do: {:and, cast_value(field_type, entry)}
@@ -371,11 +641,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   end
 
   defp cast_value({:array, _} = field_type, value) when is_list(value) do
-    if Keyword.keyword?(value) do
-      value
-    else
-      Types.cast(field_type, value)
-    end
+    Types.cast(field_type, value)
   end
 
   defp cast_value(field_type, value) when is_list(value) do
@@ -388,10 +654,146 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
 
   defp cast_value(_field_type, entry), do: entry
 
-  defp binding_selector?({:as, nil}), do: true
-  defp binding_selector?({:as, name}) when is_atom(name), do: true
-  defp binding_selector?({:at, position}) when is_integer(position) and position >= 1, do: true
-  defp binding_selector?(_), do: false
+  # Builds one piece of a right-hand side expression from a single {key, value} entry.
+  # Called from the explicit reducer walk in dispatch_expr {op, rhs_params} and build_rhs_expr.
+
+  defp build_rhs_entry(source, :field, name, opts) do
+    {:field, field_name_to_atom(source, name, opts)}
+  end
+
+  defp build_rhs_entry(source, :value, inner, opts) do
+    {:value, build_rhs_expr(source, inner, opts)}
+  end
+
+  defp build_rhs_entry(source, op, [left, right], opts) when op in [:+, :-, :*, :/] do
+    {op, {build_rhs_expr(source, left, opts), build_rhs_expr(source, right, opts)}}
+  end
+
+  defp build_rhs_entry(_source, :parent_as, pb_map, _opts)
+       when is_map(pb_map) and not is_struct(pb_map) do
+    [{pb, pf}] = Map.to_list(pb_map)
+    {:parent_as, {pb, pf}}
+  end
+
+  defp build_rhs_entry(source, :date, term, opts) do
+    {dt_op, dt_term} = resolve_datetime_wrapper(source, term, opts)
+    {:date, {dt_op, dt_term}}
+  end
+
+  defp build_rhs_entry(source, :datetime, term, opts) do
+    {dt_op, dt_term} = resolve_datetime_wrapper(source, term, opts)
+    {:datetime, {dt_op, dt_term}}
+  end
+
+  defp build_rhs_entry(_source, key, value, _opts), do: {key, value}
+
+  # Walks a nested value container (map) entry by entry; scalars pass through unchanged.
+  defp build_rhs_expr(source, term, opts) when is_map(term) and not is_struct(term) do
+    Enum.reduce(term, nil, fn {key, value}, _acc ->
+      build_rhs_entry(source, key, value, opts)
+    end)
+  end
+
+  defp build_rhs_expr(_source, term, _opts), do: term
+
+  defp resolve_datetime_wrapper(source, term, opts) when is_map(term) and not is_struct(term) do
+    resolve_datetime_wrapper(source, Map.to_list(term), opts)
+  end
+
+  defp resolve_datetime_wrapper(source, term, opts) when is_list(term) do
+    if Keyword.keyword?(term) do
+      case term do
+        [{datetime_op, datetime_term}] when datetime_op in [:add, :ago, :from_now] ->
+          {datetime_op, resolve_datetime_node(source, datetime_term, opts)}
+
+        _ ->
+          raise ArgumentError,
+                "Expected datetime wrapper payload to be a single-key keyword list, got: #{inspect(term)}"
+      end
+    else
+      raise ArgumentError,
+            "Expected datetime wrapper payload to be a keyword list or map, got: #{inspect(term)}"
+    end
+  end
+
+  defp resolve_datetime_node(source, term, opts) when is_map(term) and not is_struct(term) do
+    resolve_datetime_node(source, Map.to_list(term), opts)
+  end
+
+  defp resolve_datetime_node(source, term, opts) when is_list(term) do
+    if Keyword.keyword?(term) do
+      field_name = Keyword.get(term, :field)
+      count = Keyword.fetch!(term, :count)
+      interval = Keyword.fetch!(term, :interval)
+      base = if field_name, do: [{:field, field_name_to_atom(source, field_name, opts)}], else: []
+      base ++ [count: count, interval: interval]
+    else
+      raise ArgumentError,
+            "Expected datetime params to be a keyword list or map, got: #{inspect(term)}"
+    end
+  end
+
+  # Resolves the value side of a single :elements entry.
+  defp resolve_elements_value(value) when is_map(value) and not is_struct(value) do
+    Enum.reduce(value, nil, fn {op, inner}, _acc ->
+      {op, resolve_elements_value(inner)}
+    end)
+  end
+
+  defp resolve_elements_value(value), do: value
+
+  defp op_alias(:eq), do: :==
+  defp op_alias(:ne), do: :!=
+  defp op_alias(:gt), do: :>
+  defp op_alias(:gte), do: :>=
+  defp op_alias(:lt), do: :<
+  defp op_alias(:lte), do: :<=
+
+  defp field_name_to_atom(_source, field_name, _opts) when is_atom(field_name), do: field_name
+
+  defp field_name_to_atom(source, field_name, opts) when is_binary(field_name) do
+    case (source !== nil && CommonSchema.get_schema(source) !== nil &&
+            CommonSchema.get_schema_reflection(source, :fields)) || nil do
+      fields when is_list(fields) ->
+        string_fields = MapSet.new(fields, &Atom.to_string/1)
+
+        if MapSet.member?(string_fields, field_name) do
+          String.to_existing_atom(field_name)
+        else
+          EctoShorts.Logger.warning(
+            @logger_prefix,
+            "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
+          )
+
+          nil
+        end
+
+      _ ->
+        allowed_keys = opts[:allowed_keys]
+
+        if allowed_keys do
+          allowed_set = MapSet.new(allowed_keys)
+
+          if MapSet.member?(allowed_set, field_name) do
+            String.to_atom(field_name)
+          else
+            EctoShorts.Logger.warning(
+              @logger_prefix,
+              "Field \"#{field_name}\" is not in the :allowed_keys list, skipping field reference"
+            )
+
+            nil
+          end
+        else
+          EctoShorts.Logger.warning(
+            @logger_prefix,
+            "Field \"#{field_name}\" cannot be resolved: no schema or :allowed_keys available, skipping field reference"
+          )
+
+          nil
+        end
+    end
+  end
 
   defp merge_dynamic(nil, _, b), do: b
   defp merge_dynamic(a, _, nil), do: a

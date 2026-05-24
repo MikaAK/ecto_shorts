@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
   use EctoShorts.Testing
 
   alias EctoShorts.CommonFilters
+  alias EctoShorts.CommonFilters.Join
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
@@ -520,28 +521,6 @@ defmodule EctoShorts.CommonFilters.JoinTest do
       assert log =~ "Expected :on to be a keyword list, map, or true"
     end
 
-    test "keeps the query unchanged when :on is an invalid term" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{
-                join: [
-                  association: [source: :author, as: :author, on: 999]
-                ]
-              },
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :on to be a keyword list, map, or true"
-    end
-
     test "matches Ecto.Query for a subquery join from a prebuilt Ecto.Query" do
       user_query = from(u in EctoShorts.Schema.User, where: u.age > ^18)
 
@@ -586,6 +565,279 @@ defmodule EctoShorts.CommonFilters.JoinTest do
             join: [
               [association: [source: :author, as: :author]],
               [association: [source: :comments, as: :comments]]
+            ]
+          },
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
+  describe "Join.hints/0" do
+    test "returns the compiled hints list" do
+      assert is_list(Join.hints())
+    end
+  end
+
+  describe "join :on with keyword list that produces nil dynamic" do
+    import ExUnit.CaptureLog
+
+    test "keeps the query unchanged when keyword :on filters all produce nil dynamics" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{
+                join: [
+                  association: [
+                    source: :author,
+                    as: :author,
+                    on: [nonexistent_field_xyz: 5]
+                  ]
+                ]
+              },
+              []
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Field"
+      assert log =~ "does not exist on schema"
+    end
+  end
+
+  describe "join :on with pre-built DynamicExpr" do
+    test "matches Ecto.Query when :on is a pre-built dynamic expression" do
+      dynamic_on = dynamic([p], p.id == ^1)
+
+      expected =
+        from(p in Post,
+          join: a in assoc(p, :author),
+          as: :author,
+          on: ^dynamic_on
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{
+            join: [
+              association: [
+                source: :author,
+                as: :author,
+                on: dynamic_on
+              ]
+            ]
+          },
+          []
+        )
+
+      assert_sql(expected, actual)
+    end
+  end
+
+  describe "join :on with invalid (non-list, non-map) value" do
+    test "keeps the query unchanged and logs when :on is not a valid filter shape" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{
+                join: [
+                  association: [source: :author, as: :author, on: 42]
+                ]
+              },
+              []
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected :on to be a keyword list, map, or true"
+    end
+  end
+
+  describe "join :on with named binding context" do
+    test "resolves source from the named binding when building :on dynamics" do
+      source =
+        from(p in Post,
+          join: a in assoc(p, :author),
+          as: :author
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{
+            as: %{
+              author: %{
+                join: [
+                  association: [
+                    source: :posts,
+                    as: :author_posts,
+                    on: %{id: 1}
+                  ]
+                ]
+              }
+            }
+          },
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+  end
+
+  describe "join :on with positional binding context" do
+    test "resolves source from the positional binding when building :on dynamics" do
+      source =
+        from(p in Post,
+          join: a in assoc(p, :author)
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{
+            at: %{
+              2 => %{
+                join: [
+                  association: [
+                    source: :posts,
+                    on: %{id: 1}
+                  ]
+                ]
+              }
+            }
+          },
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+  end
+
+  describe "join :on merge_dynamic paths" do
+    import ExUnit.CaptureLog
+
+    # merge_dynamic(a, _, nil) fires when the second of two on-entries produces nil.
+    # A keyword list :on is used to guarantee the order of entries: the valid field
+    # is processed first (producing a dynamic), then the nonexistent field (producing
+    # nil). This also exercises the keyword list path in reduce_on_params.
+    test "keeps first dynamic when the second on-field produces nil" do
+      expected =
+        from(p in Post,
+          join: a in assoc(p, :author),
+          as: :author,
+          on: p.id == ^1
+        )
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{
+                join: [
+                  association: [
+                    source: :author,
+                    as: :author,
+                    on: [id: 1, nonexistent_field_xyz: 5]
+                  ]
+                ]
+              },
+              []
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Field"
+      assert log =~ "does not exist on schema"
+    end
+
+    # merge_dynamic(a, :and, b) fires when both on-entries produce valid dynamics
+    test "merges two valid on-field dynamics with AND" do
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{
+            join: [
+              association: [
+                source: :author,
+                as: :author,
+                on: %{id: 1, author_id: 2}
+              ]
+            ]
+          },
+          []
+        )
+
+      assert %Ecto.Query{} = actual
+    end
+  end
+
+  describe "join with association and hints" do
+    test "matches Ecto.Query for an association join with configured hints" do
+      expected =
+        from(p in Post,
+          join: a in assoc(p, :author),
+          as: :author,
+          on: true,
+          hints: ["USE INDEX(test_index)"]
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{
+            join: [
+              association: [
+                source: :author,
+                as: :author,
+                on: true,
+                hints: :test_index
+              ]
+            ]
+          },
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
+  describe "join with subquery and hints" do
+    test "matches Ecto.Query for a subquery join with configured hints" do
+      user_query = from(u in EctoShorts.Schema.User, where: u.age > ^18)
+
+      expected =
+        from(p in Post,
+          join: u in subquery(user_query),
+          as: :user,
+          on: true,
+          hints: ["USE INDEX(test_index)"]
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{
+            join: [
+              subquery: [
+                source: user_query,
+                as: :user,
+                on: true,
+                hints: :test_index
+              ]
             ]
           },
           []

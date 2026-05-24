@@ -41,9 +41,9 @@ defmodule EctoShorts.CommonFilters.Builder do
 
   require Ecto.Query
 
-  @behaviour EctoShorts.Adapter.QueryBuilder
+  @behaviour EctoShorts.QueryBuilder
 
-  @impl EctoShorts.Adapter.QueryBuilder
+  @impl EctoShorts.QueryBuilder
   def build_query(filter, source, query, selected_binding, term, opts) do
     apply_filter(filter, source, query, selected_binding, term, opts)
   end
@@ -207,6 +207,4 @@ defmodule EctoShorts.CommonFilters.Builder do
   defp resolve_source(source, query, {:at, pos}) when is_integer(pos) do
     CommonQuery.get_query_binding_source(query, pos) || source
   end
-
-  defp resolve_source(source, _query, _selected_binding), do: source
 end

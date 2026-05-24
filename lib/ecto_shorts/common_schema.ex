@@ -850,8 +850,4 @@ defmodule EctoShorts.CommonSchema do
   defp put_source(%{__meta__: _} = schema_struct, {source, schema}) do
     put_schema_metadata(schema_struct, source: source, schema: schema)
   end
-
-  defp put_source(data_or_changeset, _) do
-    data_or_changeset
-  end
 end

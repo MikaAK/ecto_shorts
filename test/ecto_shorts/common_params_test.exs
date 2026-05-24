@@ -225,6 +225,16 @@ defmodule EctoShorts.CommonParamsTest do
       assert insert_map.title === "Overridden"
     end
 
+    test "validates a struct-and-params tuple when validate is not false" do
+      struct = %Post{title: "Original"}
+      params = %{title: "Validated"}
+
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(Post, [{struct, params}])
+
+      assert insert_map.title === "Validated"
+    end
+
     test "accepts an Ecto changeset as an insert entry" do
       changeset = Post.changeset(%Post{}, %{title: "From Changeset"})
 
@@ -333,6 +343,41 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert insert_map.title === "Hello"
       refute Map.has_key?(insert_map, :made_up_field)
+    end
+  end
+
+  describe "convert_to_insert_params/3 error paths" do
+    test "raises when a params entry is not a map or keyword list" do
+      assert_raise ArgumentError, ~r/Expected params to be a map or keyword list/, fn ->
+        CommonParams.convert_to_insert_params(Post, [42], validate: false)
+      end
+    end
+
+    test "accepts a {changeset, params} tuple and merges params onto the changeset struct" do
+      changeset = Post.changeset(%Post{}, %{title: "Original"})
+
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [{changeset, %{title: "Overridden"}}],
+                 validate: false
+               )
+
+      assert insert_map.title === "Overridden"
+    end
+
+    test "includes non-nil params even when the value matches the existing struct value" do
+      struct = %Post{title: "Same"}
+
+      assert {:ok, [insert_map]} =
+               CommonParams.convert_to_insert_params(
+                 Post,
+                 [{struct, %{title: "Same"}}],
+                 validate: false
+               )
+
+      # Non-nil values are always included, regardless of whether they changed
+      assert insert_map.title === "Same"
     end
   end
 

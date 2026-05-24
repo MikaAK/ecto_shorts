@@ -225,7 +225,7 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
               []
             )
 
-          assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
         end)
 
       assert log =~ "nonexistent_field"
@@ -245,7 +245,7 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
               []
             )
 
-          assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
         end)
 
       assert log =~ "nonexistent_field"

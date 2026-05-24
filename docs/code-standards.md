@@ -9,14 +9,14 @@ Module names mirror the directory hierarchy exactly:
 | `lib/ecto_shorts/actions/crud.ex` | `EctoShorts.Actions.CRUD` |
 | `lib/ecto_shorts/common_filters/join.ex` | `EctoShorts.CommonFilters.Join` |
 | `lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex` | `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` |
-| `lib/ecto_shorts/adapter/query_builder.ex` | `EctoShorts.Adapter.QueryBuilder` |
+| `lib/ecto_shorts/query_builder.ex` | `EctoShorts.QueryBuilder` |
 
 Acronyms in module names use all-caps: `CRUD`, `CTE`, `SQL`.
 
 ## Adding a New Filter
 
 1. **Create the filter module** at `lib/ecto_shorts/common_filters/my_filter.ex`.
-   - Declare `@behaviour EctoShorts.Adapter.QueryBuilder`.
+   - Declare `@behaviour EctoShorts.QueryBuilder`.
    - Call `EctoShorts.QueryBinding.query_binding_contracts(__MODULE__)` at module body level (outside any function).
    - Implement `build_query/6`.
 
@@ -55,7 +55,7 @@ A `QueryBuilder` adapter replaces how a filter key is applied to the query.
 
 ```elixir
 defmodule MyApp.CustomQueryBuilder do
-  @behaviour EctoShorts.Adapter.QueryBuilder
+  @behaviour EctoShorts.QueryBuilder
 
   @impl true
   def build_query(query, binding, key, value, source, opts) do
@@ -83,7 +83,7 @@ A `DynamicBuilder` adapter replaces dynamic expression compilation (e.g. for a d
 
 ```elixir
 defmodule MyApp.CustomDynamicBuilder do
-  @behaviour EctoShorts.Adapter.DynamicBuilder
+  @behaviour EctoShorts.DynamicBuilder
 
   @impl true
   def build_dynamic(field, value, binding, opts) do

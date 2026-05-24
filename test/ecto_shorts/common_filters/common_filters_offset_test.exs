@@ -82,5 +82,18 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
 
       assert_query(expected, actual)
     end
+
+    # Covers the fallback apply_offset/3 clause that builds Query.offset(query, ^expr)
+    # without any binding list. This clause is reached when the selected_binding does
+    # not match any of the generated patterns (root, named, or positional).
+    test "applies offset via fallback when selected_binding is not a recognised pattern" do
+      alias EctoShorts.CommonFilters.Offset
+
+      query = from(p in Post)
+      result = Offset.build_query(:offset, Post, query, :unrecognised_binding, 7, [])
+
+      expected = offset(Post, ^7)
+      assert_query(expected, result)
+    end
   end
 end

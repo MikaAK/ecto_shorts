@@ -120,6 +120,14 @@ defmodule EctoShorts.Actions.BulkTest do
 
       assert Repo.get!(Post, existing.id).title === "Existing"
     end
+
+    test "passes through batch_find path when :batch_find option is set" do
+      # When :batch_find is set but no entries match, batch_find returns the
+      # entries unchanged and insert_all inserts them. This exercises the
+      # batch_find branch in insert_all/3.
+      assert {:ok, _} =
+               Actions.insert_all(Post, [%{permalink: "no_match"}], batch_find: :permalink)
+    end
   end
 
   describe "update_all/4" do

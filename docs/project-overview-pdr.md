@@ -42,9 +42,9 @@ Three behaviour contracts let consumers override any layer of the pipeline:
 
 | Behaviour | Override point |
 |---|---|
-| `EctoShorts.Adapter.QueryBuilder` | How a filter key maps to an Ecto query clause |
-| `EctoShorts.Adapter.DynamicBuilder` | How a value is compiled into a dynamic expression |
-| `EctoShorts.Adapter.QueryProvider` | Named query fragments for locks and structural filters |
+| `EctoShorts.QueryBuilder` | How a filter key maps to an Ecto query clause |
+| `EctoShorts.DynamicBuilder` | How a value is compiled into a dynamic expression |
+| `EctoShorts.QueryProvider` | Named query fragments for locks and structural filters |
 
 Adapters can be set globally via application config or passed as runtime opts on any `Actions` call.
 
@@ -100,3 +100,12 @@ Before reduction, params are sorted into a deterministic order: `:where` clauses
 - **Dual test coverage**: Every filter has both a schema-backed test and a schemaless test.
 - **Developer adoption**: Installable with a single `mix.exs` dependency, no mandatory configuration beyond `:repo`.
 - **Static analysis**: Zero Credo warnings at strict level; Dialyzer passes on the public API.
+
+## Cross-References
+
+- [Codebase Summary](codebase-summary.md) -- directory layout, module inventory, key file index
+- [System Architecture](system-architecture.md) -- component diagrams, filter pipeline, adapter extension points
+- [API Reference](api-reference.md) -- complete function signatures for all public modules
+- [Configuration Guide](configuration-guide.md) -- repo, replica, and adapter configuration
+- [Testing Guide](testing-guide.md) -- test setup, DataCase, dual-file pattern
+- [Code Standards](code-standards.md) -- adding filters, Credo, Dialyzer

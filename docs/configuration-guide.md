@@ -18,6 +18,8 @@ config :ecto_shorts,
 | `:query_provider_module` | module | `nil` | Named query-fragment provider for locks and structural filters |
 | `:error_module` | module | `EctoShorts.Actions.Error` | Error-response builder used by `Actions` |
 | `:max_positional_bindings` | integer | `10` | Upper bound for `:at` positional bindings; increasing this increases compile time |
+| `:sql_sandbox` | boolean | `false` | Set to `true` in the test environment to enable `Ecto.Adapters.SQL.Sandbox` mode |
+| `:hints` | list | `[]` | Compile-time index hint strings for joins; see note below -- changes require recompilation |
 
 ## Basic Setup
 
@@ -54,6 +56,10 @@ config :ecto_shorts,
 
 Compound operations such as `find_or_create` use the replica for the read phase and the primary for the write phase within the same call. No additional configuration is needed.
 
+## Naming: dynamic_builder_module vs dynamic_builder
+
+The global app config key is `:dynamic_builder_module`. The per-call runtime opt key is `:dynamic_builder` (no `_module` suffix). These are intentionally different to make it explicit when an override is per-call vs global. Do not use `:dynamic_builder` in `config.exs` — it has no effect there.
+
 ## Runtime Option Overrides
 
 `:dynamic_builder` (without `_module`) can be passed as a per-call runtime option to override the adapter for that call only. `:query_builder_module` overrides the `QueryBuilders` adapter per-call:
@@ -88,11 +94,11 @@ config :ecto_shorts, error_module: MyApp.ActionsError
 
 ## Custom DynamicBuilder
 
-Implement `EctoShorts.Adapter.DynamicBuilder` to replace dynamic expression compilation:
+Implement `EctoShorts.DynamicBuilder` to replace dynamic expression compilation:
 
 ```elixir
 defmodule MyApp.CustomDynamicBuilder do
-  @behaviour EctoShorts.Adapter.DynamicBuilder
+  @behaviour EctoShorts.DynamicBuilder
 
   @impl true
   def build_dynamic(field, value, binding, opts) do
@@ -119,11 +125,11 @@ When neither is set, `EctoShorts.DynamicBuilders` auto-detects from the repo's `
 
 ## Custom QueryBuilder
 
-Implement `EctoShorts.Adapter.QueryBuilder` to replace how a filter key is applied to the query:
+Implement `EctoShorts.QueryBuilder` to replace how a filter key is applied to the query:
 
 ```elixir
 defmodule MyApp.CustomQueryBuilder do
-  @behaviour EctoShorts.Adapter.QueryBuilder
+  @behaviour EctoShorts.QueryBuilder
 
   @impl true
   def build_query(query, binding, key, value, source, opts) do
@@ -143,11 +149,11 @@ When set, `EctoShorts.QueryBuilders` calls your module for every filter key. Ret
 
 ## Custom QueryProvider
 
-Implement `EctoShorts.Adapter.QueryProvider` to supply named query fragments used by structural filters such as `:lock`:
+Implement `EctoShorts.QueryProvider` to supply named query fragments used by structural filters such as `:lock`:
 
 ```elixir
 defmodule MyApp.QueryProvider do
-  @behaviour EctoShorts.Adapter.QueryProvider
+  @behaviour EctoShorts.QueryProvider
 
   @impl true
   def query_for(:for_update), do: "FOR UPDATE"

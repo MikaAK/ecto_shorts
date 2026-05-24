@@ -9,7 +9,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExprTest do
   describe "nil checks" do
     test "nil value produces IS NULL" do
       expected = dynamic([q], is_nil(field(q, :data)))
-      actual = MapExpr.dynamic_expr({:as, nil}, :data, nil, nil, [])
+      actual = MapExpr.dynamic_expr({:as, nil}, :data, nil, {:==, nil}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -127,6 +127,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExprTest do
     test "unrecognised operator returns nil" do
       assert nil == MapExpr.dynamic_expr({:as, nil}, :data, nil, {:unknown_op, "value"}, [])
     end
+
+    test "unsupported binding selector returns nil via catch-all clause" do
+      assert nil == MapExpr.dynamic_expr({:unsupported, :binding}, :data, nil, {:==, "v"}, [])
+    end
   end
 
   describe "contained_by list form" do
@@ -138,10 +142,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExprTest do
     end
   end
 
-  describe "normalize_term plain value" do
-    test "plain scalar value (not nil, not op tuple) normalizes to {:==, value}" do
+  describe "plain value" do
+    test "plain scalar value passed as {:==, value} produces equality" do
       expected = dynamic([q], field(q, :data) == ^"hello")
-      actual = MapExpr.dynamic_expr({:as, nil}, :data, nil, "hello", [])
+      actual = MapExpr.dynamic_expr({:as, nil}, :data, nil, {:==, "hello"}, [])
 
       assert_dynamic(expected, actual)
     end

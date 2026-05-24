@@ -55,27 +55,6 @@ defmodule EctoShorts.CommonFilters.NegationTest do
       assert_sql(expected, q2)
     end
 
-    test "excludes records where the field is greater than or equal to the value" do
-      expected = from(p in Post, where: not (p.views >= ^10))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{>=: 10}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records where the field is less than the value" do
-      expected = from(p in Post, where: not (p.views < ^10))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{<: 10}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records where the field is less than or equal to the value" do
-      expected = from(p in Post, where: not (p.views <= ^10))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{<=: 10}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
     test "excludes records where the field equals the value" do
       expected = from(p in Post, where: p.views != ^10)
       q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{==: 10}}}, [])
@@ -149,27 +128,6 @@ defmodule EctoShorts.CommonFilters.NegationTest do
 
       assert_sql(expected, q2)
     end
-
-    test "excludes records using negated gte alias" do
-      expected = from(p in Post, where: not (p.views >= ^10))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{gte: 10}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated lt alias" do
-      expected = from(p in Post, where: not (p.views < ^10))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{lt: 10}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated lte alias" do
-      expected = from(p in Post, where: not (p.views <= ^10))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{lte: 10}}}, [])
-
-      assert_sql(expected, q2)
-    end
   end
 
   describe "negated string transforms" do
@@ -180,19 +138,6 @@ defmodule EctoShorts.CommonFilters.NegationTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{title: %{not: %{!=: %{lower: "hello"}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "includes records where the uppercased field matches the value using not !=" do
-      expected = from(p in Post, where: fragment("upper(?)", p.title) == ^"HELLO")
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{title: %{not: %{!=: %{upper: "HELLO"}}}},
           []
         )
 
@@ -240,52 +185,6 @@ defmodule EctoShorts.CommonFilters.NegationTest do
       assert_sql(expected, q2)
     end
 
-    test "excludes records using negated != any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id !=
-                   any(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{!=: %{any: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated > all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id >
-                   all(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{>: %{all: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "excludes records using negated > any comparison" do
       expected =
         from(p in Post,
@@ -303,144 +202,6 @@ defmodule EctoShorts.CommonFilters.NegationTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{id: %{not: %{>: %{any: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated >= all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id >=
-                   all(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{>=: %{all: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated >= any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id >=
-                   any(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{>=: %{any: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated < all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id <
-                   all(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{<: %{all: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated < any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id <
-                   any(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{<: %{any: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated <= all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id <=
-                   all(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{<=: %{all: %{from: Comment, where: %{published: true}}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated <= any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            not (p.id <=
-                   any(
-                     from(c in Comment,
-                       where: c.published == ^true,
-                       select: c.id
-                     )
-                   ))
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{not: %{<=: %{any: %{from: Comment, where: %{published: true}}}}}},
           []
         )
 

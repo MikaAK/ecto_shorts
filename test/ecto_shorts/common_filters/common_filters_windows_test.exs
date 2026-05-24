@@ -484,7 +484,7 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
               []
             )
 
-          assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
         end)
 
       assert log =~ "Expected :windows params to be a map or keyword list"

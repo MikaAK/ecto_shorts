@@ -2,7 +2,6 @@ defmodule EctoShorts.CommonFilters.LimitTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
-  alias EctoShorts.CommonFilters
   alias EctoShorts.CommonFilters.Limit
   alias EctoShorts.Schema.Post
 
@@ -18,5 +17,4 @@ defmodule EctoShorts.CommonFilters.LimitTest do
       assert_query(expected, actual)
     end
   end
-
 end

@@ -162,4 +162,23 @@ defmodule EctoShorts.CommonFilters.WithTiesTest do
       assert %Ecto.Query{} = actual
     end
   end
+
+  # Covers apply_params/5 boolean branch `else: query` (the false case):
+  # when with_ties is false, prepare_query is skipped and the else clause fires.
+  # Since the query has no limit, has_limit? returns false and the query is
+  # returned unchanged.
+  describe "with_ties false" do
+    test "returns the query unchanged when with_ties is false and no limit is set" do
+      expected = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{with_ties: false},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
 end

@@ -22,9 +22,9 @@ defmodule EctoShorts.Config do
   |---|---|---|---|
   | `:repo` | `module()` | `nil` | Primary `Ecto.Repo` for write operations |
   | `:replica` | `module()` | `nil` | Read replica repo; falls back to `:repo` when absent |
-  | `:dynamic_builder_module` | `module()` | auto-detected | `EctoShorts.Adapter.DynamicBuilder` implementation; auto-detected from the repo's database adapter when not set |
-  | `:query_builder_module` | `module()` | `nil` | `EctoShorts.Adapter.QueryBuilder` implementation used by `EctoShorts.CommonFilters` |
-  | `:query_provider_module` | `module()` | `nil` | `EctoShorts.Adapter.QueryProvider` implementation for named query expressions |
+  | `:dynamic_builder_module` | `module()` | auto-detected | `EctoShorts.DynamicBuilder` implementation; auto-detected from the repo's database adapter when not set |
+  | `:query_builder_module` | `module()` | `nil` | `EctoShorts.QueryBuilder` implementation used by `EctoShorts.CommonFilters` |
+  | `:query_provider_module` | `module()` | `nil` | `EctoShorts.QueryProvider` implementation for named query expressions |
   | `:error_module` | `module()` | `EctoShorts.Actions.Error` | Module used by `EctoShorts.Actions` to build error responses |
   | `:max_positional_bindings` | `integer()` | `nil` | Maximum positional bindings allowed before EctoShorts raises |
 

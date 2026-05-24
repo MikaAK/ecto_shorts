@@ -3,7 +3,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @moduledoc false
 
   alias EctoShorts.QueryBinding
-  alias EctoShorts.DynamicBuilders.Postgres.Normalizer
 
   import Ecto.Query
 
@@ -23,8 +22,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     # Thin entry shim - delegates entirely to non-generated dispatch_expr
     def dynamic_expr(unquote(quoted_binding_head) = selected_binding, key, negated, term, _opts) do
-      {op, normalized_term} = normalize_term(term)
-      dispatch_expr(selected_binding, key, negated, {op, normalized_term})
+      dispatch_expr(selected_binding, key, negated, term)
     end
 
     # Binding-specific field accessor functions (one dynamic/2 call each, no logic)
@@ -247,9 +245,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
       {:ilike, v} ->
         f = field_dyn(binding, key)
         dynamic([], ilike(^f, ^preserve_or_wrap_pattern(v)))
-
-      _ ->
-        nil
     end
   end
 
@@ -800,23 +795,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp apply_dyn_comparison(:<=, lhs, rhs, :negated), do: dynamic([], not (^lhs <= ^rhs))
 
   def dynamic_expr(_selected_binding, _key, _negated, _term, _opts), do: nil
-
-  defp normalize_term({transform, value}) when transform in [:lower, :upper] do
-    {:==, {transform, value}}
-  end
-
-  defp normalize_term({op, value}) do
-    normalized_op = Normalizer.normalize_operator(op)
-    {normalized_op, normalize_term_value(normalized_op, value)}
-  end
-
-  defp normalize_term(value), do: {:==, value}
-
-  defp normalize_term_value(op, {nested_op, nested_value}) when op in @aggregate_helpers do
-    {Normalizer.normalize_operator(nested_op), nested_value}
-  end
-
-  defp normalize_term_value(_op, value), do: value
 
   defp family_for(:in, _term), do: :membership
 

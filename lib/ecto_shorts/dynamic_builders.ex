@@ -29,7 +29,7 @@ defmodule EctoShorts.DynamicBuilders do
   ## Custom adapters
 
   You may provide your own adapter as long as it implements the
-  `EctoShorts.Adapter.DynamicBuilder` behaviour.
+  `EctoShorts.DynamicBuilder` behaviour.
 
   A custom adapter may be configured in your application environment:
 
@@ -65,7 +65,7 @@ defmodule EctoShorts.DynamicBuilders do
   ## Options
 
     * `:dynamic_builder` - a module implementing
-      `EctoShorts.Adapter.DynamicBuilder`. Overrides all other resolution.
+      `EctoShorts.DynamicBuilder`. Overrides all other resolution.
     * `:repo` - the repo to use for adapter auto-detection.
     * `:replica` - fallback repo when `:repo` is not given.
 
@@ -92,27 +92,29 @@ defmodule EctoShorts.DynamicBuilders do
   end
 
   defp adapter_for_repo!(opts) do
-    if Keyword.has_key?(opts, :dynamic_builder) do
-      Keyword.fetch!(opts, :dynamic_builder)
-    else
-      repo = opts[:repo] || opts[:replica] || Config.repo!(opts)
+    case Keyword.get(opts, :dynamic_builder, EctoShorts.Config.dynamic_builder_module()) do
+      nil ->
+        repo = opts[:repo] || opts[:replica] || Config.repo!(opts)
 
-      case repo.__adapter__() do
-        Ecto.Adapters.Postgres ->
-          EctoShorts.DynamicBuilders.Postgres
+        case repo.__adapter__() do
+          Ecto.Adapters.Postgres ->
+            EctoShorts.DynamicBuilders.Postgres
 
-        Ecto.Adapters.MyXQL ->
-          raise "Adapter not yet implemented: Ecto.Adapters.MyXQL"
+          Ecto.Adapters.MyXQL ->
+            raise "Adapter not yet implemented: Ecto.Adapters.MyXQL"
 
-        Ecto.Adapters.SQL ->
-          raise "Adapter not yet implemented: Ecto.Adapters.SQL"
+          Ecto.Adapters.SQL ->
+            raise "Adapter not yet implemented: Ecto.Adapters.SQL"
 
-        Ecto.Adapters.Tds ->
-          raise "Adapter not yet implemented: Ecto.Adapters.SQL"
+          Ecto.Adapters.Tds ->
+            raise "Adapter not yet implemented: Ecto.Adapters.SQL"
 
-        adapter ->
-          raise "The adapter #{inspect(adapter)} is not supported. You must specify the option :dynamic_builder..."
-      end
+          adapter ->
+            raise "The adapter #{inspect(adapter)} is not supported. You must specify the option :dynamic_builder..."
+        end
+
+      module ->
+        module
     end
   end
 end

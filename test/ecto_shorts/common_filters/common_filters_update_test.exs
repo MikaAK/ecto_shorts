@@ -112,5 +112,21 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
         CommonFilters.convert_params_to_filter(Post, %{update: :not_a_keyword_list}, [])
       end
     end
+
+    # Covers update.ex lines 11-13: the map-to-list conversion branch, which
+    # converts a plain map update term into a keyword list before building the query.
+    test "matches Ecto.Query for a root binding update with a map term" do
+      updates = [set: [views: 1]]
+      expected = update(Post, [], ^updates)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{update: %{set: [views: 1]}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
   end
 end

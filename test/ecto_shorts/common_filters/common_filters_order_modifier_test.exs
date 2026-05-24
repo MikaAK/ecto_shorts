@@ -110,7 +110,6 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
 
       assert_query(expected, actual)
     end
-
   end
 
   describe "order_by list shapes" do
@@ -314,7 +313,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
               []
             )
 
-          assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
         end)
 
       assert log =~ "nonexistent_field"
@@ -346,7 +345,7 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
               []
             )
 
-          assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
         end)
 
       assert log =~ "nonexistent_field"
@@ -364,10 +363,26 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
               []
             )
 
-          assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
         end)
 
       assert log =~ "nonexistent_field"
+    end
+  end
+
+  # Covers prepend_order_by.ex line 77: the `_ -> true` branch in schema_field?/2.
+  # With a schemaless source, get_schema_reflection returns nil (not a list),
+  # so the catch-all fires and treats all field names as valid.
+  describe "prepend_order_by with schemaless source" do
+    test "accepts any field name on a schemaless source" do
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{prepend_order_by: [asc: :title]},
+          []
+        )
+
+      assert %Ecto.Query{} = actual
     end
   end
 

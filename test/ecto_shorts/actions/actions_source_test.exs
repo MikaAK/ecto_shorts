@@ -34,6 +34,13 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
       assert error.code === :not_found
       assert error.message === "source not found."
     end
+
+    test "returns records matching the filter when called with explicit opts" do
+      %Post{} |> Post.changeset(%{title: "AllPostOpts"}) |> Repo.insert!()
+
+      assert [%Post{title: "AllPostOpts"}] =
+               Actions.all(source(), %{from: :posts, title: "AllPostOpts"}, repo: Repo)
+    end
   end
 
   describe "find/3 with Source" do

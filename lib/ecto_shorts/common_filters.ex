@@ -307,6 +307,36 @@ defmodule EctoShorts.CommonFilters do
   @spec filters() :: list(filters())
   def filters, do: @filters
 
+  # ------------------------------------------------------------------------
+  # IMPLEMENTATION CONTRACT
+  # ------------------------------------------------------------------------
+  #
+  # Read before modifying the function convert_params_to_filter/3 or any
+  # code it calls.
+  #
+  # A params map or keyword list is a collection of operations, not a
+  # single operation node.
+  # Do NOT pattern match on a partial map shape such as %{field: name} to
+  # infer meaning for the whole container.
+  # Meaning is assigned at the {key, value} entry boundary.
+  #
+  # Walk params with a reducer or recursive function that processes each
+  # entry in evaluation order and carries the accumulated query forward.
+  # Recurse into nested param containers for grouping, binding selection,
+  # association scopes, and other structural forms.
+  #
+  # Dispatch each {key, value} entry to the appropriate builder or
+  # handler.
+  # Preserve duplicate-key and ordering semantics by accepting keyword
+  # lists where order or repetition is meaningful.
+  #
+  # Treat unknown non-filter keys as field-level operations at the current
+  # scope instead of inventing ad hoc container-level pattern matches.
+  #
+  # Keep the recursive walk explicit: the reader must be able to see where
+  # traversal happens, where meaning is assigned, and where the
+  # accumulated query is updated.
+
   @doc """
   Builds an `Ecto.Query` from `source` by applying each entry in `params`.
 
@@ -318,7 +348,7 @@ defmodule EctoShorts.CommonFilters do
 
   * `:sorter` - receives the normalized keyword list and returns it in the
     order to evaluate
-  * `:query_builder` - custom `EctoShorts.Adapter.QueryBuilder`
+  * `:query_builder` - custom `EctoShorts.QueryBuilder`
   * `:query_provider_module` - provider used by query families such as joins and
     locks
 
@@ -480,10 +510,8 @@ defmodule EctoShorts.CommonFilters do
   end
 
   defp get_assoc_source(source, key) do
-    case CommonSchema.get_schema_reflection(source, :association, key) do
-      %{queryable: queryable} when queryable !== nil -> queryable
-      _ -> source
-    end
+    %{queryable: queryable} = CommonSchema.get_schema_reflection(source, :association, key)
+    queryable
   end
 
   defp assoc_key?(source, key) do

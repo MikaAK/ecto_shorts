@@ -2416,6 +2416,18 @@ defmodule EctoShorts.Actions.CRUDTest do
     test "returns nil unchanged when record is not found" do
       assert nil === Actions.get(Post, -1, preload: [:comments])
     end
+
+    test "returns the record unchanged when :preload is an empty list" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "EmptyPreloadGet"})
+        |> Repo.insert!()
+
+      result = Actions.get(Post, post.id, preload: [])
+
+      assert %Post{title: "EmptyPreloadGet"} = result
+      assert %Ecto.Association.NotLoaded{} = result.comments
+    end
   end
 
   describe "find/3 with :preload" do
@@ -2432,12 +2444,31 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert {:ok, %Post{comments: [%Comment{}]}} =
                Actions.find(Post, %{id: post.id}, preload: [:comments])
     end
+
+    test "returns the record unchanged when :preload is an empty list" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "EmptyPreloadFind"})
+        |> Repo.insert!()
+
+      assert {:ok, result} = Actions.find(Post, %{id: post.id}, preload: [])
+
+      assert %Post{title: "EmptyPreloadFind"} = result
+      assert %Ecto.Association.NotLoaded{} = result.comments
+    end
   end
 
   describe "create/3 with :preload" do
     test "preloads associations on the created struct" do
       assert {:ok, %Post{comments: []}} =
                Actions.create(Post, %{title: "F"}, preload: [:comments])
+    end
+
+    test "returns the created struct unchanged when :preload is an empty list" do
+      assert {:ok, %Post{title: "EmptyPreloadCreate"} = result} =
+               Actions.create(Post, %{title: "EmptyPreloadCreate"}, preload: [])
+
+      assert %Ecto.Association.NotLoaded{} = result.comments
     end
   end
 
@@ -2545,6 +2576,152 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert {:error, %{code: :stale}} =
                Actions.update(PostWithLock, post, %{title: "Stale Update"})
+    end
+  end
+
+  describe "delete/1 no-opts shorthand" do
+    test "deletes the struct when called with only the struct argument" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "NoOpts"})
+        |> Repo.insert!()
+
+      assert {:ok, %Post{}} = Actions.delete(post)
+      assert Repo.get(Post, post.id) === nil
+    end
+  end
+
+  describe "delete/2 with a changeset" do
+    test "deletes the record when given an Ecto.Changeset" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "ChangesetDelete"})
+        |> Repo.insert!()
+
+      changeset = Post.changeset(post, %{})
+
+      assert {:ok, %Post{title: "ChangesetDelete"}} = Actions.delete(changeset, [])
+      assert Repo.get(Post, post.id) === nil
+    end
+  end
+
+  describe "delete/3 proxy (queryable + struct)" do
+    test "deletes the given struct when called with queryable, struct, and opts" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "ProxyDelete"})
+        |> Repo.insert!()
+
+      assert {:ok, %Post{}} = Actions.delete(Post, post, [])
+      assert Repo.get(Post, post.id) === nil
+    end
+
+    test "deletes a record by id when called with queryable, integer id, and opts" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "DeleteById3"})
+        |> Repo.insert!()
+
+      assert {:ok, %Post{}} = Actions.delete(Post, post.id, [])
+      assert Repo.get(Post, post.id) === nil
+    end
+  end
+
+  describe "delete/2 list error branch" do
+    test "halts and returns the error when one delete in the list fails" do
+      blocked =
+        %Post{}
+        |> Post.changeset(%{title: "Blocked"})
+        |> Repo.insert!()
+
+      ok_post =
+        %Post{}
+        |> Post.changeset(%{title: "OK"})
+        |> Repo.insert!()
+
+      %Comment{}
+      |> Comment.changeset(%{body: "blocking", post_id: blocked.id})
+      |> Repo.insert!()
+
+      # Pass blocked post second so the first delete succeeds and the second halts
+      assert {:error, %{code: :conflict}} = Actions.delete([ok_post, blocked], [])
+    end
+  end
+
+  describe "all/2 with Source and keyword opts" do
+    test "resolves the source and returns matching records when opts is a keyword list" do
+      alias EctoShorts.Actions.Source
+
+      %Post{}
+      |> Post.changeset(%{title: "SourceKeyword"})
+      |> Repo.insert!()
+
+      source = Source.new(store: [posts: Post])
+
+      result = Actions.all(source, from: :posts, title: "SourceKeyword")
+      assert [%Post{title: "SourceKeyword"}] = result
+    end
+  end
+
+  describe "all/2 ArgumentError" do
+    test "raises ArgumentError when the second argument is not a map or keyword list" do
+      assert_raise ArgumentError, fn ->
+        Actions.all(Post, :not_a_valid_arg)
+      end
+    end
+  end
+
+  describe "stream/3 with Source" do
+    test "resolves the source and streams matching records" do
+      alias EctoShorts.Actions.Source
+
+      %Post{}
+      |> Post.changeset(%{title: "StreamSource"})
+      |> Repo.insert!()
+
+      source = Source.new(store: [posts: Post])
+
+      assert {:ok, [%Post{title: "StreamSource"}]} =
+               Repo.transaction(fn ->
+                 source
+                 |> Actions.stream(%{from: :posts, title: "StreamSource"})
+                 |> Enum.to_list()
+               end)
+    end
+  end
+
+  describe "all/3 keyword params with put_param" do
+    test "appends order_by to keyword list params when passed via opts" do
+      %Post{}
+      |> Post.changeset(%{title: "B"})
+      |> Repo.insert!()
+
+      %Post{}
+      |> Post.changeset(%{title: "A"})
+      |> Repo.insert!()
+
+      # When params is a keyword list (not a map), put_param appends {key, value}
+      # to the keyword list rather than calling Map.put.
+      results = Actions.all(Post, [title: "A"], order_by: [asc: :title])
+      assert [%Post{title: "A"}] = results
+    end
+  end
+
+  describe "find/3 keyword params with put_param" do
+    test "appends order_by to keyword list params when passed via opts" do
+      %Post{}
+      |> Post.changeset(%{title: "PutParamFindB"})
+      |> Repo.insert!()
+
+      post_a =
+        %Post{}
+        |> Post.changeset(%{title: "PutParamFindA"})
+        |> Repo.insert!()
+
+      # find/3 also calls put_param; passing keyword list params exercises
+      # the enum ++ [{key, value}] branch when enum is not a map.
+      assert {:ok, %Post{title: "PutParamFindA"}} =
+               Actions.find(Post, [id: post_a.id], order_by: [asc: :title])
     end
   end
 end

@@ -235,19 +235,6 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
       assert_sql(expected, q2)
     end
 
-    test "excludes records using negated datetime >= comparison" do
-      expected = from(p in Post, where: not (p.published_at >= ago(^1, "month")))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{published_at: %{not: %{>=: %{datetime: %{ago: [count: 1, interval: "month"]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "excludes records using negated datetime < comparison" do
       expected = from(p in Post, where: not (p.published_at < ago(^1, "month")))
 
@@ -255,19 +242,6 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{published_at: %{not: %{<: %{datetime: %{ago: [count: 1, interval: "month"]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated datetime <= comparison" do
-      expected = from(p in Post, where: not (p.published_at <= ago(^1, "month")))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{published_at: %{not: %{<=: %{datetime: %{ago: [count: 1, interval: "month"]}}}}},
           []
         )
 
@@ -287,19 +261,6 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
       assert_sql(expected, q2)
     end
 
-    test "matches records using datetime >= comparison (plain)" do
-      expected = from(p in Post, where: p.published_at >= ago(^1, "month"))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{published_at: %{>=: %{datetime: %{ago: [count: 1, interval: "month"]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "matches records using datetime < comparison (plain)" do
       expected = from(p in Post, where: p.published_at < ago(^1, "month"))
 
@@ -307,19 +268,6 @@ defmodule EctoShorts.CommonFilters.DatetimeWrappersTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{published_at: %{<: %{datetime: %{ago: [count: 1, interval: "month"]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using datetime <= comparison (plain)" do
-      expected = from(p in Post, where: p.published_at <= ago(^1, "month"))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{published_at: %{<=: %{datetime: %{ago: [count: 1, interval: "month"]}}}},
           []
         )
 

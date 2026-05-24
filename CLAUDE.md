@@ -1,3 +1,9 @@
+## Project Rules
+
+Follow all conventions in @RULES.md for every task in this project.
+
+Before marking any task complete, verify the work satisfies every rule in @RULES.md. If any rule is not satisfied, fix the work before proceeding. Record this verification as a checklist item.
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -83,9 +89,9 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 
 | Behaviour | Purpose |
 |---|---|
-| `EctoShorts.Adapter.QueryBuilder` | Override how a filter key is applied to the query. Implement `build_query/6` and set `config :ecto_shorts, query_builder_module: MyModule`. |
-| `EctoShorts.Adapter.DynamicBuilder` | Override dynamic expression building for a different DB dialect. Implement `build_dynamic/4` and pass `:dynamic_builder` at call time or set `config :ecto_shorts, dynamic_builder_module: MyModule`. |
-| `EctoShorts.Adapter.QueryProvider` | Supply named query fragments referenced by the `:lock` filter or other structural filters. |
+| `EctoShorts.QueryBuilder` | Override how a filter key is applied to the query. Implement `build_query/6` and set `config :ecto_shorts, query_builder_module: MyModule`. |
+| `EctoShorts.DynamicBuilder` | Override dynamic expression building for a different DB dialect. Implement `build_dynamic/4` and pass `:dynamic_builder` at call time or set `config :ecto_shorts, dynamic_builder_module: MyModule`. |
+| `EctoShorts.QueryProvider` | Supply named query fragments referenced by the `:lock` filter or other structural filters. |
 
 `:dynamic_builder` (no `_module`) can be passed as a runtime opt to any `Actions` or `CommonFilters` call for a per-call DynamicBuilder override. `:query_builder_module` is the runtime opt key for overriding the `QueryBuilders` adapter.
 
@@ -109,6 +115,25 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 
 ## Gotchas
 
+### Invalid-field tests must use `capture_log`
+
+When a test passes a nonexistent field name (e.g. `nonexistent_field_xyz: 5`) to any filter function, the code emits a `Logger.warning` for the unknown field. Wrap the call in `ExUnit.CaptureLog.capture_log/1`, place assertions inside the closure, and then assert on the returned log string:
+
+```elixir
+import ExUnit.CaptureLog
+
+log =
+  capture_log(fn ->
+    actual = CommonFilters.convert_params_to_filter(Post, %{nonexistent_field_xyz: 5}, [])
+    assert_query(expected, actual)
+  end)
+
+assert log =~ "Field"
+assert log =~ "does not exist on schema"
+```
+
+Without the wrapper, test output is noisy and the warning goes unverified.
+
 ### `:hints` is compile-time only
 
 The `:hints` config key (index hint strings passed to joins) is read with `Application.compile_env/2` inside `CommonFilters.Join`. Changes take effect only after recompilation — setting them at runtime has no effect.
@@ -123,7 +148,7 @@ Without schema type information, `%{tags: %{in: ["a", "b"]}}` on a schemaless so
 
 ## Adding a new filter
 
-1. Create `lib/ecto_shorts/common_filters/my_filter.ex` implementing `@behaviour EctoShorts.Adapter.QueryBuilder` with a `build_query/6` callback. Call `EctoShorts.QueryBinding.query_binding_contracts(__MODULE__)` at module body level (outside any function).
+1. Create `lib/ecto_shorts/common_filters/my_filter.ex` implementing `@behaviour EctoShorts.QueryBuilder` with a `build_query/6` callback. Call `EctoShorts.QueryBinding.query_binding_contracts(__MODULE__)` at module body level (outside any function).
 2. In `CommonFilters`, add your module to the existing alias block and add a new `@my_filters [:my_key]` module attribute.
 3. Append `@my_filters` to `@all_filters` via `Enum.concat`.
 4. Add a dispatch clause with a `when filter in @my_filters` guard:

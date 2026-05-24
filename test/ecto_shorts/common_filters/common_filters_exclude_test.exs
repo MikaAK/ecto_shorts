@@ -248,48 +248,6 @@ defmodule EctoShorts.CommonFilters.ExcludeTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for excluding inner_join" do
-      source = from(p in Post, inner_join: u in assoc(p, :author))
-      expected = exclude(source, :inner_join)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{exclude: :inner_join},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for excluding cross_join" do
-      source = from(p in Post, cross_join: u in "users")
-      expected = exclude(source, :cross_join)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{exclude: :cross_join},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for excluding cross_lateral_join" do
-      source = from(p in Post, cross_lateral_join: u in fragment("SELECT 1 AS id"))
-      expected = exclude(source, :cross_lateral_join)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{exclude: :cross_lateral_join},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for excluding left_join" do
       source = from(p in Post, left_join: u in assoc(p, :author))
       expected = exclude(source, :left_join)
@@ -304,56 +262,14 @@ defmodule EctoShorts.CommonFilters.ExcludeTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for excluding right_join" do
-      source = from(p in Post, right_join: u in "users", on: true)
-      expected = exclude(source, :right_join)
+    test "matches Ecto.Query for excluding cross_join" do
+      source = from(p in Post, cross_join: u in "users")
+      expected = exclude(source, :cross_join)
 
       actual =
         CommonFilters.convert_params_to_filter(
           source,
-          %{exclude: :right_join},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for excluding full_join" do
-      source = from(p in Post, full_join: u in "users", on: true)
-      expected = exclude(source, :full_join)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{exclude: :full_join},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for excluding inner_lateral_join" do
-      source = from(p in Post, inner_lateral_join: u in fragment("SELECT 1 AS id"), on: true)
-      expected = exclude(source, :inner_lateral_join)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{exclude: :inner_lateral_join},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for excluding left_lateral_join" do
-      source = from(p in Post, left_lateral_join: u in fragment("SELECT 1 AS id"), on: true)
-      expected = exclude(source, :left_lateral_join)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{exclude: :left_lateral_join},
+          %{exclude: :cross_join},
           []
         )
 

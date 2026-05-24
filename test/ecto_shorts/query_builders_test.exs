@@ -66,7 +66,7 @@ defmodule EctoShorts.QueryBuildersTest do
               query_builder_module: BuilderWithoutCallback
             )
 
-          assert inspect(result) == inspect(q)
+          Testing.assert_query(q, result)
         end)
 
       assert log =~ "does not export the required function build_query/6"

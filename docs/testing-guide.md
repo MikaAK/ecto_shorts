@@ -96,36 +96,51 @@ Test schemas are defined in `test/support/schema/`. They are minimal schemas use
 ### Post
 
 ```elixir
-# has_many :comments
 # belongs_to :author (User)
-# field :tags, {:array, :string}   # used for array filter tests
+# many_to_many :authors, User (via PostAuthor join table)
+# has_many :comments
+# has_many :composite_primary_keys
 # field :title, :string
 # field :body, :string
+# field :notes, :string          # source: :custom_string_field (custom column name)
+# field :permalink, :string
+# field :published_at, :utc_datetime
+# field :published, :boolean
+# field :tags, {:array, :string} # used for array filter tests
+# field :views, :integer
 ```
 
 ### User
 
 ```elixir
 # has_many :posts
-# many_to_many :roles, Role
-# field :name, :string
+# has_many :comments
+# has_many :books
+# many_to_many :posts, Post (via PostAuthor join table)
+# field :first_name, :string
+# field :last_name, :string
 # field :age, :integer
-# field :status, Ecto.Enum, values: [:active, :inactive, :pending]
+# field :email, :string
 ```
 
 ### Comment
 
 ```elixir
+# belongs_to :author (User)
 # belongs_to :post
 # field :body, :string
+# field :published, :boolean
+# field :published_at, :utc_datetime
+# field :replies, :integer
+# field :tags, {:array, :string}
 ```
 
 ### Book
 
 ```elixir
-# Used in bulk/batch/insert_all tests
+# belongs_to :author (User)
+# No :id primary key
 # field :title, :string
-# field :author, :string
 ```
 
 ### UserData (`EctoShorts.Schema.UserData`)

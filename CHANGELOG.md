@@ -5,7 +5,7 @@
 ##### Breaking changes
 
 - **Minimum Elixir version** raised from `~> 1.13` to `~> 1.15`
-- **`EctoShorts.CommonFilters` re-architected** — `EctoShorts.QueryBuilder`, `EctoShorts.QueryBuilder.Common`, and `EctoShorts.QueryBuilder.Schema` have been removed and replaced by a new dispatch system built on `EctoShorts.Adapter.QueryBuilder` and dedicated per-filter builder modules under `EctoShorts.CommonFilters.*`
+- **`EctoShorts.CommonFilters` re-architected** — `EctoShorts.QueryBuilder`, `EctoShorts.QueryBuilder.Common`, and `EctoShorts.QueryBuilder.Schema` have been removed and replaced by a new dispatch system built on `EctoShorts.QueryBuilder` and dedicated per-filter builder modules under `EctoShorts.CommonFilters.*`
 - **`EctoShorts.CommonChanges.put_when/3` renamed to `EctoShorts.CommonChanges.apply_when/3`** — `apply_when/3` also raises `ArgumentError` if the change function does not return a changeset
 - **`EctoShorts.SchemaHelpers` function renames** — `schema?/1` -> `schema_struct?/1`, `all_schemas?/1` -> `all_schema_struct?/1`
 - **`EctoShorts.Actions.find_or_create_many/3` rewritten** — now uses `Ecto.Multi` internally and returns `{:ok, list}` | `{:error, reason}` instead of merging found/created records by index
@@ -14,7 +14,7 @@
 
 - **`EctoShorts.CommonParams`** — prepares data for `Ecto.Repo.insert_all/3` and `Ecto.Repo.update_all/3` bulk operations, including changeset validation, timestamp generation, placeholder management, and conflict resolution options
 - **`EctoShorts.CommonQuery`** — runtime query introspection (source extraction, binding counts, binding source lookup)
-- **`EctoShorts.DynamicBuilders`** — database-adapter-aware entry point for building `Ecto.Query.DynamicExpr` values; ships with a Postgres adapter and supports custom adapters via `EctoShorts.Adapter.DynamicBuilder`
+- **`EctoShorts.DynamicBuilders`** — database-adapter-aware entry point for building `Ecto.Query.DynamicExpr` values; ships with a Postgres adapter and supports custom adapters via `EctoShorts.DynamicBuilder`
 - **`EctoShorts.Testing`** — assertion helpers (`assert_query/2`, `assert_sql/3`, `assert_dynamic/2`, and their `refute_*` counterparts) for testing query construction
 - **`EctoShorts.Actions.Source`** — key-value lookup struct that can be passed as a queryable to `EctoShorts.Actions` read helpers
 - **`EctoShorts.Actions.Batch`** — batch grouping and lookup internals behind `EctoShorts.Actions.batch/5` and `EctoShorts.Actions.batch_find/4`
@@ -24,9 +24,9 @@
 - **`EctoShorts.Actions.CRUD`** — single-record CRUD internals
 - **`EctoShorts.Logger`** — internal logging wrapper
 - **`EctoShorts.Utils`** — shared utility functions
-- **`EctoShorts.Adapter.QueryBuilder`** — behaviour for custom query builders
-- **`EctoShorts.Adapter.QueryProvider`** — behaviour for named query expression providers
-- **`EctoShorts.Adapter.DynamicBuilder`** — behaviour for custom dynamic expression builders
+- **`EctoShorts.QueryBuilder`** — behaviour for custom query builders
+- **`EctoShorts.QueryProvider`** — behaviour for named query expression providers
+- **`EctoShorts.DynamicBuilder`** — behaviour for custom dynamic expression builders
 - **`EctoShorts.CommonFilters.*`** — dedicated builder modules for each filter family: `Distinct`, `GroupBy`, `Having`, `Join`, `Last`, `Limit`, `Lock`, `Offset`, `OrderBy`, `Preload`, `Select`, `SetOperation`, `SubQuery`, `Update`, `Windows`, `WithCte`, `WithNamedBinding`, `WithTies`
 
 ##### New EctoShorts.Actions API functions
@@ -78,14 +78,14 @@
 - **Named bindings** — `:with_named_binding`
 - **Subqueries** — `:subquery`
 - **Wildcard preservation** — `like`/`ilike` filters preserve caller-supplied `%` and `_` wildcards instead of always wrapping with `%...%`
-- **Custom query builder support** — `:query_builder` option or config key delegates filter dispatch to a user-provided `EctoShorts.Adapter.QueryBuilder` implementation
+- **Custom query builder support** — `:query_builder` option or config key delegates filter dispatch to a user-provided `EctoShorts.QueryBuilder` implementation
 - **Custom query provider support** — `:query_provider` option or config key for named query expressions used by joins and locks
 
 ##### New configuration options
 
-- **`:dynamic_builder`** — configures which `EctoShorts.Adapter.DynamicBuilder` to use (auto-detected from the repo adapter when not set)
-- **`:query_builder`** — configures a custom `EctoShorts.Adapter.QueryBuilder` for filter dispatch
-- **`:query_provider`** — configures a custom `EctoShorts.Adapter.QueryProvider` for named query expressions
+- **`:dynamic_builder`** — configures which `EctoShorts.DynamicBuilder` to use (auto-detected from the repo adapter when not set)
+- **`:query_builder`** — configures a custom `EctoShorts.QueryBuilder` for filter dispatch
+- **`:query_provider`** — configures a custom `EctoShorts.QueryProvider` for named query expressions
 - **`:error_module`** — configures the error module used by `EctoShorts.Actions` (defaults to `EctoShorts.Actions.Error`)
 - **`:max_positional_bindings`** — configures the maximum positional bindings allowed
 

@@ -8,17 +8,25 @@ defmodule EctoShorts.CommonFilters.BooleanCompositionTest do
   import Ecto.Query
 
   describe ":or_where with nil dynamic" do
+    import ExUnit.CaptureLog
+
     test "returns query unchanged when or_where term produces no dynamic expression" do
       expected = from(p in Post)
 
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{or_where: %{nonexistent_field_xyz_for_nil: 42}},
-          []
-        )
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{or_where: %{nonexistent_field_xyz_for_nil: 42}},
+              []
+            )
 
-      assert inspect(actual) == inspect(expected)
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Field"
+      assert log =~ "does not exist on schema"
     end
   end
 end

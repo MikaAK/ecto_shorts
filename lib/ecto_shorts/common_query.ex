@@ -239,10 +239,8 @@ defmodule EctoShorts.CommonQuery do
   See also `get_query_source/1` and `EctoShorts.CommonSchema.get_schema_prefix/1`.
   """
   def get_query_prefix(queryable) do
-    case queryable |> to_query!() |> get_query_source_expr() do
-      %{prefix: prefix} -> prefix
-      _ -> nil
-    end
+    %{prefix: prefix} = queryable |> to_query!() |> get_query_source_expr()
+    prefix
   end
 
   @doc """
@@ -272,10 +270,8 @@ defmodule EctoShorts.CommonQuery do
   See also `get_query_prefix/1` and `get_query_binding_source/2`.
   """
   def get_query_source(queryable) do
-    case queryable |> to_query!() |> get_query_source_expr() do
-      %{source: source} -> source
-      _ -> nil
-    end
+    %{source: source} = queryable |> to_query!() |> get_query_source_expr()
+    source
   end
 
   defp get_query_source_expr(%{query: query} = _subquery) do
@@ -290,20 +286,8 @@ defmodule EctoShorts.CommonQuery do
     from_or_join_expr
   end
 
-  defp get_query_source_expr(%{source: nil}) do
-    nil
-  end
-
   defp get_query_source_expr(%{source: source}) do
     get_query_source_expr(source)
-  end
-
-  defp get_query_source_expr(%_{}), do: nil
-
-  defp get_query_source_expr(other) do
-    other
-    |> to_query!()
-    |> get_query_source_expr()
   end
 
   @doc """
@@ -419,29 +403,19 @@ defmodule EctoShorts.CommonQuery do
       %Ecto.Query.JoinExpr{assoc: {^index, ^assoc_key}} ->
         ref_join_expr = get_in(joins, [Access.at!(index - 1)])
 
-        case get_join_expr_source(query, ref_join_expr) do
-          {_, nil} -> nil
-          {_, schema} -> {nil, SchemaHelpers.get_related_schema(schema, assoc_key)}
-        end
+        {_, schema} = get_join_expr_source(query, ref_join_expr)
+        {nil, SchemaHelpers.get_related_schema(schema, assoc_key)}
 
       _ ->
-        if has_subquery?(query) do
-          query
-          |> get_inner_query()
-          |> get_join_expr_source(join_expr)
-        end
+        query
+        |> get_inner_query()
+        |> get_join_expr_source(join_expr)
     end
   end
 
   defp get_join_expr_source(_query, join_expr), do: get_query_source(join_expr)
 
-  defp has_subquery?(%Ecto.Query{from: %Ecto.Query.FromExpr{source: %Ecto.SubQuery{}}}), do: true
-  defp has_subquery?(%Ecto.Query{from: %{source: %Ecto.SubQuery{query: _}}}), do: true
-  defp has_subquery?(%{source: %Ecto.SubQuery{query: _}}), do: true
-  defp has_subquery?(_), do: false
-
   defp get_inner_query(%Ecto.Query{from: %{source: %{query: query}}}), do: query
-  defp get_inner_query(_), do: nil
 
   defp get_binding_expr(%Ecto.Query{} = query, pos) when is_integer(pos) do
     binding_at(query, pos)

@@ -381,4 +381,76 @@ defmodule EctoShorts.Actions.MultiTest do
       assert Enum.any?(posts, fn post -> post.id === existing.id end)
     end
   end
+
+  describe "find_and_upsert_many/3 with map entries" do
+    test "upserts a record when the entry is a map with an :id key" do
+      existing =
+        %Post{}
+        |> Post.changeset(%{title: "MapUpsert"})
+        |> Repo.insert!()
+
+      assert {:ok, [%Post{title: "MapUpsertUpdated"}]} =
+               Actions.find_and_upsert_many(Post, [%{id: existing.id, title: "MapUpsertUpdated"}])
+    end
+
+    test "raises ArgumentError when an entry is not a tuple and has no :id key" do
+      assert_raise ArgumentError, fn ->
+        Actions.find_and_upsert_many(Post, [:not_a_valid_entry])
+      end
+    end
+  end
+
+  describe "update_many/3 with map entries" do
+    test "updates a record when the entry is a map with an :id key" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "MapUpdate"})
+        |> Repo.insert!()
+
+      assert {:ok, [%Post{title: "MapUpdateDone"}]} =
+               Actions.update_many(Post, [%{id: post.id, title: "MapUpdateDone"}])
+    end
+
+    test "raises ArgumentError when an entry is neither a tuple nor a map with :id" do
+      assert_raise ArgumentError, fn ->
+        Actions.update_many(Post, [:not_a_valid_entry])
+      end
+    end
+  end
+
+  describe "update_many/3 with tuple entries" do
+    test "finds and updates the record when the entry is a {find_params, update_params} tuple" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "TupleUpdateOriginal"})
+        |> Repo.insert!()
+
+      assert {:ok, [%Post{title: "TupleUpdateDone"}]} =
+               Actions.update_many(Post, [{%{id: post.id}, %{title: "TupleUpdateDone"}}])
+
+      assert %Post{title: "TupleUpdateDone"} = Repo.get!(Post, post.id)
+    end
+  end
+
+  describe "delete_many/2 with non-struct entries" do
+    test "deletes a record when the entry is a plain map with an :id key" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "MapDelete"})
+        |> Repo.insert!()
+
+      assert {:ok, [%Post{}]} = Actions.delete_many(Post, [%{id: post.id}])
+      assert Repo.get(Post, post.id) === nil
+    end
+
+    test "deletes a record when the entry is a scalar id" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "ScalarDelete"})
+        |> Repo.insert!()
+
+      assert {:ok, [%Post{}]} = Actions.delete_many(Post, [post.id])
+      assert Repo.get(Post, post.id) === nil
+    end
+  end
 end

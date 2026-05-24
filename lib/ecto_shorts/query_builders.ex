@@ -5,7 +5,7 @@ defmodule EctoShorts.QueryBuilders do
 
   This module is the adapter-selection layer for per-key query building,
   analogous to `EctoShorts.DynamicBuilders` for expression building. It
-  resolves the active `EctoShorts.Adapter.QueryBuilder` implementation from
+  resolves the active `EctoShorts.QueryBuilder` implementation from
   call-time opts, then application config, then the default
   (`EctoShorts.CommonFilters.Builder`), and delegates `build_query/6` to it.
 

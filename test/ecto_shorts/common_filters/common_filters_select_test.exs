@@ -488,6 +488,25 @@ defmodule EctoShorts.CommonFilters.SelectTest do
       assert_query(expected, actual)
     end
 
+    # Covers select.ex line 19-21: Map.to_list(params) when params is a plain map.
+    # A plain map passed as {:map, map} is converted to a keyword list, then
+    # apply_select_merge is called because it is a keyword list.
+    test "matches Ecto.Query for root select with {:map, keyword_map} form" do
+      expected =
+        from(p in Post,
+          select: %{post_id: p.id}
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{select: {:map, %{post_id: :id}}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
     test "matches Ecto.Query for root select with a plain non-keyword list" do
       expected = from(p in Post, select: ^[:id, :title])
 

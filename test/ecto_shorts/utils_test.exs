@@ -46,5 +46,25 @@ defmodule EctoShorts.UtilsTest do
       assert Utils.atomize_keys(:atom) === :atom
       assert Utils.atomize_keys(nil) === nil
     end
+
+    # The {key, value} branch in the transform lambda is triggered when a map has a
+    # tuple as its key (e.g. %{{"string_key", extra} => value}). In that case fun/1
+    # is called with the whole {string, extra} tuple, matching the {key, value} clause.
+
+    test "converts the tuple key's string part to an atom when the atom already exists" do
+      # :title is a well-known atom in this project so String.to_existing_atom succeeds.
+      result = Utils.atomize_keys(%{{"title", :extra} => "value"})
+
+      assert Map.has_key?(result, {:title, :extra})
+      assert result[{:title, :extra}] === "value"
+    end
+
+    test "keeps the tuple key's string part as a string when the atom does not exist" do
+      nonexistent = "ecto_shorts_nonexistent_xyzzy_#{System.unique_integer([:positive])}"
+      result = Utils.atomize_keys(%{{nonexistent, :extra} => "value"})
+
+      assert Map.has_key?(result, {nonexistent, :extra})
+      assert result[{nonexistent, :extra}] === "value"
+    end
   end
 end

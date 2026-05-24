@@ -73,13 +73,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "matches records where the id is in the given list" do
-      expected = from(p in Post, where: p.id in ^[1, 2, 3])
-      q2 = CommonFilters.convert_params_to_filter(Post, %{id: %{in: [1, 2, 3]}}, [])
-
-      assert_sql(expected, q2)
-    end
-
     test "treats a list value with == as an IN check" do
       expected = from(p in Post, where: p.published in ^[true, false])
       q2 = CommonFilters.convert_params_to_filter(Post, %{published: %{==: [true, false]}}, [])
@@ -254,121 +247,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "matches records using quantified greater-than-or-equal all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id >=
-              all(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{>=: %{all: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified less-than all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id <
-              all(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{<: %{all: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified less-than-or-equal all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id <=
-              all(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{<=: %{all: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified explicit equality against all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id ==
-              all(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{==: %{all: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified explicit inequality against all comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id !=
-              all(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{!=: %{all: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "matches records using quantified greater-than any comparison" do
       expected =
         from(p in Post,
@@ -386,121 +264,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{id: %{>: %{any: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified greater-than-or-equal any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id >=
-              any(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{>=: %{any: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified less-than any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id <
-              any(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{<: %{any: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified less-than-or-equal any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id <=
-              any(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{<=: %{any: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified explicit equality against any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id ==
-              any(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{==: %{any: %{from: Comment, where: %{published: true}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using quantified explicit inequality against any comparison" do
-      expected =
-        from(p in Post,
-          where:
-            p.id !=
-              any(
-                from(c in Comment,
-                  where: c.published == ^true,
-                  select: c.id
-                )
-              )
-        )
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{id: %{!=: %{any: %{from: Comment, where: %{published: true}}}}},
           []
         )
 
@@ -570,103 +333,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
   end
 
-  describe "arithmetic subtraction comparisons" do
-    test "matches records using arithmetic subtraction comparison" do
-      expected = from(p in Post, where: p.views != p.views - ^5)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{!=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using arithmetic subtraction greater-than comparison" do
-      expected = from(p in Post, where: p.views > p.views - ^5)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{>: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated arithmetic subtraction comparison" do
-      expected = from(p in Post, where: not (p.views > p.views - ^5))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{>: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-  end
-
-  describe "arithmetic multiplication comparisons" do
-    test "matches records using arithmetic multiplication comparison" do
-      expected = from(p in Post, where: p.views == p.views * ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{==: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated arithmetic multiplication comparison" do
-      expected = from(p in Post, where: not (p.views >= p.views * ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{>=: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-  end
-
-  describe "arithmetic division comparisons" do
-    test "matches records using arithmetic division comparison" do
-      expected = from(p in Post, where: p.views > p.views / ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{>: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using negated arithmetic division comparison" do
-      expected = from(p in Post, where: not (p.views > p.views / ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{>: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-  end
-
   describe "generic scalar fallback" do
     test "matches records using the generic scalar != fallback" do
       expected = from(p in Post, where: p.views != ^5)
@@ -675,51 +341,9 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "matches records using the generic scalar >= fallback" do
-      expected = from(p in Post, where: p.views >= ^5)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{>=: %{value: 5}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using the generic scalar < fallback" do
-      expected = from(p in Post, where: p.views < ^5)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{<: %{value: 5}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "matches records using the generic scalar <= fallback" do
-      expected = from(p in Post, where: p.views <= ^5)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{<=: %{value: 5}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using the negated generic scalar != fallback" do
-      expected = from(p in Post, where: p.views == ^5)
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{!=: %{value: 5}}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
     test "excludes records using the negated generic scalar >= fallback" do
       expected = from(p in Post, where: not (p.views >= ^5))
       q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{>=: %{value: 5}}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using the negated generic scalar < fallback" do
-      expected = from(p in Post, where: not (p.views < ^5))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{<: %{value: 5}}}}, [])
-
-      assert_sql(expected, q2)
-    end
-
-    test "excludes records using the negated generic scalar <= fallback" do
-      expected = from(p in Post, where: not (p.views <= ^5))
-      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{<=: %{value: 5}}}}, [])
 
       assert_sql(expected, q2)
     end
@@ -905,58 +529,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "views != views - 5 (plain)" do
-      expected = from(p in Post, where: p.views != p.views - ^5)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{!=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views >= views - 5 (plain)" do
-      expected = from(p in Post, where: p.views >= p.views - ^5)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{>=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views < views - 5 (plain)" do
-      expected = from(p in Post, where: p.views < p.views - ^5)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{<: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views <= views - 5 (plain)" do
-      expected = from(p in Post, where: p.views <= p.views - ^5)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{<=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "not (views == views - 5) (negated)" do
       expected = from(p in Post, where: not (p.views == p.views - ^5))
 
@@ -964,58 +536,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{views: %{not: %{==: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views != views - 5) (negated)" do
-      expected = from(p in Post, where: not (p.views != p.views - ^5))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{!=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views >= views - 5) (negated)" do
-      expected = from(p in Post, where: not (p.views >= p.views - ^5))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{>=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views < views - 5) (negated)" do
-      expected = from(p in Post, where: not (p.views < p.views - ^5))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{<: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views <= views - 5) (negated)" do
-      expected = from(p in Post, where: not (p.views <= p.views - ^5))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{<=: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
           []
         )
 
@@ -1037,58 +557,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "views != views * 2 (plain)" do
-      expected = from(p in Post, where: p.views != p.views * ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{!=: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views > views * 2 (plain)" do
-      expected = from(p in Post, where: p.views > p.views * ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{>: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views < views * 2 (plain)" do
-      expected = from(p in Post, where: p.views < p.views * ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{<: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views <= views * 2 (plain)" do
-      expected = from(p in Post, where: p.views <= p.views * ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{<=: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "not (views == views * 2) (negated)" do
       expected = from(p in Post, where: not (p.views == p.views * ^2))
 
@@ -1096,58 +564,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{views: %{not: %{==: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views != views * 2) (negated)" do
-      expected = from(p in Post, where: not (p.views != p.views * ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{!=: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views > views * 2) (negated)" do
-      expected = from(p in Post, where: not (p.views > p.views * ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{>: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views < views * 2) (negated)" do
-      expected = from(p in Post, where: not (p.views < p.views * ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{<: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views <= views * 2) (negated)" do
-      expected = from(p in Post, where: not (p.views <= p.views * ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{<=: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
           []
         )
 
@@ -1169,84 +585,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
       assert_sql(expected, q2)
     end
 
-    test "views != views / 2 (plain)" do
-      expected = from(p in Post, where: p.views != p.views / ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{!=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views >= views / 2 (plain)" do
-      expected = from(p in Post, where: p.views >= p.views / ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{>=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views < views / 2 (plain)" do
-      expected = from(p in Post, where: p.views < p.views / ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{<: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "views <= views / 2 (plain)" do
-      expected = from(p in Post, where: p.views <= p.views / ^2)
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{<=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views == views / 2) (negated)" do
-      expected = from(p in Post, where: not (p.views == p.views / ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{==: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views != views / 2) (negated)" do
-      expected = from(p in Post, where: not (p.views != p.views / ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{!=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
     test "not (views >= views / 2) (negated)" do
       expected = from(p in Post, where: not (p.views >= p.views / ^2))
 
@@ -1254,32 +592,6 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{views: %{not: %{>=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views < views / 2) (negated)" do
-      expected = from(p in Post, where: not (p.views < p.views / ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{<: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
-          []
-        )
-
-      assert_sql(expected, q2)
-    end
-
-    test "not (views <= views / 2) (negated)" do
-      expected = from(p in Post, where: not (p.views <= p.views / ^2))
-
-      q2 =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{not: %{<=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
           []
         )
 

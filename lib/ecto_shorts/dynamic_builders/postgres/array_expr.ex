@@ -4,7 +4,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   alias Ecto.Query
   alias EctoShorts.QueryBinding
-  alias EctoShorts.DynamicBuilders.Postgres.Normalizer
 
   require Ecto.Query
 
@@ -15,7 +14,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     def dynamic_expr(unquote(quoted_binding_head) = selected_binding, key, negated, term, _opts) do
       selected_binding
-      |> dispatch_expr(key, normalize_term(term))
+      |> dispatch_expr(key, term)
       |> maybe_negate(negated)
     end
 
@@ -319,7 +318,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   defp dispatch_expr(binding, key, {:like, value}) do
     field = field_dyn(binding, key)
-    patterns = normalize_patterns(value)
+    patterns = wrap_patterns(value)
 
     Query.dynamic(
       [],
@@ -329,7 +328,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   defp dispatch_expr(binding, key, {:ilike, value}) do
     field = field_dyn(binding, key)
-    patterns = normalize_patterns(value)
+    patterns = wrap_patterns(value)
 
     Query.dynamic(
       [],
@@ -379,61 +378,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   defp maybe_negate(expr, :not), do: Query.dynamic([], not (^expr))
   defp maybe_negate(expr, _negated), do: expr
 
-  defp normalize_term({:all, payload}) do
-    {:all, normalize_all_payload(payload)}
-  end
-
-  defp normalize_term({op, value}) do
-    {Normalizer.normalize_operator(op), value}
-  end
-
-  defp normalize_term(nil) do
-    {:==, nil}
-  end
-
-  defp normalize_term(value) when is_list(value) do
-    {:==, value}
-  end
-
-  defp normalize_term(value) do
-    {:in, value}
-  end
-
-  defp normalize_all_payload(payload) when is_map(payload) and not is_struct(payload) do
-    payload
-    |> Map.to_list()
-    |> normalize_all_payload()
-  end
-
-  defp normalize_all_payload(payload) when is_list(payload) do
-    payload
-    |> Enum.reduce([], &normalize_all_payload_entry/2)
-    |> Enum.reverse()
-    |> collapse_all_payload()
-  end
-
-  defp normalize_all_payload({op, value}) do
-    {Normalizer.normalize_operator(op), value}
-  end
-
-  defp normalize_all_payload(payload), do: payload
-
-  defp normalize_all_payload_entry({op, value}, payload) do
-    [{Normalizer.normalize_operator(op), value} | payload]
-  end
-
-  defp normalize_all_payload_entry(value, payload) do
-    [value | payload]
-  end
-
-  defp collapse_all_payload([payload]), do: payload
-  defp collapse_all_payload(payload), do: payload
-
-  defp normalize_patterns(values) when is_list(values) do
+  defp wrap_patterns(values) when is_list(values) do
     Enum.map(values, &preserve_or_wrap_pattern/1)
   end
 
-  defp normalize_patterns(value) do
+  defp wrap_patterns(value) do
     [preserve_or_wrap_pattern(value)]
   end
 

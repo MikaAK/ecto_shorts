@@ -1,5 +1,6 @@
 defmodule EctoShorts.CommonFiltersTest do
   use ExUnit.Case, async: true
+  use EctoShorts.Testing
 
   import Ecto.Query
 
@@ -44,8 +45,7 @@ defmodule EctoShorts.CommonFiltersTest do
           []
         )
 
-      assert inspect(actual) =~ "Post"
-      assert %Ecto.Query{} = actual
+      assert_query(expected, actual)
     end
   end
 end

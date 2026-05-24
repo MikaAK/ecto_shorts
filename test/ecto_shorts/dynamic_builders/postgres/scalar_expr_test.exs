@@ -11,21 +11,21 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
   describe "root binding equality" do
     test "plain scalar value produces equality" do
       expected = dynamic([q], field(q, :id) == ^1)
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, 1, [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, 1}, [])
 
       assert_dynamic(expected, actual)
     end
 
     test "nil value produces IS NULL" do
       expected = dynamic([q], is_nil(field(q, :id)))
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, nil, [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:==, nil}, [])
 
       assert_dynamic(expected, actual)
     end
 
     test "string field key stays dynamic" do
       expected = dynamic([q], field(q, :title) == ^"hello")
-      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, "hello", [])
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:==, "hello"}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -358,7 +358,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       actual =
         from(p in Post,
           as: :post,
-          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, id, [])
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, id}, [])
         )
 
       assert_sql(expected, actual)
@@ -383,7 +383,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       actual =
         from(p in Post,
           as: :post,
-          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, nil, [])
+          where: ^ScalarExpr.dynamic_expr({:as, :post}, :id, nil, {:==, nil}, [])
         )
 
       assert_sql(expected, actual)
@@ -417,7 +417,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     test "plain scalar value on a positional binding produces equality on the correct join" do
       id = 1
       expected = dynamic([_, q], q.id == ^id)
-      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, id, [])
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, id}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -432,7 +432,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
 
     test "nil value on a positional binding produces IS NULL on the correct join" do
       expected = dynamic([_, q], is_nil(q.id))
-      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, nil, [])
+      actual = ScalarExpr.dynamic_expr({:at, 2}, :id, nil, {:==, nil}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -706,6 +706,236 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     end
   end
 
+  describe "string transform negated variants" do
+    test "{:not, {:==, {:upper, value}}} produces upper() inequality" do
+      expected = dynamic([q], fragment("upper(?)", field(q, :title)) != ^"HELLO")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:==, {:upper, "HELLO"}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:!=, {:upper, value}}} produces upper() equality (double negation)" do
+      expected = dynamic([q], fragment("upper(?)", field(q, :title)) == ^"HELLO")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:!=, {:upper, "HELLO"}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:!=, {:lower, value}}} produces lower() equality (double negation)" do
+      expected = dynamic([q], fragment("lower(?)", field(q, :title)) == ^"hello")
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :title, :not, {:!=, {:lower, "hello"}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, {:lower, value}} routes to :string_transform family and returns nil" do
+      assert is_nil(ScalarExpr.dynamic_expr({:as, nil}, :title, nil, {:>, {:lower, "hello"}}, []))
+    end
+  end
+
+  describe "value wrapper comparisons" do
+    test "{:==, {:value, v}} produces equality" do
+      expected = dynamic([q], field(q, :views) == ^5)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:==, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:!=, {:value, v}}} produces equality (double negation)" do
+      expected = dynamic([q], field(q, :views) == ^5)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:!=, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:value, v}} produces greater-than-or-equal" do
+      expected = dynamic([q], field(q, :views) >= ^5)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>=, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:value, v}} produces less-than" do
+      expected = dynamic([q], field(q, :views) < ^5)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:<, {:value, v}}} wraps less-than with NOT" do
+      expected = dynamic([q], not (field(q, :views) < ^5))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:<, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:value, v}} produces less-than-or-equal" do
+      expected = dynamic([q], field(q, :views) <= ^5)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:<=, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:<=, {:value, v}}} wraps less-than-or-equal with NOT" do
+      expected = dynamic([q], not (field(q, :views) <= ^5))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:<=, {:value, 5}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "quantified comparisons - inequality and ordering" do
+    test "{:!=, {:all, subquery}} produces not-equal-to-all" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], field(q, :id) != all(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:!=, {:all, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:!=, {:all, subquery}}} wraps not-equal-to-all with NOT" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], not (field(q, :id) != all(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:!=, {:all, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:!=, {:any, subquery}} produces not-equal-to-any" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], field(q, :id) != any(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:!=, {:any, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, {:all, subquery}} produces greater-than-all" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], field(q, :id) > all(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:>, {:all, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:>, {:any, subquery}}} wraps greater-than-any with NOT" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], not (field(q, :id) > any(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:>, {:any, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:all, subquery}} produces greater-than-or-equal-to-all" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], field(q, :id) >= all(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:>=, {:all, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:>=, {:any, subquery}}} wraps >= any with NOT" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], not (field(q, :id) >= any(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:>=, {:any, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:all, subquery}} produces less-than-all" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], field(q, :id) < all(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:<, {:all, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:<, {:any, subquery}}} wraps less-than-any with NOT" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], not (field(q, :id) < any(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:<, {:any, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:all, subquery}} produces less-than-or-equal-to-all" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], field(q, :id) <= all(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:<=, {:all, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:<=, {:any, subquery}}} wraps <= any with NOT" do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      expected = dynamic([q], not (field(q, :id) <= any(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:<=, {:any, sq}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "arithmetic with subtraction, multiplication, division" do
+    test "{:>, wrapped_arithmetic with -} produces greater-than with subtraction" do
+      expected = dynamic([q], field(q, :views) > field(q, :views) - ^3)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>, {:value, {:-, {{:field, :views}, {:value, 3}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:not, {:>, wrapped_arithmetic with -}} wraps subtraction comparison with NOT" do
+      expected = dynamic([q], not (field(q, :views) > field(q, :views) - ^3))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>, {:value, {:-, {{:field, :views}, {:value, 3}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, wrapped_arithmetic with *} produces greater-than with multiplication" do
+      expected = dynamic([q], field(q, :views) > field(q, :views) * ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, wrapped_arithmetic with /} produces greater-than with division" do
+      expected = dynamic([q], field(q, :views) > field(q, :views) / ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
   describe "datetime wrapper expressions" do
     test "{:>=, {:datetime, {:add, ...}}} preserves datetime_add when params arrive in different keyword order" do
       expected =
@@ -924,6 +1154,604 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
 
       assert_sql(expected, actual)
     end
+
+    test "{:>=, {:datetime, {:ago, ...}}} falls through to generic path and produces >= with ago" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at >= ago(^7, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>=, {:datetime, {:ago, [count: 7, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "{:not, {:>=, {:datetime, {:ago, ...}}}} falls through to generic path and wraps with NOT" do
+      expected =
+        from(p in Post,
+          where: not (p.inserted_at >= ago(^7, "day"))
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:not, {:>=, {:datetime, {:ago, [count: 7, interval: "day"]}}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "{:<=, {:datetime, {:ago, ...}}} falls through to generic path and produces <= with ago" do
+      expected =
+        from(p in Post,
+          where: p.inserted_at <= ago(^30, "day")
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:<=, {:datetime, {:ago, [count: 30, interval: "day"]}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
+
+    test "{:not, {:<=, {:datetime, {:from_now, ...}}}} falls through to generic path and wraps with NOT" do
+      expected =
+        from(p in Post,
+          where: not (p.inserted_at <= from_now(^14, "day"))
+        )
+
+      actual_dynamic =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:not, {:<=, {:datetime, {:from_now, [count: 14, interval: "day"]}}}},
+          []
+        )
+
+      actual = from(p in Post, where: ^actual_dynamic)
+
+      assert_sql(expected, actual)
+    end
   end
 
+  describe "dynamic_expr/5 catch-all fallback" do
+    test "unsupported binding returns nil" do
+      assert is_nil(ScalarExpr.dynamic_expr(:unsupported_binding, :id, nil, {:==, 1}, []))
+    end
+  end
+
+  describe "negated simple scalar comparisons not yet covered" do
+    test "negated {:>=, value} wraps with NOT" do
+      expected = dynamic([q], not (field(q, :views) >= ^10))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:>=, 10}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<=, value} wraps with NOT" do
+      expected = dynamic([q], not (field(q, :views) <= ^10))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:<=, 10}, [])
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "comparison_impl unknown operator fallback" do
+    test "unknown operator returns nil" do
+      assert is_nil(ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:custom_op, 10}, []))
+    end
+  end
+
+  describe "generic scalar fallback via apply_scalar_comparison" do
+    test "unknown tuple value with comparison op routes to plain apply_scalar_comparison" do
+      v = {:custom_thing, 5}
+      expected = dynamic([q], field(q, :views) >= ^v)
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>=, {:custom_thing, 5}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated unknown tuple value with comparison op routes to negated apply_scalar_comparison" do
+      v = {:custom_thing, 5}
+      expected = dynamic([], not (^dynamic([q], field(q, :views)) >= ^v))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, :not, {:>=, {:custom_thing, 5}}, [])
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "quantified comparisons - remaining variants" do
+    setup do
+      sq = from(c in Comment, where: c.published == ^true, select: c.id)
+      %{sq: sq}
+    end
+
+    test "negated {:!=, {:any, subquery}} wraps NOT != ANY", %{sq: sq} do
+      expected = dynamic([q], not (field(q, :id) != any(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:!=, {:any, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>, {:all, subquery}} wraps NOT > ALL", %{sq: sq} do
+      expected = dynamic([q], not (field(q, :id) > all(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:>, {:all, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>=, {:all, subquery}} wraps NOT >= ALL", %{sq: sq} do
+      expected = dynamic([q], not (field(q, :id) >= all(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:>=, {:all, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:any, subquery}} produces >= ANY", %{sq: sq} do
+      expected = dynamic([q], field(q, :id) >= any(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:>=, {:any, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<, {:all, subquery}} wraps NOT < ALL", %{sq: sq} do
+      expected = dynamic([q], not (field(q, :id) < all(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:<, {:all, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:any, subquery}} produces < ANY", %{sq: sq} do
+      expected = dynamic([q], field(q, :id) < any(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:<, {:any, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<=, {:all, subquery}} wraps NOT <= ALL", %{sq: sq} do
+      expected = dynamic([q], not (field(q, :id) <= all(sq)))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, :not, {:<=, {:all, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:any, subquery}} produces <= ANY", %{sq: sq} do
+      expected = dynamic([q], field(q, :id) <= any(sq))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :id, nil, {:<=, {:any, sq}}, [])
+      assert_dynamic(expected, actual)
+    end
+  end
+
+  describe "arithmetic negated and remaining operators" do
+    test "negated {:>, {:value, {:+, field_value}}} wraps NOT > field + value" do
+      expected = dynamic([q], not (field(q, :views) > field(q, :views) + ^5))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>, {:value, {:+, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:!=, {:value, {:-, field_value}}} produces != field - value" do
+      expected = dynamic([q], field(q, :views) != field(q, :views) - ^5)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:!=, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:!=, {:value, {:-, field_value}}} wraps NOT != field - value" do
+      expected = dynamic([q], not (field(q, :views) != field(q, :views) - ^5))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:!=, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:value, {:-, field_value}}} produces >= field - value" do
+      expected = dynamic([q], field(q, :views) >= field(q, :views) - ^5)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>=, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>=, {:value, {:-, field_value}}} wraps NOT >= field - value" do
+      expected = dynamic([q], not (field(q, :views) >= field(q, :views) - ^5))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>=, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:value, {:-, field_value}}} produces < field - value" do
+      expected = dynamic([q], field(q, :views) < field(q, :views) - ^5)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:<, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<, {:value, {:-, field_value}}} wraps NOT < field - value" do
+      expected = dynamic([q], not (field(q, :views) < field(q, :views) - ^5))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:value, {:-, field_value}}} produces <= field - value" do
+      expected = dynamic([q], field(q, :views) <= field(q, :views) - ^5)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:<=, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<=, {:value, {:-, field_value}}} wraps NOT <= field - value" do
+      expected = dynamic([q], not (field(q, :views) <= field(q, :views) - ^5))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<=, {:value, {:-, {{:field, :views}, {:value, 5}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:!=, {:value, {:*, field_value}}} produces != field * value" do
+      expected = dynamic([q], field(q, :views) != field(q, :views) * ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:!=, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:!=, {:value, {:*, field_value}}} wraps NOT != field * value" do
+      expected = dynamic([q], not (field(q, :views) != field(q, :views) * ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:!=, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>, {:value, {:*, field_value}}} wraps NOT > field * value" do
+      expected = dynamic([q], not (field(q, :views) > field(q, :views) * ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:value, {:*, field_value}}} produces >= field * value" do
+      expected = dynamic([q], field(q, :views) >= field(q, :views) * ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>=, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>=, {:value, {:*, field_value}}} wraps NOT >= field * value" do
+      expected = dynamic([q], not (field(q, :views) >= field(q, :views) * ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>=, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:value, {:*, field_value}}} produces < field * value" do
+      expected = dynamic([q], field(q, :views) < field(q, :views) * ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:<, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<, {:value, {:*, field_value}}} wraps NOT < field * value" do
+      expected = dynamic([q], not (field(q, :views) < field(q, :views) * ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:value, {:*, field_value}}} produces <= field * value" do
+      expected = dynamic([q], field(q, :views) <= field(q, :views) * ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:<=, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<=, {:value, {:*, field_value}}} wraps NOT <= field * value" do
+      expected = dynamic([q], not (field(q, :views) <= field(q, :views) * ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<=, {:value, {:*, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:==, {:value, {:/, field_value}}} wraps NOT == field / value" do
+      expected = dynamic([q], not (field(q, :views) == field(q, :views) / ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:==, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:!=, {:value, {:/, field_value}}} produces != field / value" do
+      expected = dynamic([q], field(q, :views) != field(q, :views) / ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:!=, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:!=, {:value, {:/, field_value}}} wraps NOT != field / value" do
+      expected = dynamic([q], not (field(q, :views) != field(q, :views) / ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:!=, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>, {:value, {:/, field_value}}} wraps NOT > field / value" do
+      expected = dynamic([q], not (field(q, :views) > field(q, :views) / ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>=, {:value, {:/, field_value}}} produces >= field / value" do
+      expected = dynamic([q], field(q, :views) >= field(q, :views) / ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>=, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:>=, {:value, {:/, field_value}}} wraps NOT >= field / value" do
+      expected = dynamic([q], not (field(q, :views) >= field(q, :views) / ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:>=, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<, {:value, {:/, field_value}}} produces < field / value" do
+      expected = dynamic([q], field(q, :views) < field(q, :views) / ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:<, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<, {:value, {:/, field_value}}} wraps NOT < field / value" do
+      expected = dynamic([q], not (field(q, :views) < field(q, :views) / ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:<=, {:value, {:/, field_value}}} produces <= field / value" do
+      expected = dynamic([q], field(q, :views) <= field(q, :views) / ^2)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:<=, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "negated {:<=, {:value, {:/, field_value}}} wraps NOT <= field / value" do
+      expected = dynamic([q], not (field(q, :views) <= field(q, :views) / ^2))
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          :not,
+          {:<=, {:value, {:/, {{:field, :views}, {:value, 2}}}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+  end
 end

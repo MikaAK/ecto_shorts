@@ -20,37 +20,56 @@ ecto_shorts/
 |       |   +-- multi.ex                  # create_many, update_many, delete_many, find_many
 |       |   +-- transaction.ex            # transaction, transact
 |       |   +-- source.ex                 # source-based query helpers
-|       |   +-- error.ex                  # Default error-response builder
-|       +-- adapter/
-|       |   +-- query_builder.ex          # @behaviour QueryBuilder (build_query/6)
-|       |   +-- dynamic_builder.ex        # @behaviour DynamicBuilder (build_dynamic/4)
-|       |   +-- query_provider.ex         # @behaviour QueryProvider
+|       |   +-- error.ex                  # Default error-response builder (@behaviour EctoShorts.Actions.Error)
+|       +-- common_params/
+|       |   +-- timestamps.ex             # Timestamp injection for insert params
+|       |   +-- placeholders.ex           # Placeholder param helpers
+|       +-- query_builder.ex              # @behaviour QueryBuilder (build_query/6)
+|       +-- dynamic_builder.ex            # @behaviour DynamicBuilder (build_dynamic/4)
+|       +-- query_provider.ex             # @behaviour QueryProvider (query_expression/4)
+|       +-- query_builders.ex             # QueryBuilders dispatch adapter
+|       +-- query_binding.ex              # Compile-time clause generation macro
+|       +-- common_query.ex               # Shared query utilities
+|       +-- common_schema.ex              # Schema reflection helpers
+|       +-- schema_helpers.ex             # Schema introspection utilities
+|       +-- utils.ex                      # General utility functions
+|       +-- logger.ex                     # Structured logging helpers
+|       +-- types.ex                      # Custom Ecto types
 |       +-- common_filters/
 |       |   +-- builder.ex                # Reduce loop + apply_filters dispatch
 |       |   +-- sorter.ex                 # Param sort (where -> others -> or_where -> terminal)
-|       |   +-- query_binding.ex          # Compile-time clause generation macro
-|       |   +-- join.ex                   # :join filter
-|       |   +-- order_by.ex               # :order_by filter
+|       |   +-- distinct.ex               # :distinct filter
+|       |   +-- except.ex                 # :except set operation
+|       |   +-- except_all.ex             # :except_all set operation
+|       |   +-- first.ex                  # :first / :limit filter
 |       |   +-- group_by.ex               # :group_by filter
 |       |   +-- having.ex                 # :having filter
-|       |   +-- select.ex                 # :select filter
-|       |   +-- with_cte.ex               # :with_cte filter
-|       |   +-- subquery.ex               # :subquery terminal filter
-|       |   +-- preload.ex                # :preload filter
-|       |   +-- limit.ex                  # :first / :last filters
+|       |   +-- intersect.ex              # :intersect set operation
+|       |   +-- intersect_all.ex          # :intersect_all set operation
+|       |   +-- join.ex                   # :join filter
+|       |   +-- last.ex                   # :last terminal filter
+|       |   +-- limit.ex                  # :limit filter
 |       |   +-- lock.ex                   # :lock filter
-|       |   +-- distinct.ex               # :distinct filter
 |       |   +-- offset.ex                 # :offset filter
-|       |   +-- where.ex                  # :where predicate filter
-|       |   +-- or_where.ex               # :or_where predicate filter
-|       |   +-- search.ex                 # :search delegation filter
-|       |   +-- ids.ex                    # :ids shorthand filter
-|       |   +-- before.ex                 # :before cursor filter
-|       |   +-- after.ex                  # :after cursor filter
-|       |   +-- start_date.ex             # :start_date filter
-|       |   +-- end_date.ex               # :end_date filter
-|       |   +-- and_filter.ex             # :and boolean group filter
-|       |   +-- or_filter.ex              # :or boolean group filter
+|       |   +-- or_having.ex              # :or_having filter
+|       |   +-- order_by.ex               # :order_by filter
+|       |   +-- page.ex                   # :page filter
+|       |   +-- preload.ex                # :preload filter
+|       |   +-- prepend_order_by.ex       # :prepend_order_by filter
+|       |   +-- put_query_prefix.ex       # :put_query_prefix filter
+|       |   +-- recursive_ctes.ex         # :recursive_ctes filter
+|       |   +-- reverse_order.ex          # :reverse_order filter
+|       |   +-- select.ex                 # :select filter
+|       |   +-- select_merge.ex           # :select_merge filter
+|       |   +-- sub_query.ex              # :subquery terminal filter
+|       |   +-- union.ex                  # :union set operation
+|       |   +-- union_all.ex              # :union_all set operation
+|       |   +-- update.ex                 # :update filter
+|       |   +-- update_expr.ex            # :update_expr filter
+|       |   +-- windows.ex                # :windows filter
+|       |   +-- with_cte.ex               # :with_cte filter
+|       |   +-- with_named_binding.ex     # :with_named_binding filter
+|       |   +-- with_ties.ex              # :with_ties filter
 |       +-- dynamic_builders/
 |           +-- postgres.ex               # DynamicBuilders.Postgres dispatcher
 |           +-- postgres/
@@ -61,18 +80,23 @@ ecto_shorts/
 |               +-- normalizer.ex         # Normalize raw filter values before expression build
 +-- test/
 |   +-- ecto_shorts/
-|   |   +-- common_filters/               # Schema-backed filter tests (30 files)
-|   |   +-- common_filters_schemaless/    # Schemaless filter tests (30 files)
+|   |   +-- common_filters/               # Schema-backed filter tests (41 files)
+|   |   +-- common_filters_schemaless/    # Schemaless filter tests (39 files)
 |   |   +-- dynamic_builders/             # Expression builder unit tests
-|   |   +-- actions/                      # Actions integration tests
+|   |   |   +-- postgres/                 # Postgres-specific expression tests
+|   |   +-- actions/                      # Actions integration tests (7 files)
 |   +-- support/
 |       +-- data_case.ex                  # EctoShorts.DataCase base case
 |       +-- repo.ex                       # Test repo module
 |       +-- schema/
-|           +-- post.ex                   # Post schema (has_many :comments, tags array)
-|           +-- user.ex                   # User schema (has_many :posts, many_to_many :roles)
-|           +-- comment.ex                # Comment schema (belongs_to :post)
-|           +-- book.ex                   # Book schema (used in bulk/batch tests)
+|           +-- post.ex                   # Post schema (has_many :comments, many_to_many :authors, tags array)
+|           +-- user.ex                   # User schema (has_many :posts, :comments, :books; many_to_many :posts via PostAuthor)
+|           +-- comment.ex                # Comment schema (belongs_to :post, :author; tags array)
+|           +-- book.ex                   # Book schema (belongs_to :author; no :id primary key)
+|           +-- post_author.ex            # Join-through schema for many_to_many Post/User
+|           +-- composite_primary_key.ex  # Composite PK on comment_id + post_id
+|           +-- enum_schema.ex            # Ecto.Enum field tests
+|           +-- post_with_lock.ex         # Post variant for :lock filter tests
 +-- priv/
 |   +-- repo/migrations/                  # Test DB migrations
 +-- docs/                                 # This documentation directory
@@ -90,8 +114,8 @@ ecto_shorts/
 | `lib/ecto_shorts/query_binding.ex` | Macro that generates compile-time function clauses for root, named (`:as`), and positional (`:at`) binding shapes. |
 | `lib/ecto_shorts/config.ex` | Reads application config. Provides `repo!/1`, `replica!/1`, `dynamic_builder_module/0`, `query_builder_module/0`. |
 | `lib/ecto_shorts/dynamic_builders/postgres.ex` | Routes to `ScalarExpr`, `ArrayExpr`, `CommonExpr`, or `MapExpr` based on field type and operator wrapper. |
-| `lib/ecto_shorts/adapter/query_builder.ex` | Behaviour definition. One callback: `build_query/6`. |
-| `lib/ecto_shorts/adapter/dynamic_builder.ex` | Behaviour definition. One callback: `build_dynamic/4`. |
+| `lib/ecto_shorts/query_builder.ex` | Behaviour definition. One callback: `build_query/6`. |
+| `lib/ecto_shorts/dynamic_builder.ex` | Behaviour definition. One callback: `build_dynamic/4`. |
 | `test/support/data_case.ex` | `EctoShorts.DataCase` -- extends `ExUnit.Case`, sets up `Ecto.Adapters.SQL.Sandbox` transactions. |
 
 ## Key Dependencies

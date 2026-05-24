@@ -4,7 +4,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExpr do
 
   alias Ecto.Query
   alias EctoShorts.QueryBinding
-  alias EctoShorts.DynamicBuilders.Postgres.Normalizer
 
   require Ecto.Query
 
@@ -14,7 +13,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExpr do
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     def dynamic_expr(unquote(quoted_binding_head) = selected_binding, key, negated, term, _opts) do
       selected_binding
-      |> dispatch_expr(key, normalize_term(term))
+      |> dispatch_expr(key, term)
       |> maybe_negate(negated)
     end
 
@@ -118,16 +117,4 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExpr do
   defp maybe_negate(nil, _negated), do: nil
   defp maybe_negate(expr, :not), do: Query.dynamic([], not (^expr))
   defp maybe_negate(expr, _negated), do: expr
-
-  defp normalize_term({op, value}) do
-    {Normalizer.normalize_operator(op), value}
-  end
-
-  defp normalize_term(nil) do
-    {:==, nil}
-  end
-
-  defp normalize_term(value) do
-    {:==, value}
-  end
 end

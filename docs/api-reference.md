@@ -11,24 +11,27 @@ All functions accept an optional final keyword list of options. Common options:
 | `:dynamic_builder` | module | Per-call DynamicBuilder override (runtime key, no `_module` suffix) |
 | `:query_builder_module` | module | Per-call QueryBuilder override via `EctoShorts.QueryBuilders` |
 
-### Single-record reads
+### Read functions
 
 ```elixir
-all(schema_or_queryable) :: {:ok, [struct]} | {:error, term}
-all(schema_or_queryable, params) :: {:ok, [struct]} | {:error, term}
-all(schema_or_queryable, params, opts) :: {:ok, [struct]} | {:error, term}
+all(schema_or_queryable) :: [struct]
+all(schema_or_queryable, params) :: [struct]
+all(schema_or_queryable, params, opts) :: [struct]
 
-get(schema_or_queryable, id) :: {:ok, struct | nil} | {:error, term}
-get(schema_or_queryable, id, opts) :: {:ok, struct | nil} | {:error, term}
+get(schema_or_queryable, id) :: {:ok, struct} | {:error, term}
+get(schema_or_queryable, id, opts) :: {:ok, struct} | {:error, term}
 
-find(schema_or_queryable, params) :: {:ok, struct | nil} | {:error, term}
-find(schema_or_queryable, params, opts) :: {:ok, struct | nil} | {:error, term}
+find(schema_or_queryable, params) :: struct | nil
+find(schema_or_queryable, params, opts) :: struct | nil
 
-exists?(schema_or_queryable, params) :: {:ok, boolean} | {:error, term}
-exists?(schema_or_queryable, params, opts) :: {:ok, boolean} | {:error, term}
+find_by_id(schema_or_queryable, id) :: struct | nil
+find_by_id(schema_or_queryable, id, opts) :: struct | nil
 
-preload(struct_or_list, preloads) :: {:ok, struct | [struct]} | {:error, term}
-preload(struct_or_list, preloads, opts) :: {:ok, struct | [struct]} | {:error, term}
+exists?(schema_or_queryable, params) :: boolean
+exists?(schema_or_queryable, params, opts) :: boolean
+
+preload(struct_or_list, preloads) :: struct | [struct]
+preload(struct_or_list, preloads, opts) :: struct | [struct]
 
 stream(schema_or_queryable, params) :: {:ok, Enum.t} | {:error, term}
 stream(schema_or_queryable, params, opts) :: {:ok, Enum.t} | {:error, term}
@@ -75,14 +78,14 @@ find_or_create(schema, params, opts) :: {:ok, struct} | {:error, term}
 ### Set-based operations
 
 ```elixir
-insert_all(schema, entries) :: {:ok, {integer, [struct] | nil}} | {:error, term}
-insert_all(schema, entries, opts) :: {:ok, {integer, [struct] | nil}} | {:error, term}
+insert_all(schema, entries) :: {:ok, list} | {:error, term}
+insert_all(schema, entries, opts) :: {:ok, list} | {:error, term}
 
-update_all(schema, params, updates) :: {:ok, {integer, [struct] | nil}} | {:error, term}
-update_all(schema, params, updates, opts) :: {:ok, {integer, [struct] | nil}} | {:error, term}
+update_all(schema, params, updates) :: {:ok, count} | {:error, term}
+update_all(schema, params, updates, opts) :: {:ok, count} | {:error, term}
 
-delete_all(schema, params) :: {:ok, {integer, [struct] | nil}} | {:error, term}
-delete_all(schema, params, opts) :: {:ok, {integer, [struct] | nil}} | {:error, term}
+delete_all(schema, params) :: {:ok, count} | {:error, term}
+delete_all(schema, params, opts) :: {:ok, count} | {:error, term}
 ```
 
 ### Multi / list operations
@@ -113,10 +116,10 @@ find_and_upsert_many(schema, params_list, opts) :: {:ok, [struct]} | {:error, te
 batch(schema, params, batch_size, fun) :: {:ok, term} | {:error, term}
 batch(schema, params, batch_size, fun, opts) :: {:ok, term} | {:error, term}
 
-batch_find(schema, field, ids, opts) :: {:ok, [struct]} | {:error, term}
+batch_find(schema, field, entries, opts) :: {:ok, [struct]} | {:error, term}
 ```
 
-`batch/4,5` processes matching records in chunks of `batch_size`, calling `fun` on each chunk.
+`batch/4,5` processes matching records in chunks of `batch_size`, calling `fun` on each chunk. `batch_find/4` takes `entries` as a list of maps and looks up records matching each map's field value.
 
 ### Transaction helpers
 
@@ -151,23 +154,35 @@ convert_params_to_filter(source, params, opts) :: Ecto.Query.t
 | `:preload` | atom or list | Preload associations onto results |
 | `:join` | atom or list | Add join clauses |
 | `:order_by` | keyword or list | Order results |
+| `:prepend_order_by` | keyword or list | Prepend order clauses before existing ones |
+| `:reverse_order` | boolean | Reverse the current order |
 | `:group_by` | atom or list | Group results |
 | `:having` | map | Post-group predicates |
+| `:or_having` | map | OR post-group predicates |
 | `:select` | atom, list, or map | Shape the select clause |
+| `:select_merge` | atom, list, or map | Merge into the existing select clause |
 | `:distinct` | boolean or list | Deduplicate results |
 | `:limit` | integer | Alias for `:first` |
 | `:first` | integer | Limit to first N records |
 | `:last` | integer | Limit to last N records (terminal filter) |
 | `:offset` | integer | Skip N records |
+| `:page` | integer | Page number (works with `:first` as page size) |
 | `:lock` | string or atom | Row-level locking clause |
 | `:with_cte` | keyword list | Common table expressions |
+| `:recursive_ctes` | boolean | Enable recursive CTEs |
+| `:with_named_binding` | keyword list | Attach a named binding to the query |
+| `:with_ties` | boolean | Include tied rows at the limit boundary |
+| `:windows` | keyword list | Window function definitions |
+| `:union` | Ecto.Query.t | UNION set operation |
+| `:union_all` | Ecto.Query.t | UNION ALL set operation |
+| `:intersect` | Ecto.Query.t | INTERSECT set operation |
+| `:intersect_all` | Ecto.Query.t | INTERSECT ALL set operation |
+| `:except` | Ecto.Query.t | EXCEPT set operation |
+| `:except_all` | Ecto.Query.t | EXCEPT ALL set operation |
 | `:subquery` | Ecto.Query.t | Wrap current query as subquery (terminal) |
-| `:search` | term | Delegates to schema's `by_search/2` function |
-| `:ids` | list | Shorthand for `where id in [...]` |
-| `:before` | id | Cursor filter: records with ID before this value |
-| `:after` | id | Cursor filter: records with ID after this value |
-| `:start_date` | DateTime | Records inserted at or after this datetime |
-| `:end_date` | DateTime | Records inserted at or before this datetime |
+| `:update` | keyword list | Update expressions for `update_all` |
+| `:update_expr` | keyword list | Raw update expression |
+| `:put_query_prefix` | string | Set the query prefix (schema/tenant) |
 | `:as` | atom | Retarget subsequent filters to named binding |
 | `:at` | integer | Retarget subsequent filters to positional binding |
 

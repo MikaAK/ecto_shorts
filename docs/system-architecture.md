@@ -9,11 +9,19 @@ graph TD
   A --> D[Actions.Multi]
   A --> E[Actions.Batch]
   A --> F[Actions.Transaction]
+  A --> G2[Actions.Source]
   B --> G[EctoShorts.CommonFilters]
   C --> G
   D --> G
   G --> H[CommonFilters.Builder]
-  H --> I[30 Filter Sub-modules]
+  H --> I[32 Filter Sub-modules]
+  I --> I1[Join, Select, SelectMerge, OrderBy, PrependOrderBy]
+  I --> I2[ReverseOrder, GroupBy, Having, OrHaving, Distinct]
+  I --> I3[Limit, First, Last, Offset, Page]
+  I --> I4[Preload, Lock, WithCte, RecursiveCtes, WithNamedBinding]
+  I --> I5[WithTies, Windows, Union, UnionAll, Intersect]
+  I --> I6[IntersectAll, Except, ExceptAll, SubQuery, PutQueryPrefix]
+  I --> I7[Update, UpdateExpr]
   H --> J[EctoShorts.DynamicBuilders]
   J --> K[DynamicBuilders.Postgres]
   K --> L[ScalarExpr]
@@ -80,7 +88,7 @@ graph LR
 
 ### QueryBuilder
 
-Implementing `EctoShorts.Adapter.QueryBuilder` allows full replacement of how a filter key is applied to the query. Set globally:
+Implementing `EctoShorts.QueryBuilder` allows full replacement of how a filter key is applied to the query. Set globally:
 
 ```elixir
 config :ecto_shorts, query_builder_module: MyApp.CustomQueryBuilder
@@ -94,7 +102,7 @@ EctoShorts.QueryBuilders.build_query(:where, User, query, binding, term, query_b
 
 ### DynamicBuilder
 
-Implementing `EctoShorts.Adapter.DynamicBuilder` allows replacing dynamic expression compilation, for example to support a different database dialect. Set globally:
+Implementing `EctoShorts.DynamicBuilder` allows replacing dynamic expression compilation, for example to support a different database dialect. Set globally:
 
 ```elixir
 config :ecto_shorts, dynamic_builder_module: MyApp.MySQLDynamicBuilder
@@ -108,7 +116,7 @@ EctoShorts.Actions.all(User, %{...}, dynamic_builder: MyApp.MySQLDynamicBuilder)
 
 ### QueryProvider
 
-Implementing `EctoShorts.Adapter.QueryProvider` supplies named query fragments used by structural filters such as `:lock`. Set globally:
+Implementing `EctoShorts.QueryProvider` supplies named query fragments used by structural filters such as `:lock`. Set globally:
 
 ```elixir
 config :ecto_shorts, query_provider_module: MyApp.QueryProvider

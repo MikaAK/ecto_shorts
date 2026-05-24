@@ -10,7 +10,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
   describe "equality and membership" do
     test "list value produces array equality" do
       expected = dynamic([q], field(q, :tags) == ^["elixir", "erlang"])
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, ["elixir", "erlang"], [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:==, ["elixir", "erlang"]}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -24,14 +24,14 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
 
     test "scalar value produces array membership (element in array)" do
       expected = dynamic([q], ^"elixir" in field(q, :tags))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, "elixir", [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:in, "elixir"}, [])
 
       assert_dynamic(expected, actual)
     end
 
     test "nil value produces IS NULL" do
       expected = dynamic([q], is_nil(field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, nil, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:==, nil}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -63,7 +63,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
 
       assert_dynamic(expected, actual)
     end
-
   end
 
   describe "count expressions" do
@@ -145,43 +144,42 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
 
       assert_dynamic(expected, actual)
     end
-
   end
 
   describe "ALL comparisons" do
-    test "{:all, %{>: scalar}} produces ALL greater-than fragment" do
+    test "{:all, {:>: scalar}} produces ALL greater-than fragment" do
       expected = dynamic([q], fragment("? < ALL(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{>: "a"}}, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:>, "a"}}, [])
 
       assert_dynamic(expected, actual)
     end
 
-    test "{:all, %{>=: scalar}} produces ALL greater-than-or-equal fragment" do
+    test "{:all, {:>=, scalar}} produces ALL greater-than-or-equal fragment" do
       expected = dynamic([q], fragment("? <= ALL(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{>=: "a"}}, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:>=, "a"}}, [])
 
       assert_dynamic(expected, actual)
     end
 
-    test "{:all, %{<: scalar}} produces ALL less-than fragment" do
+    test "{:all, {:<, scalar}} produces ALL less-than fragment" do
       expected = dynamic([q], fragment("? > ALL(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{<: "a"}}, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:<, "a"}}, [])
 
       assert_dynamic(expected, actual)
     end
 
-    test "{:all, %{<=: scalar}} produces ALL less-than-or-equal fragment" do
+    test "{:all, {:<=, scalar}} produces ALL less-than-or-equal fragment" do
       expected = dynamic([q], fragment("? >= ALL(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{<=: "a"}}, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:<=, "a"}}, [])
 
       assert_dynamic(expected, actual)
     end
 
-    test "{:all, %{in: list}} produces array containment fragment" do
+    test "{:all, {:in, list}} produces array containment fragment" do
       expected = dynamic([q], fragment("? <@ ?", field(q, :tags), ^["elixir", "erlang"]))
 
       actual =
-        ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{in: ["elixir", "erlang"]}}, [])
+        ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:in, ["elixir", "erlang"]}}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -192,27 +190,21 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test "{:all, [op_value_tuple]} produces ALL comparison from list payload" do
-      expected = dynamic([q], fragment("? < ALL(?)", ^"a", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, [{:>, "a"}]}, [])
-      assert_dynamic(expected, actual)
-    end
-
     test "{:all, [bare_scalar]} returns nil (non-op bare value not supported)" do
       actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, ["elixir"]}, [])
       assert is_nil(actual)
     end
 
-    test "{:all, %{==: scalar}} produces ALL equality fragment" do
+    test "{:all, {:==, scalar}} produces ALL equality fragment" do
       expected = dynamic([q], fragment("? = ALL(?)", ^"elixir", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{==: "elixir"}}, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:==, "elixir"}}, [])
 
       assert_dynamic(expected, actual)
     end
 
-    test "{:all, %{!=: scalar}} produces ALL inequality fragment" do
+    test "{:all, {:!=, scalar}} produces ALL inequality fragment" do
       expected = dynamic([q], fragment("? != ALL(?)", ^"elixir", field(q, :tags)))
-      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, %{!=: "elixir"}}, [])
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, {:!=, "elixir"}}, [])
 
       assert_dynamic(expected, actual)
     end
@@ -717,6 +709,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
           []
         )
 
+      assert is_nil(actual)
+    end
+
+    test "normalize_all_payload pass-through for non-map non-list non-tuple payload returns nil" do
+      # A bare atom payload passes through the catch-all normalize_all_payload clause
+      # and then finds no matching dispatch_expr clause
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, :bare_atom}, [])
       assert is_nil(actual)
     end
   end

@@ -58,16 +58,24 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
   end
 
   describe "build_dynamic/4 nil dynamic handling" do
-    test "nil dynamic from an invalid field is skipped when accumulating :all quantifier results" do
-      result =
-        Postgres.build_dynamic(
-          Post,
-          {:as, nil},
-          {:all, [published: true, nonexistent_xyz: 5]},
-          []
-        )
+    import ExUnit.CaptureLog
 
-      assert %Ecto.Query.DynamicExpr{} = result
+    test "nil dynamic from an invalid field is skipped when accumulating :all quantifier results" do
+      log =
+        capture_log(fn ->
+          result =
+            Postgres.build_dynamic(
+              Post,
+              {:as, nil},
+              {:all, [published: true, nonexistent_xyz: 5]},
+              []
+            )
+
+          assert %Ecto.Query.DynamicExpr{} = result
+        end)
+
+      assert log =~ "Field"
+      assert log =~ "does not exist on schema"
     end
   end
 
@@ -120,6 +128,13 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
     end
   end
 
+  describe "cast_value for array field with :all tuple form" do
+    test "casts inner value when :all wraps a comparison tuple" do
+      result = Postgres.build_dynamic(Post, {:as, nil}, {:tags, [{:all, {:>, "a"}}]}, [])
+
+      assert %Ecto.Query.DynamicExpr{} = result
+    end
+  end
 
   describe "build_dynamic/4 Ecto.Enum casting" do
     test "casts a bare Ecto.Enum atom to its integer mapping" do

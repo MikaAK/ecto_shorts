@@ -102,7 +102,7 @@ defmodule EctoShorts.MixProject do
         "Dynamic Expressions": [
           EctoShorts.DynamicBuilders,
           EctoShorts.Dynamic,
-          EctoShorts.Adapter.DynamicBuilder,
+          EctoShorts.DynamicBuilder,
           EctoShorts.DynamicBuilders.Postgres
         ],
         "Schema & Query Introspection": [
@@ -117,7 +117,7 @@ defmodule EctoShorts.MixProject do
         "Configuration & Utilities": [
           EctoShorts.Config,
           EctoShorts.Logger,
-          EctoShorts.Adapter.QueryProvider,
+          EctoShorts.QueryProvider,
           EctoShorts.Utils
         ]
       ]

@@ -8,6 +8,8 @@ defmodule EctoShorts.CommonFilters.HavingTest do
   import Ecto.Query
 
   describe "having shapes" do
+    import ExUnit.CaptureLog
+
     test "returns query unchanged when having is nil" do
       expected = from(p in Post, group_by: p.author_id)
 
@@ -98,14 +100,20 @@ defmodule EctoShorts.CommonFilters.HavingTest do
       source = from(p in Post, group_by: p.author_id)
       expected = from(p in Post, group_by: p.author_id)
 
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{or_having: %{nonexistent_field_xyz: 5}},
-          []
-        )
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              source,
+              %{or_having: %{nonexistent_field_xyz: 5}},
+              []
+            )
 
-      assert_query(expected, actual)
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Field"
+      assert log =~ "does not exist on schema"
     end
 
     test "matches Ecto.Query for a root or_having" do

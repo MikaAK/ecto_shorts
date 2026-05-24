@@ -5,6 +5,7 @@ defmodule EctoShorts.DynamicBuildersTest do
 
   alias EctoShorts.DynamicBuilders
   alias EctoShorts.Schema.Post
+  alias EctoShorts.Testing
 
   # Fake repo modules that report specific adapter names without any real DB connection.
   defmodule FakeMyXQLRepo do
@@ -25,7 +26,7 @@ defmodule EctoShorts.DynamicBuildersTest do
 
   # A minimal custom DynamicBuilder adapter for testing the override path.
   defmodule CustomDynamicBuilder do
-    @behaviour EctoShorts.Adapter.DynamicBuilder
+    @behaviour EctoShorts.DynamicBuilder
 
     @impl true
     def build_dynamic(_source, _selected_binding, {_key, value}, _opts) do
@@ -45,7 +46,7 @@ defmodule EctoShorts.DynamicBuildersTest do
           dynamic_builder: CustomDynamicBuilder
         )
 
-      assert inspect(expected) == inspect(actual)
+      Testing.assert_dynamic(expected, actual)
     end
   end
 
