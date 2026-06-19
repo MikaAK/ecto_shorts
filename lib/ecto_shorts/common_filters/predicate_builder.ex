@@ -156,7 +156,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # They resolve to an implied column and route to the :common family. The
   # implied-column map lives here so the dialect Expr modules stay pure.
   @id_shorthands [:ids, :before, :after, :since, :until]
-  @date_shorthands [:start_date, :end_date, :since_date, :until_date]
+  @date_shorthands [:since_date, :until_date]
 
   @spec build(term(), atom() | binary(), term(), keyword()) ::
           {:ok, [%Predicate{field: atom(), routing: atom(), negated: boolean(), expr: term()}]} | :skip

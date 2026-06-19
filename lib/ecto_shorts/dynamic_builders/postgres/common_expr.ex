@@ -14,8 +14,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
     :until,
     :since,
     :exists,
-    :start_date,
-    :end_date,
     :since_date,
     :until_date
   ]
@@ -74,12 +72,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
     Query.dynamic([], ^dyn <= ^term)
   end
 
-  defp dispatch_expr(binding, operator, field, term) when operator in [:start_date, :since_date] do
+  defp dispatch_expr(binding, :since_date, field, term) do
     dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn >= ^term)
   end
 
-  defp dispatch_expr(binding, operator, field, term) when operator in [:end_date, :until_date] do
+  defp dispatch_expr(binding, :until_date, field, term) do
     dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn <= ^term)
   end
