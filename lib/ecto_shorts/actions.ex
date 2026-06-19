@@ -666,6 +666,9 @@ defmodule EctoShorts.Actions do
 
   ## Options
 
+  * `:batch_keys` (default `:id`) - atom or list of atoms used to group results
+  * `:cardinality` (default `:many`) - `:one` or `:many`; when `:one`, each key maps to a
+    single struct and raises `ArgumentError` if multiple records share a key
   * `:preload` - applied to each grouped result after loading
 
   ## Examples
@@ -679,13 +682,6 @@ defmodule EctoShorts.Actions do
       EctoShorts.Actions.batch(Post, [%{id: 1}, %{id: 2}], batch_keys: :id, cardinality: :one)
 
       EctoShorts.Actions.batch(PostTag, [%{post_id: 1, tag_id: 5}], batch_keys: [:post_id, :tag_id], cardinality: :one)
-
-  ## Options
-
-  * `:batch_keys` (default `:id`) - atom or list of atoms used to group results
-  * `:cardinality` (default `:many`) - `:one` or `:many`; when `:one`, each key maps to a
-    single struct and raises `ArgumentError` if multiple records share a key
-  * `:preload` - applied to each grouped result after loading
   """
   @spec batch(module(), list(params()), opts) :: map()
   def batch(schema, params, opts \\ [])
