@@ -4,6 +4,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
   alias EctoShorts.DynamicBuilders.Postgres.Scalar.Membership
+  alias EctoShorts.DynamicBuilders.Postgres.Scalar.StringTransform
 
   import Ecto.Query
 
@@ -28,11 +29,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp nil_field_dyn?(binding, key), do: dynamic([], is_nil(^field_dyn(binding, key)))
   defp not_nil_dyn(binding, key), do: dynamic([], not is_nil(^field_dyn(binding, key)))
   defp date_field_dyn(binding, key), do: dynamic([], fragment("date(?)", ^field_dyn(binding, key)))
-  defp lower_field_dyn(binding, key), do: dynamic([], fragment("lower(?)", ^field_dyn(binding, key)))
-  defp upper_field_dyn(binding, key), do: dynamic([], fragment("upper(?)", ^field_dyn(binding, key)))
-  defp trim_field_dyn(binding, key), do: dynamic([], fragment("trim(?)", ^field_dyn(binding, key)))
-  defp ltrim_field_dyn(binding, key), do: dynamic([], fragment("ltrim(?)", ^field_dyn(binding, key)))
-  defp rtrim_field_dyn(binding, key), do: dynamic([], fragment("rtrim(?)", ^field_dyn(binding, key)))
   defp avg_field_dyn(binding, key), do: dynamic([], avg(^field_dyn(binding, key)))
   defp count_field_dyn(binding, key), do: dynamic([], count(^field_dyn(binding, key)))
   defp max_field_dyn(binding, key), do: dynamic([], max(^field_dyn(binding, key)))
@@ -43,72 +39,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp dispatch_expr(binding, key, negated, {op, value}) do
     case family_for(op, value) do
       :membership -> Membership.build(binding, key, negated, {op, value})
-      :string_transform -> string_transform_impl(binding, key, negated, {op, value})
+      :string_transform -> StringTransform.build(binding, key, negated, {op, value})
       :string -> string_impl(binding, key, negated, {op, value})
       :comparison -> comparison_impl(binding, key, negated, {op, value})
     end
   end
-
-  defp string_transform_impl(binding, key, negated, {op, value}) do
-    term = if negated === :not, do: {:not, {op, value}}, else: {op, value}
-
-    case term do
-      {:not, {:==, {:lower, v}}} ->
-        f = lower_field_dyn(binding, key)
-        dynamic([], ^f != ^v)
-
-      {:==, {:lower, v}} ->
-        f = lower_field_dyn(binding, key)
-        dynamic([], ^f == ^v)
-
-      {:not, {:!=, {:lower, v}}} ->
-        f = lower_field_dyn(binding, key)
-        dynamic([], ^f == ^v)
-
-      {:!=, {:lower, v}} ->
-        f = lower_field_dyn(binding, key)
-        dynamic([], ^f != ^v)
-
-      {:not, {:==, {:upper, v}}} ->
-        f = upper_field_dyn(binding, key)
-        dynamic([], ^f != ^v)
-
-      {:==, {:upper, v}} ->
-        f = upper_field_dyn(binding, key)
-        dynamic([], ^f == ^v)
-
-      {:not, {:!=, {:upper, v}}} ->
-        f = upper_field_dyn(binding, key)
-        dynamic([], ^f == ^v)
-
-      {:!=, {:upper, v}} ->
-        f = upper_field_dyn(binding, key)
-        dynamic([], ^f != ^v)
-
-      {:not, {:==, {transform, v}}} when transform in [:trim, :ltrim, :rtrim] ->
-        f = transform_field_dyn(binding, key, transform)
-        dynamic([], ^f != ^v)
-
-      {:==, {transform, v}} when transform in [:trim, :ltrim, :rtrim] ->
-        f = transform_field_dyn(binding, key, transform)
-        dynamic([], ^f == ^v)
-
-      {:not, {:!=, {transform, v}}} when transform in [:trim, :ltrim, :rtrim] ->
-        f = transform_field_dyn(binding, key, transform)
-        dynamic([], ^f == ^v)
-
-      {:!=, {transform, v}} when transform in [:trim, :ltrim, :rtrim] ->
-        f = transform_field_dyn(binding, key, transform)
-        dynamic([], ^f != ^v)
-
-      _ ->
-        nil
-    end
-  end
-
-  defp transform_field_dyn(binding, key, :trim), do: trim_field_dyn(binding, key)
-  defp transform_field_dyn(binding, key, :ltrim), do: ltrim_field_dyn(binding, key)
-  defp transform_field_dyn(binding, key, :rtrim), do: rtrim_field_dyn(binding, key)
 
   defp string_impl(binding, key, negated, {op, value}) do
     term = if negated === :not, do: {:not, {op, value}}, else: {op, value}
