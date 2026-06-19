@@ -207,7 +207,115 @@ defmodule EctoShorts.MixProject do
           return value;
         };
 
+        function injectCytoscapeStyles() {
+          if (document.getElementById("es-cy-styles")) return;
+          const css = document.createElement("style");
+          css.id = "es-cy-styles";
+          css.textContent = `
+            .es-cy-frame { margin: 1.2em 0; border: 1px solid; border-radius: 8px; overflow: hidden; }
+            .es-cy-bar { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+              padding: .45rem .6rem; border-bottom: 1px solid; font-size: 13px; }
+            .es-cy-title { font-weight: 600; margin-right: auto; }
+            .es-cy-controls { display: flex; align-items: center; gap: .25rem; }
+            .es-cy-btn { display: inline-flex; align-items: center; justify-content: center;
+              width: 26px; height: 26px; padding: 0; border: 1px solid; border-radius: 6px;
+              background: transparent; cursor: pointer; font-size: 14px; line-height: 1; }
+            .es-cy-btn:focus-visible { outline: 2px solid #4c6ef5; outline-offset: 1px; }
+            .es-cy-open { width: auto; padding: 0 .5rem; font-size: 12px; display: none;
+              text-decoration: none; }
+            .es-cy-open.is-shown { display: inline-flex; }
+            .es-cy-search { height: 26px; padding: 0 .5rem; border: 1px solid; border-radius: 6px;
+              background: transparent; font-size: 12px; min-width: 8rem; color: inherit; }
+            .es-cy-canvas { position: relative; width: 100%; }
+            .es-cy-hint { position: absolute; inset: 0; display: flex; align-items: center;
+              justify-content: center; font-size: 12px; pointer-events: none; opacity: 1;
+              transition: opacity .25s ease; }
+            .es-cy-frame.is-active .es-cy-hint { opacity: 0; }
+            @media (prefers-reduced-motion: reduce) { .es-cy-hint { transition: none; } }
+            @media (max-width: 600px) { .es-cy-title { width: 100%; margin-bottom: .25rem; } }
+          `;
+          document.head.appendChild(css);
+        }
+
+        function renderCytoscape(spec, dark) {
+          const c = dark
+            ? { frameBorder: "#3a3a3a", bar: "#2a2a2a", barText: "#ddd", canvas: "#1b1b1b",
+                chipBg: "#23262e", chipText: "#cdd3e0", chipBorder: "#3a4150",
+                cardBg: "#3b5bdb", cardText: "#fff", cardBorder: "#4c6ef5",
+                edge: "#666", edgeEmph: "#9ab0ff", hint: "#888", btnBorder: "#444" }
+            : { frameBorder: "#e2e2e2", bar: "#f7f7f8", barText: "#222", canvas: "#fff",
+                chipBg: "#f1f3f9", chipText: "#2b3242", chipBorder: "#cfd6e6",
+                cardBg: "#3b5bdb", cardText: "#fff", cardBorder: "#2f49b0",
+                edge: "#bbb", edgeEmph: "#3b5bdb", hint: "#999", btnBorder: "#d0d0d0" };
+
+          const frame = document.createElement("div");
+          frame.className = "es-cy-frame";
+          frame.style.borderColor = c.frameBorder;
+          frame.style.background = c.canvas;
+
+          const bar = document.createElement("div");
+          bar.className = "es-cy-bar";
+          bar.style.borderColor = c.frameBorder;
+          bar.style.background = c.bar;
+          bar.style.color = c.barText;
+
+          const title = document.createElement("span");
+          title.className = "es-cy-title";
+          title.textContent = spec.title || "";
+          bar.appendChild(title);
+          frame.appendChild(bar);
+
+          const canvas = document.createElement("div");
+          canvas.className = "es-cy-canvas";
+          canvas.style.height = (spec.height || 400) + "px";
+          canvas.style.background = c.canvas;
+
+          const hint = document.createElement("div");
+          hint.className = "es-cy-hint";
+          hint.style.color = c.hint;
+          hint.textContent = "Click to interact";
+          canvas.appendChild(hint);
+          frame.appendChild(canvas);
+
+          const elements = (spec.elements || []).map((el) => {
+            const d = el.data || {};
+            const isModule = !!d.href || d.kind === "module";
+            return isModule ? Object.assign({ classes: "module" }, el) : el;
+          });
+
+          const cy = cytoscape({
+            container: canvas,
+            elements: elements,
+            layout: spec.layout || { name: "breadthfirst", directed: true, padding: 16 },
+            minZoom: 0.3,
+            maxZoom: 3,
+            style: spec.style || [
+              { selector: "node", style: {
+                  "shape": "round-rectangle", "label": "data(label)", "width": "label",
+                  "height": "label", "padding": "8px", "text-valign": "center",
+                  "text-halign": "center", "text-wrap": "none", "font-size": "13px",
+                  "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  "background-color": c.chipBg, "color": c.chipText,
+                  "border-width": 1, "border-color": c.chipBorder } },
+              { selector: "node.module", style: {
+                  "background-color": c.cardBg, "color": c.cardText, "border-color": c.cardBorder,
+                  "font-family": "inherit", "font-weight": "bold" } },
+              { selector: "edge", style: {
+                  "width": 1.5, "line-color": c.edge, "target-arrow-color": c.edge,
+                  "target-arrow-shape": "triangle", "curve-style": "bezier" } },
+              { selector: ".es-dim", style: { "opacity": 0.15 } },
+              { selector: ".es-emph", style: {
+                  "width": 2.5, "line-color": c.edgeEmph, "target-arrow-color": c.edgeEmph } }
+            ]
+          });
+
+          cy.ready(() => cy.fit(undefined, 24));
+          frame._es = { c, bar, hint, canvas };
+          return { frame, cy };
+        }
+
         const dark = document.body.className.includes("dark");
+        injectCytoscapeStyles();
         for (const codeEl of document.querySelectorAll("pre code.cytoscape")) {
           const preEl = codeEl.parentElement;
           let spec;
@@ -217,43 +325,8 @@ defmodule EctoShorts.MixProject do
             console.error("Cytoscape JSON parse failed:", err);
             continue;
           }
-
-          const graphEl = document.createElement("div");
-          graphEl.style.width = "100%";
-          graphEl.style.height = (spec.height || 400) + "px";
-          graphEl.style.border = "1px solid " + (dark ? "#444" : "#ddd");
-          graphEl.style.borderRadius = "4px";
-          replacePre(preEl, graphEl);
-
-          cytoscape({
-            container: graphEl,
-            elements: spec.elements || [],
-            layout: spec.layout || { name: "breadthfirst", directed: true, padding: 10 },
-            style: spec.style || [
-              {
-                selector: "node",
-                style: {
-                  "label": "data(label)",
-                  "background-color": dark ? "#7c9cff" : "#3b5bdb",
-                  "color": dark ? "#eee" : "#222",
-                  "font-size": "11px",
-                  "text-valign": "center",
-                  "text-halign": "center",
-                  "text-margin-y": -14
-                }
-              },
-              {
-                selector: "edge",
-                style: {
-                  "width": 1.5,
-                  "line-color": dark ? "#888" : "#aaa",
-                  "target-arrow-color": dark ? "#888" : "#aaa",
-                  "target-arrow-shape": "triangle",
-                  "curve-style": "bezier"
-                }
-              }
-            ]
-          });
+          const { frame } = renderCytoscape(spec, dark);
+          replacePre(preEl, frame);
         }
       });
     </script>
