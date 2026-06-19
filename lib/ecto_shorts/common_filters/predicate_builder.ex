@@ -159,7 +159,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   @date_shorthands [:start_date, :end_date, :since_date, :until_date]
 
   @spec build(term(), atom() | binary(), term(), keyword()) ::
-          {:ok, [%Predicate{field: atom(), routing: atom(), negated: boolean(), expr: term()}]} | :skip
+          {:ok, [Predicate.t()]} | :skip
   def build(_source, key, value, _opts) when key in @id_shorthands do
     {:ok, [%Predicate{field: :id, routing: :common, negated: false, expr: {key, value}}]}
   end
@@ -202,16 +202,12 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp operator_routing(raw_term) do
     {_negated, inner} = lift_negation(raw_term)
 
-    cond do
-      (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) ->
-        if Enum.any?(inner, fn {raw_op, _v} ->
-             raw_op === :array or canonical_op(raw_op) in @array_operators
-           end),
-           do: :array,
-           else: nil
-
-      true ->
-        nil
+    if (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) do
+      if Enum.any?(inner, fn {raw_op, _v} ->
+           raw_op === :array or canonical_op(raw_op) in @array_operators
+         end),
+         do: :array,
+         else: nil
     end
   end
 
@@ -245,7 +241,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp build_terms(term, type) do
     cond do
       is_map(term) and not is_struct(term) -> reduce_ops(term, type)
-      Keyword.keyword?(term) and term != [] -> reduce_ops(term, type)
+      Keyword.keyword?(term) and term !== [] -> reduce_ops(term, type)
       is_list(term) -> [{:==, cast(type, term)}]   # bare list = eq (D-LIST)
       true -> [{:==, cast(type, term)}]             # bare scalar = eq
     end
@@ -269,7 +265,9 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   # aggregates: each inner comparison becomes {agg, {op, value}}
   defp build_one(agg, inner, type) when agg in @aggregate_ops do
-    Enum.map(compares(inner, type), fn cmp -> {agg, cmp} end)
+    inner
+    |> compares(type)
+    |> Enum.map(fn cmp -> {agg, cmp} end)
   end
 
   # Top-level text transform: %{lower: "x"} means equality against the
@@ -308,19 +306,19 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # Array quantifier operators: %{all: %{>: "a"}} / %{all: %{in: [...]}} →
   # {:all, {op, value}} consumed by ArrayExpr. Reduce the inner comparison map.
   defp build_one(q, inner, type) when q in @quantifier_ops do
-    cond do
-      (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) ->
-        Enum.reduce(inner, [], fn {raw_op, v}, acc ->
-          op = canonical_op(raw_op)
-          cond do
-            op in @comparison_ops -> acc ++ [{q, {op, cast(type, v)}}]
-            op === :in and is_list(v) -> acc ++ [{q, {:in, cast(type, v)}}]
-            true -> (warn_skip("Unknown quantifier comparison, skipping"); acc)
-          end
-        end)
-
-      true ->
-        [{q, inner}]
+    if (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) do
+      Enum.reduce(inner, [], fn {raw_op, v}, acc ->
+        op = canonical_op(raw_op)
+        cond do
+          op in @comparison_ops -> acc ++ [{q, {op, cast(type, v)}}]
+          op === :in and is_list(v) -> acc ++ [{q, {:in, cast(type, v)}}]
+          true ->
+            warn_skip("Unknown quantifier comparison, skipping")
+            acc
+        end
+      end)
+    else
+      [{q, inner}]
     end
   end
 
@@ -379,7 +377,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # not a literal — recurse so the arithmetic clause builds it.
   defp build_one(op, %{value: %{} = v}, type)
        when op in @comparison_ops and not is_struct(v) do
-    if Enum.any?(Map.keys(@arith_keys), &Map.has_key?(v, &1)) do
+    if @arith_keys |> Map.keys() |> Enum.any?(&Map.has_key?(v, &1)) do
       build_one(op, v, type)
     else
       [{op, {:value, cast(type, v)}}]
@@ -408,7 +406,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # a singleton Map.to_list match). Falls through to the transform branch when no
   # arith key is present. Placed after value/field/date-math, before scalar.
   defp build_one(op, %{} = m, type) when op in @comparison_ops and not is_struct(m) do
-    case Enum.filter(Map.keys(@arith_keys), &Map.has_key?(m, &1)) do
+    case @arith_keys |> Map.keys() |> Enum.filter(&Map.has_key?(m, &1)) do
       [arith] ->
         sym = Map.fetch!(@arith_keys, arith)
 
@@ -483,7 +481,9 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     Enum.reduce(inner, [], fn {raw_t, v}, acc ->
       case canonical_op(raw_t) do
         t when t in @text_transforms -> acc ++ [{op, {t, v}}]
-        _ -> (warn_skip("Unknown transform, skipping"); acc)
+        _ ->
+          warn_skip("Unknown transform, skipping")
+          acc
       end
     end)
   end
@@ -495,19 +495,19 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   # Reduce a comparison value (map/keyword) into a list of {canonical_op, value}.
   defp compares(value, type) do
-    cond do
-      (is_map(value) and not is_struct(value)) or Keyword.keyword?(value) ->
-        Enum.reduce(value, [], fn {raw_op, v}, acc ->
-          case canonical_op(raw_op) do
-            op when op in @comparison_ops and is_nil(v) -> acc ++ [{op, nil}]
-            op when op in @comparison_ops -> acc ++ [{op, cast(type, v)}]
-            _ -> (warn_skip("Unknown comparison in aggregate, skipping"); acc)
-          end
-        end)
-
-      true ->
-        warn_skip("Aggregate expects a comparison map, skipping")
-        []
+    if (is_map(value) and not is_struct(value)) or Keyword.keyword?(value) do
+      Enum.reduce(value, [], fn {raw_op, v}, acc ->
+        case canonical_op(raw_op) do
+          op when op in @comparison_ops and is_nil(v) -> acc ++ [{op, nil}]
+          op when op in @comparison_ops -> acc ++ [{op, cast(type, v)}]
+          _ ->
+            warn_skip("Unknown comparison in aggregate, skipping")
+            acc
+        end
+      end)
+    else
+      warn_skip("Aggregate expects a comparison map, skipping")
+      []
     end
   end
 
@@ -515,7 +515,11 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp elements_term(:in, list, type) when is_list(list), do: [{:in, cast(type, list)}]
   defp elements_term(:in, scalar, type), do: [{:in, cast(type, scalar)}]
 
-  defp elements_term(:count, inner, type), do: Enum.map(compares(inner, type), &{:count, &1})
+  defp elements_term(:count, inner, type) do
+    inner
+    |> compares(type)
+    |> Enum.map(&{:count, &1})
+  end
 
   defp elements_term(op, list, type) when op in [:==, :!=] and is_list(list),
     do: [{op, cast(type, list)}]

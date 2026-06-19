@@ -395,20 +395,16 @@ defmodule EctoShorts.CommonFilters do
     cond do
       key in [:as, :at] ->
         Enum.reduce(params, query, fn {next_key, next_value}, query_acc ->
-          case resolve_binding_selector(query_acc, key, next_key) do
-            :error ->
-              query_acc
+          {:ok, resolved} = resolve_binding_selector(query_acc, key, next_key)
 
-            {:ok, resolved} ->
-              apply_filter(
-                filter,
-                source,
-                query_acc,
-                resolved,
-                next_value,
-                opts
-              )
-          end
+          apply_filter(
+            filter,
+            source,
+            query_acc,
+            resolved,
+            next_value,
+            opts
+          )
         end)
 
       key in [:having, :or_having, :where, :or_where] ->
