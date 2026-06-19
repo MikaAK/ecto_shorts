@@ -255,6 +255,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     cond do
       nil_or_scalar?(term) -> scalar_comparison(binding, key, term)
       quantified?(term) -> quantified_comparison(binding, key, term)
+      aggregate?(term) -> aggregate_comparison(binding, key, term)
       true -> comparison_impl_rest(binding, key, term)
     end
   end
@@ -262,6 +263,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp quantified?({_op, {q, _}}) when q in [:all, :any], do: true
   defp quantified?({:not, {_op, {q, _}}}) when q in [:all, :any], do: true
   defp quantified?(_), do: false
+
+  defp aggregate?({h, {_op, _}}) when h in @aggregate_helpers, do: true
+  defp aggregate?({:not, {h, {_op, _}}}) when h in @aggregate_helpers, do: true
+  defp aggregate?(_), do: false
 
   # Family predicate: nil checks and scalar (non-tuple value) comparisons.
   defp nil_or_scalar?({op, v}) when op in [:==, :!=] and (is_nil(v) or not is_tuple(v)), do: true
@@ -473,75 +478,99 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     dynamic([], not (^f <= any(qv)))
   end
 
+  # Aggregate: nil checks
+  defp aggregate_comparison(binding, key, {helper, {:==, nil}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], is_nil(^f))
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:==, nil}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], not is_nil(^f))
+  end
+
+  defp aggregate_comparison(binding, key, {helper, {:!=, nil}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], not is_nil(^f))
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:!=, nil}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], is_nil(^f))
+  end
+
+  # Aggregate: value comparisons
+  defp aggregate_comparison(binding, key, {helper, {:==, v}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f == ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:==, v}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f != ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {helper, {:!=, v}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f != ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:!=, v}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f == ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {helper, {:>, v}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f > ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:>, v}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], not (^f > ^v))
+  end
+
+  defp aggregate_comparison(binding, key, {helper, {:>=, v}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f >= ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:>=, v}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], not (^f >= ^v))
+  end
+
+  defp aggregate_comparison(binding, key, {helper, {:<, v}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f < ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:<, v}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], not (^f < ^v))
+  end
+
+  defp aggregate_comparison(binding, key, {helper, {:<=, v}}) when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], ^f <= ^v)
+  end
+
+  defp aggregate_comparison(binding, key, {:not, {helper, {:<=, v}}})
+       when helper in @aggregate_helpers do
+    f = agg_field_dyn(binding, key, helper)
+    dynamic([], not (^f <= ^v))
+  end
+
   # comparison_impl_rest holds the families not yet extracted; later tasks carve them out.
   defp comparison_impl_rest(binding, key, term) do
     case term do
-      # Aggregate: nil checks
-      {helper, {:==, nil}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], is_nil(^f))
-
-      {:not, {helper, {:==, nil}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], not is_nil(^f))
-
-      {helper, {:!=, nil}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], not is_nil(^f))
-
-      {:not, {helper, {:!=, nil}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], is_nil(^f))
-
-      # Aggregate: value comparisons
-      {helper, {:==, v}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f == ^v)
-
-      {:not, {helper, {:==, v}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f != ^v)
-
-      {helper, {:!=, v}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f != ^v)
-
-      {:not, {helper, {:!=, v}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f == ^v)
-
-      {helper, {:>, v}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f > ^v)
-
-      {:not, {helper, {:>, v}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], not (^f > ^v))
-
-      {helper, {:>=, v}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f >= ^v)
-
-      {:not, {helper, {:>=, v}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], not (^f >= ^v))
-
-      {helper, {:<, v}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f < ^v)
-
-      {:not, {helper, {:<, v}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], not (^f < ^v))
-
-      {helper, {:<=, v}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], ^f <= ^v)
-
-      {:not, {helper, {:<=, v}}} when helper in @aggregate_helpers ->
-        f = agg_field_dyn(binding, key, helper)
-        dynamic([], not (^f <= ^v))
-
       # Datetime comparisons - interval is already a ^-pinned runtime var after Phase 1
       {:==, {:date, {:ago, params}}} ->
         count = Keyword.fetch!(params, :count)
