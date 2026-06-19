@@ -208,6 +208,12 @@ same shape, that was the signal our foundation was right.
 11. **Predictable failure.** A filter that does not apply is warned-and-skipped; a
     clear caller mistake raises (from Elixir) or becomes a validation error (from
     HTTP). (Our D-WARN / D-RAISE.)
+12. **Elixir terms are first-class.** Even though HTTP input is supported, the
+    canonical, typical form of any term is the Elixir one: if a thing can be an
+    atom (an operator, a field, a binding name) or a module (a subquery source),
+    that is what you normally write and what the docs show. HTTP strings are an
+    accommodation decoded *into* those terms, not the primary form. (Our
+    D-ELIXIR-FIRST.)
 
 ---
 
@@ -296,12 +302,17 @@ column keys, a column maps to a **value test**.
   a list overlap         %{tags: %{overlaps: ["a"]}} → tags shares a value with ["a"] (list cols)
   a list size            %{tags: %{count: %{gt: 3}}} → tags has more than 3 items
   a JSON test            %{data: %{has_key: "role"}} → for columns that store JSON
+  JSON contains          %{data: %{contains: %{role: "admin", tier: "pro"}}}
+                                                     → data contains ALL of these key/values (ANDed)
   a date-math test       %{at: %{gt: %{ago: %{count: 1, unit: "day"}}}} → "1 day ago", etc.
 ```
 Operators: `eq ne gt gte lt lte in nin like ilike overlaps count has_key
-has_any_key has_all_keys contains contained_by`, plus the date shorthands. Both
-the nickname (`:gt`) and its string form (`"gt"`) are accepted (§1.7). Aggregates:
-`avg count max min sum`.
+has_any_key has_all_keys contains contained_by`, plus the date shorthands.
+Text transforms (applied to the column before comparing): `lower upper trim ltrim
+rtrim` (e.g. `%{title: %{eq: %{trim: "al"}}}`). Aggregates: `avg count max min
+sum`. **Atoms are the first-class form** — `%{age: %{gt: 21}}` is the canonical
+Elixir spelling; the string form (`"gt"`) is accepted as the HTTP accommodation
+(§1.7), decoded through the same closed safe list.
 
 In the core, the right-hand side of an operator is a plain value. The advanced
 tests use the **same** `%{column: %{operator: ...}}` shape, but the right-hand side
@@ -311,16 +322,20 @@ a richer right-hand side. All of it encodes as a JSON body (verified, §1.5a).
 
 ```
   compare to a column    %{a: %{gt: %{field: :b}}}         → a greater than column b
+  sibling-binding column %{level: %{lt: %{field: :level, as: :author}}}
+                                                            → level < the joined author binding's level
   computed-field math    %{score: %{gt: %{add: [%{field: :base}, %{value: 5}]}}}
                                                             → score > base + 5
-  compare to a subquery  %{id: %{eq: %{all: %{from: "comments", where: ...}}}}
+  compare to a subquery  %{id: %{eq: %{all: %{from: Comment, where: ...}}}}
                                                             → id equals every value the subquery returns
-  exists                 %{exists: %{from: "comments", where: %{approved: true}}}
+  exists                 %{exists: %{from: Comment, where: %{approved: true}}}
                                                             → rows that have a matching comment
-  correlated (in exists) %{exists: %{from: "comments",
-                            where: %{post_id: %{eq: %{parent: %{as: "post", field: :id}}}}}}
+  correlated (in exists) %{exists: %{from: Comment, as: :post,
+                            where: %{post_id: %{eq: %{parent: %{as: :post, field: :id}}}}}}
                                                             → comment.post_id = the outer post's id
 ```
+(From Elixir the subquery source is the schema module `Comment`; over HTTP it is a
+registered string alias `"comments"` — §1.5a, D-ELIXIR-FIRST.)
 
 **The escape hatch (a convenience, not a replacement):**
 You can always build a condition with Ecto and hand it in directly:
@@ -334,10 +349,15 @@ genuinely Elixir-only path; the structured shapes above all travel over HTTP.
 **v3.0.0 changes to this language (see §0.4):**
 - **A bare list always means "is one of" (D-LIST).** `%{tags: ["a", "b"]}` means
   "tags is one of a, b" on every column. For a *list column* overlap, use the
-  explicit `overlaps` operator. The `:elements` wrapper is gone.
-- **Date-math is a map, not a tuple (D-WIRE).** Write `%{ago: %{count: 1, unit:
-  "day"}}`, not `%{ago: {1, :day}}`. (The tuple is still accepted from Elixir for
-  convenience, but the documented, HTTP-safe form is the map.)
+  explicit `overlaps` operator. For exact list equality on a list column, use
+  `eq`/`ne` with a list: `%{tags: %{eq: ["a", "b"]}}` means "tags equals exactly
+  `["a","b"]`" (on a scalar column the same `eq`+list still means membership —
+  routing is by column type). The `:elements` wrapper is gone.
+- **Date-math is a map, not a tuple, and "add" is "shift" (D-WIRE).** Write
+  `%{ago: %{count: 1, unit: "day"}}`. To move a timestamp by an interval the word
+  is `shift` (`%{date: %{shift: %{count: 7, unit: "day"}}}`) — distinct from the
+  arithmetic `add` operand (§1.5a), so the two never clash. (A tuple is still
+  accepted from Elixir for convenience; the canonical form is the map.)
 - **Aggregates have one spelling (D-ONE-WAY).** `%{views: %{avg: %{gt: 5}}}`. The
   `%{aggregate: %{fn: :avg, ...}}` wrapper is removed.
 - **One operand convention (D-OPERAND).** Arithmetic drops its `:arithmetic`/
@@ -350,33 +370,46 @@ Every operator compares the column to a **right-hand side**. In the core that si
 is a plain value. In general it is one of four kinds, told apart by a single
 reserved key — so a client never has to guess from position what something is:
 
-| Kind | How you write it | Means | Wire form |
+The Elixir/atom form is canonical (shown first); the JSON form is the same shape
+with string keys and ISO-text values.
+
+| Kind | How you write it (Elixir) | Means | JSON form |
 |---|---|---|---|
 | Literal | `5` / `"x"` / `%{value: 5}` | a value, cast by the schema | bare scalar, or `{"value": 5}` |
-| Column | `%{field: :other}` | another column on the current table | `{"field": "other"}` |
-| Subquery | `%{from: "alias", where: %{…}}` | a registered source + a nested filter | `{"from":"alias","where":{…}}` |
-| Correlated | `%{parent: %{as: "post", field: :id}}` | an outer query's column (inside a subquery) | `{"parent":{"as":"post","field":"id"}}` |
+| Column | `%{field: :other}` | another column on the **current** binding | `{"field": "other"}` |
+| Sibling column | `%{field: :other, as: :author}` | a column on **another joined binding** in the same query | `{"field": "other", "as": "author"}` |
+| Subquery | `%{from: Comment, where: %{…}}` | a source + a nested filter | `{"from": "comments", "where": {…}}` |
+| Correlated | `%{parent: %{as: :post, field: :id}}` | an outer query's column (inside a subquery) | `{"parent": {"as": "post", "field": "id"}}` |
 
 Rules:
 - A bare scalar is sugar for `%{value: ...}`. (This also resolves the one
-  ambiguity flagged in prior art: to match a JSON column against a literal map,
-  write `%{value: %{...}}` explicitly.)
+  ambiguity from prior art: to match a JSON column against a literal map, write
+  `%{value: %{...}}` explicitly.)
+- **Sibling-binding reference (D-SIBLING).** `%{field: :col, as: :binding}` points
+  at a column on another joined binding in the *same* query (no `as:` = the
+  current binding). The same `as:` qualifier works for filtering on, selecting, and
+  ordering by a sibling binding's column (§3.4). The binding name is validated
+  against the query's bindings. This is *sideways* (a peer in this query), distinct
+  from `parent`, which reaches *outward* to an enclosing query.
 - **Calculations** are expression trees with **ordered-list** operands, so
   `subtract`/`divide` are unambiguous and nothing is a tuple on the wire:
   `%{add: [%{field: :base}, %{value: 5}]}`, and they nest:
   `%{add: [%{mul: [%{field: :base}, %{value: 2}]}, %{value: 5}]}`. Math words:
-  `add subtract multiply divide`.
-- **Subquery sources** are a **registered string alias** (`"comments"`), never a
-  raw schema module from a client (D-WIRE). The nested `where` is decoded against
-  that source's schema.
+  `add subtract multiply divide`. (Date *shifting* is a separate word, `shift`,
+  inside a `:date`/`:datetime` wrapper — see §1.5 — so it never collides with
+  arithmetic `add`.)
+- **Subquery sources.** From Elixir, the source may be a schema **module**
+  (`from: Comment`). From an HTTP request it must be a **registered string alias**
+  (`"comments"`) — a client can never name a raw module (D-WIRE). The nested
+  `where` is decoded against that source's schema.
 - **Correlated `parent`** is only valid inside a subquery/`exists`. A subquery's
-  `from` may declare a binding name (`%{from: "posts", as: "post", where: …}`);
-  a descendant references it via `%{parent: %{as: "post", field: …}}`. The binding
+  `from` may declare a binding name (`%{from: Comment, as: :post, where: …}`);
+  a descendant references it via `%{parent: %{as: :post, field: …}}`. The binding
   name is checked against the names declared by enclosing blocks **in the same
   request** — a client cannot invent one.
 
-This one convention is what makes the advanced tier HTTP-encodable and keeps the
-whole language to a single mental model: `%{column: %{operator: operand}}`.
+This one convention is what keeps the whole language to a single mental model
+(`%{column: %{operator: operand}}`) and makes the advanced tier HTTP-encodable.
 
 ### 1.6 The options it accepts
 | Option | Meaning |
@@ -389,14 +422,22 @@ whole language to a single mental model: `%{column: %{operator: operand}}`.
 | (set in app config) | `:repo`, `:replica`, `:dynamic_builder_module`, `:query_builder_module`, `:query_provider_module`, `:error_module`, `:max_positional_bindings`. |
 
 ### 1.7 Using it from an HTTP request (D-WIRE)
-The whole point of the param shape is that a web client can build it. A request
-arrives as JSON (everything is text; there are no atoms or tuples) or as a query
-string. The rules that make this clean:
+**The Elixir/atom form is the first-class shape** — a filter is most naturally an
+Elixir map with atom keys (`%{age: %{gt: 21}}`), schema modules, and so on. HTTP
+support is layered *on top* of that: a request decodes into the same shape, with
+the string-and-text accommodations below. So when something can be an atom, the
+canonical and typical form is the atom; strings are what arrive over the wire.
 
-- **Operator keys may be strings.** `{"age": {"gt": 21}}` is the same as
+A request arrives as JSON (everything is text; there are no atoms or tuples) or as
+a query string. The rules that make this clean:
+
+- **Operator keys may be strings.** `{"age": {"gt": 21}}` decodes to the canonical
   `%{age: %{gt: 21}}`. Operator strings are turned into operators through a
   **fixed safe list** — the library never calls `String.to_atom` on caller input,
   so a malicious client cannot exhaust the atom table.
+- **Atom keys are trusted; text keys are gated.** An Elixir caller passing atom
+  keys is trusted (the atom already exists). Text keys — what HTTP delivers — are
+  checked against the schema or `:allowed_keys` before use (§3.3).
 - **Column names are checked, not trusted.** A column name from a request is
   matched against the schema (or `:allowed_keys`); unknown names are rejected.
 - **Values stay as text and are cast by the schema.** `"21"` becomes the integer
@@ -572,7 +613,8 @@ time.
 | `%{title: %{ilike: "al%"}}` | `{"title":{"ilike":"al%"}}` | `:title` · no · `{:ilike,"al%"}` · scalar | title starts with "al" *(your `%` kept)* |
 | `%{title: %{eq: %{downcase: "AL"}}}` | `{"title":{"eq":{"downcase":"AL"}}}` | `:title` · no · `{:==,{:lower,"AL"}}` · scalar | lower(title) = "AL" |
 | `%{views: %{avg: %{gt: 10}}}` | `{"views":{"avg":{"gt":10}}}` | `:views` · no · `{:avg,{:>,10}}` · scalar | avg(views) > `^10` |
-| `%{at: %{gt: %{ago: %{count: 1, unit: "day"}}}}` | `{"at":{"gt":{"ago":{"count":1,"unit":"day"}}}}` | `:at` · no · `{:>,{:datetime,{:ago,[count: 1,interval: "day"]}}}` · scalar | at > the time 1 day ago *(map, not a tuple — D-WIRE)* |
+| `%{at: %{gt: %{ago: %{count: 1, unit: "day"}}}}` | `{"at":{"gt":{"ago":{"count":1,"unit":"day"}}}}` | `:at` · no · `{:>,{:datetime,{:ago,[count: 1,interval: "day"]}}}` · scalar | at > the time 1 day ago *(map+`unit`, not a tuple — D-WIRE)* |
+| `%{at: %{gt: %{date: %{shift: %{count: 7, unit: "day"}}}}}` | `{"at":{"gt":{"date":{"shift":{"count":7,"unit":"day"}}}}}` | `:at` · no · `{:>,{:date,{:shift,[count: 7,interval: "day"]}}}` · scalar | at's date > a date shifted 7 days *(`shift`, not `add` — D-ADD-SHIFT)* |
 
 **Core — list columns, JSON columns, shorthands**
 | Elixir | JSON body | tidied | Condition |
@@ -590,6 +632,7 @@ time.
 | Elixir | JSON body | tidied | Condition |
 |---|---|---|---|
 | `%{a: %{gt: %{field: :b}}}` | `{"a":{"gt":{"field":"b"}}}` | `:a` · no · `{:>,{:field,:b}}` · scalar | a > column b |
+| `%{level: %{lt: %{field: :level, as: :author}}}` | `{"level":{"lt":{"field":"level","as":"author"}}}` | `:level` · no · `{:<,{:field,{:author,:level}}}` · scalar | this level < the joined `author` binding's level *(sibling binding — D-SIBLING)* |
 | `%{score: %{gt: %{add: [%{field: :base}, %{value: 5}]}}}` | `{"score":{"gt":{"add":[{"field":"base"},{"value":5}]}}}` | `:score` · no · `{:>,{:+,[{:field,:base},{:value,5}]}}` · scalar | score > (base + `^5`) |
 | `%{id: %{eq: %{all: %{from: "comments", where: %{published: true}}}}}` | `{"id":{"eq":{"all":{"from":"comments","where":{"published":true}}}}}` | `:id` · no · `{:==,{:all,«subq»}}` · scalar | id = every value the subquery returns |
 | `%{exists: %{from: "comments", where: %{approved: true}}}` | `{"exists":{"from":"comments","where":{"approved":true}}}` | — · no · `{:exists,«subq»}` · common | rows that have a matching comment |
@@ -677,6 +720,17 @@ named `count`, `before`, `data`, or `all`. The rule that removes the ambiguity:
 This keeps the everyday case (`%{column: value}`) unambiguous and makes operators
 predictable.
 
+**Sibling-binding references (D-SIBLING).** When a query has more than one joined
+binding, a column can be qualified with `as:` to point at a *peer* binding in the
+same query (§1.5a). The translator supports this `as:` qualifier in four places,
+validated against the query's bindings:
+- the **right-hand side** of a comparison — `%{a: %{gt: %{field: :level, as: :author}}}`
+- the **left-hand side** of a filter — filter directly on `%{field: :name, as: :author}`
+- **selecting** — `%{select: %{author_name: %{field: :name, as: :author}}}`
+- **ordering** — order by a sibling binding's column.
+This is distinct from `parent` (which reaches outward to an enclosing query); `as:`
+reaches sideways to a peer binding in the current query.
+
 ### 3.5 Converting values, kept separate from renaming operators (cleanup item D5)
 Today one function both converts values **and** renames operators, which mixes two
 jobs. We split them:
@@ -732,8 +786,14 @@ There are two kinds of problem, and they are treated differently:
     than the number of tables), whether or not it is later referenced — handled
     the same way in every spot;
   - `:reverse_order` used when there is no `:order_by` to reverse;
-  - a `:lock` or `:join` provider hook that returns the wrong shape or a function
-    of the wrong arity (see §3.10).
+  - **a value of the wrong shape for its filter** — e.g. a `:lock` value that is
+    not `%{name: …}`, or `:reverse_order` given anything other than `true`;
+  - **an ordering operator (`gt`/`gte`/`lt`/`lte`) given `nil`** (e.g.
+    `%{published_at: %{gt: nil}}`) — comparing order against nothing cannot be
+    intended (only `eq`/`ne` accept `nil`, as the "has a value" check);
+  - a `:lock` or `:join` provider hook that returns an **out-of-contract** shape
+    or a function of the wrong arity (see §3.10). A provider's in-contract
+    `{:error, reason}` return is *not* a raise — it warns and skips.
 
   Rule of thumb: *"this filter doesn't apply" is a warning; "you called it wrong"
   is an error.*
@@ -777,9 +837,13 @@ is marked **Change (breaking)** and needs a line in the v3.0.0 migration notes.
 | D-CommonExpr-FIELD | The shorthand helper assumes columns `id` and `inserted_at`. | **Change (internal only)** | §3.6 — the column is filled in earlier; the condition produced is identical. |
 | D-CORE | One big flat surface; advanced and everyday filters mixed together. | **Change (organize)** | §1.4/§1.5. Split into a wire-safe core tier and an advanced tier. No capability removed; the minimal everyday set becomes visible. |
 | D-OPERAND | Ad-hoc shapes: `:arithmetic`/`compare` wrapper, `:parent_as`, positional operands. | **Change (breaking)** | §1.5a. One operand convention (`value`/`field`/`from`/`parent`); arithmetic as ordered arrays; `parent` only inside a subquery. Unifies the language and makes the advanced tier HTTP-encodable. |
+| D-SIBLING | No way to reference a sibling binding's column within one query. | **Change (new capability)** | §1.5a/§3.4. A `field` operand gains an optional `as: :binding` qualifier (peer binding in the same query), usable on the right-hand side, left-hand side, `:select`, and `:order_by`. Distinct from `parent` (outer query). |
+| D-ELIXIR-FIRST | HTTP-leaning framing implied strings were primary. | **Change (framing)** | §1.7 / tenet 12. Atoms/modules are the canonical, typical form; HTTP strings decode into them. Atom keys from Elixir are trusted; text keys are gated (§3.3). |
+| D-ADD-SHIFT | Date-math and arithmetic both used `add`. | **Change (breaking)** | §1.5/§1.5a. Date shifting is `shift` (inside a `:date`/`:datetime` wrapper); `add` is arithmetic only. No clash. |
+| D-TRIM | `trim`/`ltrim`/`rtrim` absent. | **Change (add)** | §1.5. Added to the text transforms alongside `lower`/`upper`. |
 | D-WIRE | The language assumed Elixir atoms/tuples; HTTP decoding was unspecified. | **Change (breaking)** | §1.7. Operator keys may be strings (closed safe list, never `String.to_atom`); date-math is a map not a tuple; subquery sources are registered names not modules; times are ISO 8601. |
-| D-LIST | List behavior needs `:elements`; a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4/§3.4. Remove `:elements`; a bare list always means "is one of"; list overlap uses the explicit `overlaps` operator. |
-| D-RAISE | Caller mistakes are silently warned-and-skipped (scalar association, bad binding, `:reverse_order` with no order, bad provider return). | **Change (breaking)** | §3.9. From Elixir these raise (a bug). Untrusted HTTP input is validated first and returns errors as data, so a bad request is a 4xx, not a crash. |
+| D-LIST | List behavior needs `:elements`; a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4/§3.4. Remove `:elements`; a bare list always means "is one of"; list overlap uses `overlaps`; exact list equality on a list column uses `eq`/`ne` with a list. |
+| D-RAISE | Caller mistakes are silently warned-and-skipped (scalar association, bad binding, `:reverse_order` with no order, malformed value shapes, ordering-operator-vs-nil, out-of-contract provider return). | **Change (breaking)** | §3.9. From Elixir these raise (a bug). Untrusted HTTP input is validated first and returns errors as data, so a bad request is a 4xx, not a crash. An in-contract provider `{:error, reason}` still warns-and-skips. |
 | D-NULL | `!=` / not-in against a list also matches null rows (`is_nil OR not in`); inconsistent across forms. | **Change (breaking)** | §3.5/§3.9. Only `== nil` / `!= nil` consider nulls; everything else is plain SQL. Callers who want nulls add `%{eq: nil}` explicitly. |
 | D-ONE-WAY | Two spellings for aggregates (`%{avg: …}` and `%{aggregate: %{fn: :avg, …}}`). | **Change (breaking)** | §1.5. Keep one: `%{views: %{avg: %{gt: 5}}}`. Remove the wrapper. |
 | D-COLLISION | No stated rule when a column is named like an operator (`count`, `before`, `data`). | **Change (clarify)** | §3.4. Top-level keys are columns; a word is an operator only in its value-map position and only if in the allow-list. |

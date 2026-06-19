@@ -95,3 +95,22 @@ binding; `{parent:}` = outer query). Proposed fix: `{field: :col, as: "binding"}
 validated against the query's bindings — and the same for `:select` of a sibling
 binding's columns. Confirm scope (operand RHS only, or also left-hand filtering /
 select).
+
+## RESOLUTIONS (decided; folded into the spec)
+
+| Q | Decision | Spec |
+|---|---|---|
+| Q1 | Elixir accepts a schema **module** subquery source; HTTP requires a **registered string alias**. | §1.5a, D-ELIXIR-FIRST |
+| Q2 | `%{field: %{gt: nil}}` (ordering operator vs nil) **raises**. | §3.9, D-RAISE |
+| Q3 | `eq`/`ne` + list on a **list column** = exact array equality; bare list = membership (routing by column type). No new operator. | §1.5, D-LIST |
+| Q4 | Multi-key `contains` is **kept** — every key/value must be contained (ANDed). | §1.5, §2.2 |
+| Q5 | Date-math caller key is **`%{count:, unit:}` only**; the timestamp-shift word is **`shift`** (not `add`), so it never clashes with arithmetic `add`. | §1.5, D-WIRE, D-ADD-SHIFT |
+| Q6 | `trim`/`ltrim`/`rtrim` are **added** to the core text transforms. | §1.5, D-TRIM |
+| Q7 | **Atom** keys (Elixir) are trusted and pass through; **text** keys (HTTP) are gated by schema/`:allowed_keys`. | §1.7, §3.3, D-ELIXIR-FIRST |
+| Q8 | Malformed **value shapes raise** (Elixir) / 4xx (HTTP). | §3.9, D-RAISE |
+| Q9 | Provider in-contract `{:error, reason}` **warns-and-skips**; only out-of-contract returns raise. | §3.9, §3.10, D-PROVIDER |
+| Q10 | White-box internal tests **re-point to the public API**; tests for removed internals (e.g. `Parser`) are deleted. | §5, D-INTERNAL |
+| Q11 | Add a `%{field: :col, as: :binding}` **sibling-binding** reference, usable in operand RHS, left-hand filter, `:select`, and `:order_by`. | §1.5a, §3.4, D-SIBLING |
+
+With these settled, every `NEEDS-DECISION` row in `batch-*.md` now has a ruling;
+the per-test changes can proceed mechanically during implementation.
