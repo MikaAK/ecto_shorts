@@ -78,11 +78,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   defp dispatch_expr(binding, key, {:==, {:any, qv}}) do
     field = FieldAccessors.field_dyn(binding, key)
+    # credo:disable-for-next-line
     Query.dynamic([], ^field == any(qv))
   end
 
   defp dispatch_expr(binding, key, {:!=, {:any, qv}}) do
     field = FieldAccessors.field_dyn(binding, key)
+    # credo:disable-for-next-line
     Query.dynamic([], ^field != any(qv))
   end
 
@@ -108,16 +110,19 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   defp dispatch_expr(binding, key, {:parent_as, {pb, pf}}) do
     field = FieldAccessors.field_dyn(binding, key)
+    # credo:disable-for-next-line
     Query.dynamic([], ^field == field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:==, {:parent_as, {pb, pf}}}) do
     field = FieldAccessors.field_dyn(binding, key)
+    # credo:disable-for-next-line
     Query.dynamic([], ^field == field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:!=, {:parent_as, {pb, pf}}}) do
     field = FieldAccessors.field_dyn(binding, key)
+    # credo:disable-for-next-line
     Query.dynamic([], ^field != field(parent_as(^pb), ^pf))
   end
 
