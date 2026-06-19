@@ -122,12 +122,31 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         :skip
 
       {:ok, field} ->
-        routing = routing_family(source, field, opts)
+        routing = operator_routing(raw_term) || routing_family(source, field, opts)
         type = field_type(source, field, opts)
         {negated, inner} = lift_negation(raw_term)
 
         exprs = build_terms(inner, type)
         {:ok, Enum.map(exprs, &%Predicate{field: field, routing: routing, negated: negated, expr: &1})}
+    end
+  end
+
+  # Operator-driven routing: a few operators force the :array family regardless
+  # of the known column type (spec §2.3). `overlaps` is array-overlap; list
+  # `count` and array quantifiers are added with their operators.
+  @array_operators [:overlaps]
+
+  defp operator_routing(raw_term) do
+    {_negated, inner} = lift_negation(raw_term)
+
+    cond do
+      (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) ->
+        if Enum.any?(inner, fn {raw_op, _v} -> canonical_op(raw_op) in @array_operators end),
+          do: :array,
+          else: nil
+
+      true ->
+        nil
     end
   end
 
@@ -194,6 +213,10 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   defp build_one(op, patterns, _type) when op in @string_ops and is_list(patterns),
     do: [{op, Enum.map(patterns, &wrap_like/1)}]
+
+  # overlaps: explicit array-overlap operator (D-LIST)
+  defp build_one(:overlaps, list, type) when is_list(list),
+    do: [{:overlaps, cast(type, list)}]
 
   # membership / eq-ne with a list (routing decides meaning downstream)
   defp build_one(op, list, type) when op in [:in, :nin, :==, :!=] and is_list(list),

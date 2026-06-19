@@ -164,6 +164,11 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
                PredicateBuilder.build(Post, :tags, ["a", "b"], [])
     end
 
+    test "overlaps produces an array-overlap term and forces :array routing" do
+      assert {:ok, [%Predicate{routing: :array, expr: {:overlaps, ["a", "b"]}}]} =
+               PredicateBuilder.build({"posts", nil}, :tags, %{overlaps: ["a", "b"]}, [])
+    end
+
     test "an unknown operator entry is dropped (warn); other entries survive" do
       log =
         capture_log(fn ->

@@ -205,6 +205,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
     Query.dynamic([], ^value not in ^field)
   end
 
+  defp dispatch_expr(binding, key, {:overlaps, values}) when is_list(values) do
+    field = field_dyn(binding, key)
+    Query.dynamic([], fragment("? && ?", ^field, ^values))
+  end
+
   defp dispatch_expr(binding, key, {:in, values}) when is_list(values) do
     field = field_dyn(binding, key)
     Query.dynamic([], fragment("? && ?", ^field, ^values))

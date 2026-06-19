@@ -57,6 +57,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
       assert_dynamic(expected, actual)
     end
 
+    test "{:overlaps, list} produces array overlap fragment" do
+      expected = dynamic([q], fragment("? && ?", field(q, :tags), ^["a", "b"]))
+      actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:overlaps, ["a", "b"]}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
     test "{:!=, scalar} produces element-not-in-array membership" do
       expected = dynamic([q], ^"elixir" not in field(q, :tags))
       actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:!=, "elixir"}, [])
