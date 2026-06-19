@@ -247,7 +247,7 @@ git commit -m "refactor(scalar_expr): comparison_impl is now a family router (no
 - [ ] **Step 1: Write the failing test (characterization, now isolatable because ShorthandExpr takes the field)**
 
 ```elixir
-defmodule EctoShorts.DynamicBuilders.Postgres.CommonExprTest do
+defmodule EctoShorts.DynamicBuilders.Postgres.ShorthandExprTest do
   use ExUnit.Case, async: true
 
   alias EctoShorts.DynamicBuilders.Postgres.ShorthandExpr
@@ -364,8 +364,8 @@ git commit -m "refactor(common_expr): pass the column in; remove hardcoded :id/:
 
 ## Self-Review (done while writing)
 
-- **Spec coverage:** D1 (decompose `comparison_impl` + family functions) → Tasks 1–4; D-ShorthandExpr-FIELD / B1–B2 (pure `ShorthandExpr`) → Task 5. The scalar leaf-matrix stays as the existing `apply_scalar_comparison/4` (already a clean 12-clause matrix); the larger `apply_arith_comparison` (48) collapse rides with Plan 03, where arithmetic is reshaped to the operand convention — collapsing it here would risk an SQL change with no behavioral payoff.
+- **Spec coverage:** D1 (decompose `comparison_impl` + family functions) → Tasks 1–4; D-CommonExpr-FIELD / B1–B2 (pure `ShorthandExpr`) → Task 5. The scalar leaf-matrix stays as the existing `apply_scalar_comparison/4` (already a clean 12-clause matrix); the larger `apply_arith_comparison` (48) collapse rides with Plan 03, where arithmetic is reshaped to the operand convention — collapsing it here would risk an SQL change with no behavioral payoff.
 - **Placeholders:** none. Bulk verbatim clause relocations are given as exact line ranges + the destination function and the routing predicate, which is a precise mechanical instruction (not "similar to Task N").
 - **Type consistency:** `ShorthandExpr.dynamic_expr/6` (added `field` arg) is matched by the single caller change in `postgres.ex`; `common_field_for/1` returns the column the old hardcoded clauses used. The family-function names (`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`, `datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`, `scalar_value_fallback`) are introduced once and reused by the `comparison_impl` router.
 - **Carried to Plan 03:** the datetime/arithmetic/parent_as families still hold the `Keyword.fetch!`/`Keyword.get(:field)` impurities; Plan 03 removes them when `PredicateBuilder` supplies pre-resolved operands (`shift`, sibling `as:`, ordered-array arithmetic).
-- **Carried to Plan 05:** `common_field_for/1` moves into `PredicateBuilder` (the field is filled in upstream per D-ShorthandExpr-FIELD); `ShorthandExpr` stays pure.
+- **Carried to Plan 05:** `common_field_for/1` moves into `PredicateBuilder` (the field is filled in upstream per D-CommonExpr-FIELD); `ShorthandExpr` stays pure.

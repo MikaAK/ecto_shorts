@@ -206,10 +206,10 @@ git commit -m "feat(scalar): add trim/ltrim/rtrim text transforms"
 ```elixir
 # PredicateBuilder unit
 test "date-math: unit map tidies to interval keyword; shift kept" do
-  assert {:ok, %{term: {:>, {:datetime, {:ago, [count: 1, interval: "day"]}}}}} =
+  assert {:ok, [%Predicate{expr: {:>, {:datetime, {:ago, [count: 1, interval: "day"]}}}}]} =
            PredicateBuilder.build(Post, :inserted_at, %{gt: %{ago: %{count: 1, unit: "day"}}}, [])
 
-  assert {:ok, %{term: {:>=, {:date, {:shift, [count: 7, interval: "day"]}}}}} =
+  assert {:ok, [%Predicate{expr: {:>=, {:date, {:shift, [count: 7, interval: "day"]}}}}]} =
            PredicateBuilder.build(Post, :inserted_at, %{gte: %{date: %{shift: %{count: 7, unit: "day"}}}}, [])
 end
 ```
@@ -237,7 +237,7 @@ Expected: FAIL — `shift` unrecognized; resolver lacks date-math.
 
 - [ ] **Step 3: Implement the resolver date-math canonicalization**
 
-In `term_resolver.ex`, add a date-math clause to `build_one/3` (Plan 01's per-operator builder, which returns a **list**). The RHS of a comparison is a date wrapper `%{date | datetime: %{dt_op => %{count:, unit:, field:}}}`. **Recognize the wrapper by key access** (not a singleton `Map.to_list` match), and **reduce** over the inner map for the date op:
+In `predicate_builder.ex`, add a date-math clause to `build_one/3` (Plan 01's per-operator builder, which returns a **list**). The RHS of a comparison is a date wrapper `%{date | datetime: %{dt_op => %{count:, unit:, field:}}}`. **Recognize the wrapper by key access** (not a singleton `Map.to_list` match), and **reduce** over the inner map for the date op:
 
 ```elixir
 @date_units ~w(second minute hour day week month year)
@@ -308,17 +308,17 @@ git commit -m "feat(date-math): shift word + unit key; resolver canonicalizes to
 
 ```elixir
 test "field operand on the current binding" do
-  assert {:ok, [%{term: {:>, {:field, :b}}}]} =
+  assert {:ok, [%Predicate{expr: {:>, {:field, :b}}}]} =
            PredicateBuilder.build(Post, :views, %{gt: %{field: :b}}, [])
 end
 
 test "field operand with a sibling binding records {binding, field}" do
-  assert {:ok, [%{term: {:>, {:field, {:author, :age}}}}]} =
+  assert {:ok, [%Predicate{expr: {:>, {:field, {:author, :age}}}}]} =
            PredicateBuilder.build(Post, :views, %{gt: %{field: :age, as: :author}}, [])
 end
 
 test "value operand is always a single literal (cast), never membership" do
-  assert {:ok, [%{term: {:==, {:value, [1, 2]}}}]} =
+  assert {:ok, [%Predicate{expr: {:==, {:value, [1, 2]}}}]} =
            PredicateBuilder.build(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
 end
 ```
@@ -380,7 +380,7 @@ git commit -m "feat(resolver): value/field operands + sibling-as reference (pure
 ```elixir
 # resolver: arithmetic ordered-array, binary only
 test "binary arithmetic operand" do
-  assert {:ok, [%{term: {:>, {:+, [{:field, :base}, {:value, 5}]}}}]} =
+  assert {:ok, [%Predicate{expr: {:>, {:+, [{:field, :base}, {:value, 5}]}}}]} =
            PredicateBuilder.build(Post, :views, %{gt: %{add: [%{field: :base}, %{value: "5"}]}}, [])
 end
 
