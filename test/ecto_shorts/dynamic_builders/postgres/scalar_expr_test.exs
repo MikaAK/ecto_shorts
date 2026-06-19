@@ -2,15 +2,15 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
+  alias Ecto.Adapters.SQL
+  alias EctoShorts.CommonFilters
+  alias EctoShorts.Config
   alias EctoShorts.DynamicBuilders.Postgres.ScalarExpr
   alias EctoShorts.Schema.Comment
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
-  alias EctoShorts.CommonFilters
   import ExUnit.CaptureLog
-  alias Ecto.Adapters.SQL
-  alias EctoShorts.Config
 
 
 
@@ -64,7 +64,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_dynamic(expected, actual)
     end
 
-    test "DateTime struct value is preserved in comparisons" do
+    test "datetime struct value is preserved in comparisons" do
       dt = ~U[2026-01-01 00:00:00Z]
       expected = dynamic([q], field(q, :published_at) >= ^dt)
       actual = ScalarExpr.dynamic_expr({:as, nil}, :published_at, nil, {:>=, dt}, [])

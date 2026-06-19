@@ -10,9 +10,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ContractTest do
   @moduletag adapter: :postgres
 
   alias EctoShorts.CommonFilters
+  alias EctoShorts.FilterContract
   alias EctoShorts.Schema.Post
 
-  for %{name: name, params: params} <- EctoShorts.FilterContract.cases() do
+  for %{name: name, params: params} <- FilterContract.cases() do
     @params params
     test "postgres satisfies contract: #{name}" do
       assert %Ecto.Query{} = CommonFilters.convert_params_to_filter(Post, @params, [])

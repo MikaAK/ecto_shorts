@@ -2,11 +2,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExprTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
+  alias EctoShorts.CommonFilters
   alias EctoShorts.DynamicBuilders.Postgres.MapExpr
+  alias EctoShorts.Schema.UserData
 
   import Ecto.Query
-  alias EctoShorts.CommonFilters
-  alias EctoShorts.Schema.UserData
 
 
   describe "nil checks" do
@@ -128,11 +128,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.MapExprTest do
 
   describe "nil and error cases" do
     test "unrecognised operator returns nil" do
-      assert nil == MapExpr.dynamic_expr({:as, nil}, :data, nil, {:unknown_op, "value"}, [])
+      assert nil === MapExpr.dynamic_expr({:as, nil}, :data, nil, {:unknown_op, "value"}, [])
     end
 
     test "unsupported binding selector returns nil via catch-all clause" do
-      assert nil == MapExpr.dynamic_expr({:unsupported, :binding}, :data, nil, {:==, "v"}, [])
+      assert nil === MapExpr.dynamic_expr({:unsupported, :binding}, :data, nil, {:==, "v"}, [])
     end
   end
 

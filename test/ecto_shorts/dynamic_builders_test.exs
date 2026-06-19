@@ -69,7 +69,7 @@ defmodule EctoShorts.DynamicBuildersTest do
       expr: {:==, 1}
     }
 
-    test "Postgres adapter resolves silently with no warning" do
+    test "postgres adapter resolves silently with no warning" do
       expected = dynamic([q], q.id == ^1)
 
       log =

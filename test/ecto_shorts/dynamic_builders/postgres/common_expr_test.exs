@@ -2,11 +2,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExprTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
+  alias EctoShorts.CommonFilters
   alias EctoShorts.DynamicBuilders.Postgres.CommonExpr
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
-  alias EctoShorts.CommonFilters
 
 
 

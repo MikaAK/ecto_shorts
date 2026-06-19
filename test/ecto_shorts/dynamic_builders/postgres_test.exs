@@ -2,12 +2,11 @@ defmodule EctoShorts.DynamicBuilders.PostgresTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
+  alias EctoShorts.CommonFilters.Predicate
   alias EctoShorts.DynamicBuilders.Postgres
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
-
-  alias EctoShorts.CommonFilters.Predicate
 
   describe "build_dynamic/3 over a %Predicate{}" do
     test "the Postgres adapter turns a scalar Predicate into the right dynamic" do
