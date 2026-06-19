@@ -18,7 +18,7 @@ defmodule EctoShorts.DynamicBuilder do
   The active adapter is resolved in order:
 
     1. The `:dynamic_builder` option passed at call time.
-    2. `EctoShorts.Config.dynamic_builder/0` (configured in application env).
+    2. `EctoShorts.Config.dynamic_builder_module/0` (configured in application env).
     3. Auto-detected from the configured repo's database adapter (Postgres
       only, out of the box).
 
@@ -30,15 +30,15 @@ defmodule EctoShorts.DynamicBuilder do
         @behaviour EctoShorts.DynamicBuilder
 
         @impl true
-        def build_dynamic(source, selected_binding, {key, term}, opts) do
-          # Build and return an Ecto.Query.DynamicExpr
+        def build_dynamic(predicate, selected_binding, opts) do
+          # Build and return an Ecto.Query.DynamicExpr (or nil)
         end
       end
 
   Then configure it:
 
       # config/config.exs
-      config :ecto_shorts, dynamic_builder: MyApp.CustomAdapter
+      config :ecto_shorts, dynamic_builder_module: MyApp.CustomAdapter
 
   Or pass it at runtime:
 

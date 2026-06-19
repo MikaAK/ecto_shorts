@@ -4,11 +4,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
 
   Use this module when you want to call the Postgres dynamic adapter
   directly. If you want adapter resolution or adapter-agnostic dynamic
-  building, start with `EctoShorts.DynamicBuilders.build_dynamic/4` instead.
+  building, start with `EctoShorts.DynamicBuilders.build_dynamic/3` instead.
 
-  `build_dynamic/4` is the only public entry point. It accepts a queryable
-  `source`, a binding selector, and one filter entry, and returns a dynamic
-  expression value for use in Ecto query macros.
+  `build_dynamic/3` is the only public entry point. It implements the
+  `EctoShorts.DynamicBuilder` behaviour: it accepts a resolved
+  `EctoShorts.CommonFilters.Predicate` struct, a binding selector, and options,
+  and returns a dynamic expression value for use in Ecto query macros (or `nil`
+  when the predicate contributes no clause).
 
   ## Binding selectors
 
@@ -18,28 +20,27 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     * `{:as, name}` - a named binding
     * `{:at, position}` - a one-based positional binding
 
-  ## Filter entry families
+  ## Predicate input
 
-  `build_dynamic/4` accepts two high-level entry families:
+  The `predicate` is a resolved `EctoShorts.CommonFilters.Predicate` struct
+  produced upstream by `EctoShorts.CommonFilters.PredicateBuilder`. It carries a
+  checked `:field` atom, a `:routing` family (`:scalar | :array | :map |
+  :common`), a `:negated` boolean, and a tidied `:expr` operator-expression.
 
-    * `{key, term}` - an ordinary field or operator entry
-    * `{:all, params}` and `{:any, params}` - top-level quantified groups
-
-  The module handles Postgres-specific translation for common operators,
-  scalar comparisons, array and map-backed fields, negation, and quantified
-  subquery forms. Callers should rely on the public entry point and returned
-  dynamic expression rather than the current private helper layout.
+  Given that input, the module handles Postgres-specific translation for common
+  operators, scalar comparisons, array and map-backed fields, negation, and
+  quantified subquery forms. Callers should rely on the public entry point and
+  returned dynamic expression rather than the current private helper layout.
 
   ## Examples
 
-      iex> EctoShorts.DynamicBuilders.Postgres.build_dynamic(Post, {:as, nil}, {:views, 5})
-      #Ecto.Query.DynamicExpr<...>
-
-      iex> EctoShorts.DynamicBuilders.Postgres.build_dynamic(
-      ...>   Post,
-      ...>   {:as, nil},
-      ...>   {:any, [published: true, archived: false]}
-      ...> )
+      iex> predicate = %EctoShorts.CommonFilters.Predicate{
+      ...>   field: :views,
+      ...>   routing: :scalar,
+      ...>   negated: false,
+      ...>   expr: {:==, 5}
+      ...> }
+      iex> EctoShorts.DynamicBuilders.Postgres.build_dynamic(predicate, {:as, nil}, [])
       #Ecto.Query.DynamicExpr<...>
   """
 

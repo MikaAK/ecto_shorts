@@ -56,7 +56,7 @@ defmodule EctoShorts.DynamicBuilders do
 
   It may also be passed at call time:
 
-      EctoShorts.DynamicBuilders.build_dynamic(source, binding, term,
+      EctoShorts.DynamicBuilders.build_dynamic(predicate, binding,
         dynamic_builder: MyApp.DynamicBuilders.Custom
       )
   """
@@ -67,19 +67,16 @@ defmodule EctoShorts.DynamicBuilders do
 
   @doc since: "3.0.0"
   @doc """
-  Builds an `Ecto.Query.DynamicExpr` for `term` using the adapter resolved
-  from `opts` (or from the configured repo).
+  Builds an `Ecto.Query.DynamicExpr` for one resolved
+  `EctoShorts.CommonFilters.Predicate` using the adapter resolved from `opts`.
 
   ## Arguments
 
-    * `source` - the queryable source: a schema module, `{source, schema}`
-      tuple, or an existing `Ecto.Query`.
+    * `predicate` - a resolved `EctoShorts.CommonFilters.Predicate` struct, as
+      produced by `EctoShorts.CommonFilters.PredicateBuilder`.
     * `selected_binding` - the binding selector: `{:as, atom()}` for a
       named binding or `{:at, pos_integer()}` for a positional binding.
       Use `{:as, nil}` to target the default (first) binding.
-    * `term` - the filter term to translate. Typically a `{key, value}`
-      pair where `key` is a field atom and `value` is the filter
-      expression (scalar, keyword list of operators, range, etc.).
     * `opts` - keyword options forwarded to the adapter.
 
   ## Options
@@ -92,32 +89,8 @@ defmodule EctoShorts.DynamicBuilders do
   ## Returns
 
   An `Ecto.Query.DynamicExpr` suitable for use with `Ecto.Query.where/3`,
-  `Ecto.Query.or_where/3`, `Ecto.Query.having/3`, etc.
-
-  ## Examples
-
-      iex> EctoShorts.DynamicBuilders.build_dynamic(Post, {:as, nil}, {:views, 5}, repo: MyApp.Repo)
-      #Ecto.Query.DynamicExpr<...>
-
-      iex> EctoShorts.DynamicBuilders.build_dynamic(
-      ...>   Post,
-      ...>   {:as, nil},
-      ...>   {:views, [>: 1, <: 10]},
-      ...>   repo: MyApp.Repo
-      ...> )
-      #Ecto.Query.DynamicExpr<...>
-  """
-  def build_dynamic(source, selected_binding, term, opts) do
-    adapter_for_repo!(opts).build_dynamic(source, selected_binding, term, opts)
-  end
-
-  @doc since: "3.0.0"
-  @doc """
-  Builds an `Ecto.Query.DynamicExpr` for one resolved
-  `EctoShorts.CommonFilters.Predicate` using the adapter resolved from `opts`.
-
-  The adapter is selected exactly as for `build_dynamic/4`. Returns the dynamic
-  expression, or `nil` when the predicate contributes no clause.
+  `Ecto.Query.or_where/3`, `Ecto.Query.having/3`, etc., or `nil` when the
+  predicate contributes no clause.
   """
   def build_dynamic(%EctoShorts.CommonFilters.Predicate{} = predicate, selected_binding, opts) do
     adapter_for_repo!(opts).build_dynamic(predicate, selected_binding, opts)
