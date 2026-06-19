@@ -3,6 +3,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @moduledoc false
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
+  alias EctoShorts.DynamicBuilders.Postgres.Scalar.Membership
 
   import Ecto.Query
 
@@ -37,51 +38,14 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp max_field_dyn(binding, key), do: dynamic([], max(^field_dyn(binding, key)))
   defp min_field_dyn(binding, key), do: dynamic([], min(^field_dyn(binding, key)))
   defp sum_field_dyn(binding, key), do: dynamic([], sum(^field_dyn(binding, key)))
-  defp membership_in_dyn(binding, key, values), do: dynamic([], ^field_dyn(binding, key) in ^values)
-  defp membership_not_in_dyn(binding, key, values), do: dynamic([], ^field_dyn(binding, key) not in ^values)
-
   # ── Non-generated dispatch: compiled once regardless of binding count ──────
 
   defp dispatch_expr(binding, key, negated, {op, value}) do
     case family_for(op, value) do
-      :membership -> membership_impl(binding, key, negated, {op, value})
+      :membership -> Membership.build(binding, key, negated, {op, value})
       :string_transform -> string_transform_impl(binding, key, negated, {op, value})
       :string -> string_impl(binding, key, negated, {op, value})
       :comparison -> comparison_impl(binding, key, negated, {op, value})
-    end
-  end
-
-  defp membership_impl(binding, key, negated, {op, value}) do
-    term = if negated === :not, do: {:not, {op, value}}, else: {op, value}
-
-    case term do
-      {:not, {:in, values}} when is_list(values) ->
-        membership_not_in_dyn(binding, key, values)
-
-      {:in, values} when is_list(values) ->
-        membership_in_dyn(binding, key, values)
-
-      # :nin is the explicit not-in operator (D-NULL: plain NOT IN, no null guard).
-      {:not, {:nin, values}} when is_list(values) ->
-        membership_in_dyn(binding, key, values)
-
-      {:nin, values} when is_list(values) ->
-        membership_not_in_dyn(binding, key, values)
-
-      {:not, {:==, values}} when is_list(values) ->
-        membership_not_in_dyn(binding, key, values)
-
-      {:==, values} when is_list(values) ->
-        membership_in_dyn(binding, key, values)
-
-      {:not, {:!=, values}} when is_list(values) ->
-        membership_in_dyn(binding, key, values)
-
-      {:!=, values} when is_list(values) ->
-        membership_not_in_dyn(binding, key, values)
-
-      _ ->
-        nil
     end
   end
 
