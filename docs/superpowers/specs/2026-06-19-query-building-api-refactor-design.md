@@ -64,6 +64,22 @@ tests, stored alongside this file in `./inventory/` (four files).
 - **Logs a warning and skips** — when the library is given something it cannot use
   (an unknown column, an unsupported combination), it writes a warning message to
   the log and simply leaves that filter out, rather than crashing.
+- **Operand** — the right-hand side of a comparison: the thing a column is compared
+  *against*. It can be a literal value, another column, a subquery, or a reference
+  to an outer query's column (§1.5a).
+- **Sibling binding** — when a query joins more than one table, each joined table is
+  a binding; a "sibling" binding is a *peer* in the same query (as opposed to a
+  table in an enclosing/outer query). The `as:` qualifier points at one.
+- **Shift** — moving a date or timestamp by an interval (e.g. 7 days later). Written
+  with the `shift` word inside a `:date`/`:datetime` wrapper; kept separate from the
+  arithmetic `add` so the two never collide.
+- **Validate step** — the recommended entry point for *untrusted* (HTTP) input: it
+  checks a request against the allowed columns and operators, casts values, and
+  returns errors as data (so a bad request becomes a 4xx) instead of letting them
+  reach the raising path.
+- **Registered alias** — a short server-defined name (e.g. `"comments"`) that maps
+  to a schema, used as a subquery source in HTTP input so a client never names a
+  raw module.
 
 ---
 
@@ -110,8 +126,10 @@ Reshape the translation so that:
 ### 0.4 Deliberate breaking changes for v3.0.0
 This branch (`v3.0.0`) is unreleased, so we are taking the chance to fix
 behaviors that were confusing, oversized, or didn't travel over HTTP. These **do**
-change what callers see; each has a row in the decisions table (§4) and a
-migration note (§7). They were validated against five independent "fresh-eyes"
+change what callers see. This list is the caller-visible highlights; the **full**
+set of decisions (including internal and framing ones) is the §4 table, and every
+caller-visible change has a §7 migration note. (Decision IDs use the `D-` prefix
+and are defined in §4.) They were validated against five independent "fresh-eyes"
 designs/reviews (`reviews/fresh-eyes-review.md`).
 
 1. **The language is reorganized into a CORE tier and an ADVANCED tier — no
@@ -314,6 +332,15 @@ sum`. **Atoms are the first-class form** — `%{age: %{gt: 21}}` is the canonica
 Elixir spelling; the string form (`"gt"`) is accepted as the HTTP accommodation
 (§1.7), decoded through the same closed safe list.
 
+There are also **shorthand words** that imply a column: `ids`, `before`, `after`,
+`since`, `until` (all target the id column), and `start_date`, `end_date`,
+`since_date`, `until_date` (all target `inserted_at`). And `nin` is "not in" — it
+behaves exactly as a negated `in`.
+
+**`like`/`ilike` auto-wrap (D-LIKE-WRAP).** A pattern with no `%`/`_` is wrapped as
+`%pattern%` (a "contains" match): `%{title: %{like: "al"}}` matches `%al%`. If you
+include your own `%`/`_`, the pattern is used as-is (`"al%"` stays "starts with").
+
 In the core, the right-hand side of an operator is a plain value. The advanced
 tests use the **same** `%{column: %{operator: ...}}` shape, but the right-hand side
 is an **operand** (§1.5a) — a column, a calculation, a subquery, or an outer-query
@@ -387,9 +414,10 @@ Rules:
   `%{value: %{...}}` explicitly.)
 - **Sibling-binding reference (D-SIBLING).** `%{field: :col, as: :binding}` points
   at a column on another joined binding in the *same* query (no `as:` = the
-  current binding). The same `as:` qualifier works for filtering on, selecting, and
-  ordering by a sibling binding's column (§3.4). The binding name is validated
-  against the query's bindings. This is *sideways* (a peer in this query), distinct
+  current binding). The same `as:` qualifier works as a comparison's right-hand
+  side, in `:select`, and in `:order_by` (§3.4); to *filter* on a sibling column,
+  re-point the group with `:as`/`:at`. The binding name is validated against the
+  query's bindings (§3.11). This is *sideways* (a peer in this query), distinct
   from `parent`, which reaches *outward* to an enclosing query.
 - **Calculations** are expression trees with **ordered-list** operands, so
   `subtract`/`divide` are unambiguous and nothing is a tuple on the wire:
@@ -497,7 +525,7 @@ sees from the core language:
 ```
 operators (after tidying): :== :!= :> :>= :< :<=
 aggregates: :avg :count :max :min :sum
-date-math: :ago :from_now :add, wrapped in :date or :datetime
+date-math: :ago :from_now :shift, wrapped in :date or :datetime
 text-case words: :lower :upper
 
 A tidied core filter is one of:
@@ -547,11 +575,17 @@ shapes above, not as their replacement.
    `:inserted_at`), so the helpers never assume a column name. (No `:elements`
    wrapper, no `:aggregate` wrapper — see §0.4.)
 
+A few naming notes about the tidied form:
+- `nin` tidies to a negated `:in` (it has no separate tidied operator).
+- the date-math caller key `unit` becomes `interval` in the tidied keyword list
+  (`%{count: 1, unit: "day"}` → `[count: 1, interval: "day"]`).
+- the arithmetic words map to symbols: `add`→`:+`, `subtract`→`:-`,
+  `multiply`→`:*`, `divide`→`:/`.
+
 ### 2.3 The translator (the "resolver") — one place, no SQL, no database brand
-A new piece — working name `EctoShorts.QueryBuilder.TermResolver` (final name
-decided in the plan) — does all the tidying. It contains no SQL and knows nothing
-about any specific database. It only knows how to convert values and read the
-schema.
+A new piece — `EctoShorts.QueryBuilder.TermResolver` — does all the tidying. It
+contains no SQL and knows nothing about any specific database. It only knows how to
+convert values and read the schema.
 
 ```elixir
 # The one entry point the main loop calls for each filter:
@@ -651,6 +685,28 @@ time.
 > values, resolved column, "not" pulled out). Turning either input form into the
 > tidied form is the translator's whole job.
 
+> **On case transforms:** in the tidied `{:==, {:lower, "AL"}}`, the `:lower` marks
+> a *column-side* operation — it reads "lowercase the column, then compare to
+> `"AL"`" (SQL `lower(title) = 'AL'`). The transform always applies to the column,
+> regardless of where it sits in the tuple.
+
+### 2.6 Common "how do I …?" patterns
+Concrete answers to everyday questions, to anchor the language:
+
+| Goal | Filter |
+|---|---|
+| age over 21 and name contains "smith" | `%{age: %{gt: 21}, name: %{ilike: "smith"}}` |
+| posts whose author is verified | `%{author: %{verified: true}}` *(association name → join + nested filter, §1.4)* |
+| tags overlapping ["a","b"] | `%{tags: %{overlaps: ["a", "b"]}}` |
+| created in the last 7 days | `%{inserted_at: %{gt: %{ago: %{count: 7, unit: "day"}}}}` |
+| editor level above author level (both joined) | `%{editor_level: %{gt: %{field: :level, as: :author}}}` |
+| trim whitespace before matching a name | `%{name: %{eq: %{trim: "smith"}}}` *(→ `trim(name) = "smith"`)* |
+| select the author's name alongside posts | `%{select: %{author_name: %{field: :name, as: :author}}}` |
+| order by the author's last name | `%{order_by: %{field: :last_name, as: :author}}` |
+
+(For the sibling-binding cases, the `author`/`editor` bindings come from joining
+those associations — an association name in the params, or an explicit `:join`.)
+
 ---
 
 ## 3. HOW THE PIECES FIT TOGETHER
@@ -663,7 +719,7 @@ convert_params_to_filter
   ▼
 one loop over the filters                          ── EctoShorts.CommonFilters
   ├─ :as / :at      → pick which table the next filters point at, then continue
-  ├─ structural words (§1.4) → hand to the matching builder module   (UNCHANGED)
+  ├─ structural words (§1.4) → hand to the matching builder module   (mostly unchanged)
   ├─ an association name      → add a join and continue with the linked table
   ├─ :and / :or               → continue with the grouped filters
   └─ a column condition (:where, :or_where, a column key, :having, :or_having)
@@ -722,14 +778,16 @@ predictable.
 
 **Sibling-binding references (D-SIBLING).** When a query has more than one joined
 binding, a column can be qualified with `as:` to point at a *peer* binding in the
-same query (§1.5a). The translator supports this `as:` qualifier in four places,
-validated against the query's bindings:
+same query (§1.5a). The translator supports this `as:` qualifier in three places,
+validated against the query's bindings (see §3.11 for when):
 - the **right-hand side** of a comparison — `%{a: %{gt: %{field: :level, as: :author}}}`
-- the **left-hand side** of a filter — filter directly on `%{field: :name, as: :author}`
 - **selecting** — `%{select: %{author_name: %{field: :name, as: :author}}}`
-- **ordering** — order by a sibling binding's column.
-This is distinct from `parent` (which reaches outward to an enclosing query); `as:`
-reaches sideways to a peer binding in the current query.
+- **ordering** — `%{order_by: %{field: :last_name, as: :author}}`
+To *filter* directly on a sibling binding's column (left-hand side), use the
+`:as`/`:at` selector, which re-points a whole filter group at that binding —
+there is no left-side operand form. This `as:` is distinct from `parent` (which
+reaches outward to an enclosing query); it reaches sideways to a peer binding in
+the current query.
 
 ### 3.5 Converting values, kept separate from renaming operators (cleanup item D5)
 Today one function both converts values **and** renames operators, which mixes two
@@ -760,7 +818,7 @@ shapes in §2.2. Then collapse the dozens of tiny near-identical builder clauses
 one small table that, given an operator and whether it is negated, produces the
 condition. The conditions produced stay exactly the same.
 
-### 3.8 The structural filters (UNCHANGED)
+### 3.8 The structural filters (behavior preserved, except the two D-RAISE cases)
 All the non-column filter words (`:join`, `:order_by`, `:select`, `:with_cte`, the
 set operations, the pagination words, and so on) keep their current modules and
 behavior exactly, including when they warn-and-skip. The loop in §3.1 hands work to
@@ -814,6 +872,66 @@ mistakes turn into vague warnings. We give them a clear, checked contract:
 - the function's arity is checked;
 - a return that does not fit the contract **raises** with a precise message
   (per §3.9), instead of a vague warning.
+
+### 3.11 Detailed edge-case semantics (resolved from the spec review)
+These rules close gaps a coherence review found. They are part of the contract.
+
+**Aggregate placement.** An aggregate value-test (`%{views: %{avg: %{gt: 5}}}`)
+always emits into **HAVING**, regardless of whether it was written under `:where`,
+a bare column key, or `:having`. If the params contain no `:group_by`, the library
+**adds a default GROUP BY** (the source's primary key) so the SQL is valid. (An
+explicit `:group_by` is respected as-is.)
+
+**Null semantics, per operator (D-NULL).** Only `eq nil` / `ne nil` consider null
+rows (the "has a value" / "has no value" checks). **Every other operator emits
+plain SQL**, so null rows are simply excluded by SQL's three-valued logic — this
+covers `in`, `nin`, `overlaps`, ordering operators, and aggregate comparisons
+alike. A `nil` *inside* an `in`/`nin` list (`%{id: %{in: [1, nil, 2]}}`) is a
+malformed value and **raises** (§3.9) — write `%{or: [%{id: %{in: [1,2]}}, %{id: %{eq: nil}}]}`.
+
+**Negation (toggle and compose).** The `negated` slot flips a condition.
+Negation composes: nested `not` toggles (two cancel out), `%{not: %{in: […]}}` is
+exactly the same as `nin`, and `not` around an `exists` becomes `NOT EXISTS`. No
+expression is rejected for "too much not."
+
+**Operand limits.**
+- **Arithmetic is binary** — `add`/`subtract`/`multiply`/`divide` take **exactly
+  two** operands; more raises. Nest for deeper math:
+  `%{add: [%{mul: [a, b]}, c]}`.
+- The validate step enforces a **max operand-tree depth** (configurable; see
+  limits below) so a hostile JSON body cannot nest without bound.
+- `in` / `nin` / `overlaps` take a **literal list** or a **subquery** operand
+  only — not a `field`/`parent`/arithmetic operand.
+- A `value` operand is **always a single literal** (never re-read as membership):
+  `%{tags: %{eq: %{value: ["a","b"]}}}` is exact array equality, while
+  `%{tags: ["a","b"]}` is membership.
+
+**Sibling `as:` validation (D-SIBLING).** A sibling-binding reference is validated
+in a **post-build pass**, after all joins exist (so order within the filter loop
+doesn't cause false failures). An unknown or ambiguous binding name **raises**. A
+sibling `as:` is **local to its operand** — it does not move the loop's current
+binding. It is allowed on a comparison's right-hand side, in `:select`, and in
+`:order_by` (left-hand filtering on a sibling uses the `:as`/`:at` selector
+instead — §3.4).
+
+**Correlated `parent`.** `parent` **requires** `as:` (no implicit nearest query).
+The name resolves against the nearest enclosing block that declares it; on a name
+collision across nesting levels, the innermost wins.
+
+**Schemaless sources without `:field_types`.** With no known column type, a bare
+list is treated as membership (§3.4). An **explicit list/JSON operator**
+(`overlaps`, `contains`, `has_key`, `has_any_key`, `has_all_keys`, list `count`) on
+a column of unknown type **warns and skips**, with a message naming `:field_types`
+as the fix. (Schema-backed columns are unaffected — their type is known.)
+
+**Date-math units.** `ago`, `from_now`, and `shift` all take `%{count: integer,
+unit: u}`. `unit` is a **closed set** — `:second :minute :hour :day :week :month
+:year` — decoded through the safe list (never `String.to_atom` on caller input).
+
+**Validate-step limits.** The validate step enforces, with configurable defaults:
+max filter nesting depth, max `or`/`and` branches, max list length, and max
+operand-tree depth. These exist to bound the cost of an untrusted request; the
+exact default values are settled when the validate step is built (§8).
 
 ---
 
