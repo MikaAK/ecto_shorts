@@ -1,4 +1,4 @@
-defmodule EctoShorts.DynamicBuilders.Postgres.Scalar.Membership do
+defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Membership do
   @moduledoc false
   @moduledoc since: "3.0.0"
 

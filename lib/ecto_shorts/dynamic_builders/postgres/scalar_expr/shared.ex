@@ -1,4 +1,4 @@
-defmodule EctoShorts.DynamicBuilders.Postgres.Scalar.Shared do
+defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Shared do
   # Helpers used by more than one scalar operator-family sub-module.
   # nil_field_dyn?/2 and not_nil_dyn/2 are called by both Comparison (scalar nil
   # checks) and Aggregate (aggregate nil checks), so they live here rather than

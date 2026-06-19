@@ -1,4 +1,4 @@
-defmodule EctoShorts.DynamicBuilders.Postgres.Scalar.Comparison do
+defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Comparison do
   @moduledoc false
   @moduledoc since: "3.0.0"
 
@@ -313,7 +313,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.Scalar.Comparison do
 
   # Aggregate comparisons — delegated to Scalar.Aggregate
   defp aggregate_comparison(binding, key, term) do
-    EctoShorts.DynamicBuilders.Postgres.Scalar.Aggregate.build(binding, key, term)
+    EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Aggregate.build(binding, key, term)
   end
 
   # Datetime comparisons - interval is already a ^-pinned runtime var after Phase 1

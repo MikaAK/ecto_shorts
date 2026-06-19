@@ -3,7 +3,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @moduledoc false
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
-  alias EctoShorts.DynamicBuilders.Postgres.Scalar
+  alias EctoShorts.DynamicBuilders.Postgres.ScalarExpr.{Comparison, Membership, String, StringTransform}
 
   @operators [:membership, :comparison, :string_transform, :string]
   @comparison_operators [:>, :>=, :<, :<=, :==, :!=]
@@ -25,10 +25,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
 
   defp dispatch_expr(binding, key, negated, {op, value}) do
     case family_for(op, value) do
-      :membership -> Scalar.Membership.build(binding, key, negated, {op, value})
-      :string_transform -> Scalar.StringTransform.build(binding, key, negated, {op, value})
-      :string -> Scalar.String.build(binding, key, negated, {op, value})
-      :comparison -> Scalar.Comparison.build(binding, key, negated, {op, value})
+      :membership -> Membership.build(binding, key, negated, {op, value})
+      :string_transform -> StringTransform.build(binding, key, negated, {op, value})
+      :string -> String.build(binding, key, negated, {op, value})
+      :comparison -> Comparison.build(binding, key, negated, {op, value})
     end
   end
 
