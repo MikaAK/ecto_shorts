@@ -80,7 +80,7 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 | Wrapper | Example | Effect |
 |---|---|---|
 | `:arithmetic` | `%{score: %{arithmetic: %{compare: :>, add: %{field: :base, value: 5}}}}` | Computed field comparison using `+`, `-`, `*`, `/` or datetime ops |
-| `:elements` | `%{tags: %{elements: %{in: ["a", "b"]}}}` | Forces `ArrayExpr` routing regardless of schema |
+| `:array` | `%{tags: %{array: %{in: ["a", "b"]}}}` | Forces `ArrayExpr` routing regardless of schema |
 
 `:downcase` and `:upcase` are aliases for `:lower` and `:upper`.
 
@@ -144,9 +144,9 @@ The `:hints` config key (index hint strings passed to joins) is read with `Appli
 
 Every filter sub-module calls `EctoShorts.QueryBinding.query_binding_contracts/1` at the top of its body to generate one function clause per binding shape (root, named, and up to `max_positional_bindings` positional bindings). Increasing `max_positional_bindings` increases compile time proportionally. New filter modules must call `query_binding_contracts` before defining their `build_query` clauses.
 
-### `:elements` required for schemaless array operations
+### `:array` required for schemaless array operations
 
-Without schema type information, `%{tags: %{in: ["a", "b"]}}` on a schemaless source routes to `ScalarExpr` (scalar `IN`), not array overlap (`&&`). Use the `:elements` wrapper to force `ArrayExpr` routing: `%{tags: %{elements: %{in: ["a", "b"]}}}`. Schema-backed sources are unaffected — field type inference routes automatically.
+Without schema type information, `%{tags: %{in: ["a", "b"]}}` on a schemaless source routes to `ScalarExpr` (scalar `IN`), not array overlap (`&&`). Use the `:array` wrapper to force `ArrayExpr` routing: `%{tags: %{array: %{in: ["a", "b"]}}}`. Schema-backed sources are unaffected — field type inference routes automatically.
 
 ## Adding a new filter
 
