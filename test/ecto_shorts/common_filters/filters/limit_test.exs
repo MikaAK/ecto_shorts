@@ -9,6 +9,7 @@ defmodule EctoShorts.CommonFilters.LimitTest do
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
+  import ExUnit.CaptureLog
 
   describe "fallthrough binding" do
     test "applies limit with no binding when selector is unrecognized" do
@@ -21,21 +22,8 @@ defmodule EctoShorts.CommonFilters.LimitTest do
     end
   end
 
-  describe "first, limit, offset shapes (schemaless)" do
+  describe "limit shapes (schemaless)" do
     @describetag schema_mode: :schemaless
-    test "matches Ecto.Query for a root integer first" do
-      expected = limit("posts", ^10)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          "posts",
-          %{first: 10},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
     test "matches Ecto.Query for a root integer limit" do
       expected = limit("posts", ^10)
 
@@ -50,21 +38,41 @@ defmodule EctoShorts.CommonFilters.LimitTest do
     end
   end
 
-  describe "first shapes" do
-    test "matches Ecto.Query for a root integer first" do
+  describe ":first is no longer a limit alias" do
+    test "treats :first as an unknown filter key (emits warning, does not apply limit)" do
+      q = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          result =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{first: 10},
+              []
+            )
+
+          assert_query(q, result)
+        end)
+
+      assert log =~ "first" or log =~ "does not exist" or log =~ "unknown"
+    end
+  end
+
+  describe "limit shapes" do
+    test "matches Ecto.Query for a root integer limit" do
       expected = limit(Post, ^10)
 
       actual =
         CommonFilters.convert_params_to_filter(
           Post,
-          %{first: 10},
+          %{limit: 10},
           []
         )
 
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for a named binding first payload" do
+    test "matches Ecto.Query for a named binding limit payload" do
       source =
         from(p in Post,
           join: u in assoc(p, :author),
@@ -79,7 +87,7 @@ defmodule EctoShorts.CommonFilters.LimitTest do
           %{
             as: %{
               author: %{
-                first: 5
+                limit: 5
               }
             }
           },
@@ -89,7 +97,7 @@ defmodule EctoShorts.CommonFilters.LimitTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for a positional binding first payload" do
+    test "matches Ecto.Query for a positional binding limit payload" do
       source =
         from(p in Post,
           join: u in assoc(p, :author)
@@ -103,7 +111,7 @@ defmodule EctoShorts.CommonFilters.LimitTest do
           %{
             at: %{
               2 => %{
-                first: 5
+                limit: 5
               }
             }
           },
@@ -113,13 +121,13 @@ defmodule EctoShorts.CommonFilters.LimitTest do
       assert_query(expected, actual)
     end
 
-    test "casts a string integer first payload" do
+    test "casts a string integer limit payload" do
       expected = limit(Post, ^10)
 
       actual =
         CommonFilters.convert_params_to_filter(
           Post,
-          %{first: "10"},
+          %{limit: "10"},
           []
         )
 

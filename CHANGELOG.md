@@ -4,6 +4,8 @@
 
 ##### Breaking changes
 
+- **`:first` filter alias removed** — the `:first` key was an undocumented alias for `:limit`; use `:limit` directly
+
 - **`:elements` array-routing wrapper renamed to `:array`** — the wrapper that forces `ArrayExpr` routing on schemaless sources (e.g. `%{tags: %{elements: %{in: [...]}}}`) must now be written as `%{tags: %{array: %{in: [...]}}}` ; `:elements` is no longer recognised
 
 - **`:start_date` and `:end_date` filter keys removed** — use `:since_date` (`inserted_at >= value`) and `:until_date` (`inserted_at <= value`) respectively; the removed keys were identical aliases with no behavioural difference
