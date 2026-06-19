@@ -53,6 +53,23 @@ defmodule EctoShorts.Config do
 
   @doc since: "3.0.0"
   @doc """
+  Returns the configured `:error_module` value, or the default
+  `EctoShorts.Actions.Error` when not set.
+
+  Because `error_module/0` always has a default, this function never raises.
+
+  ## Examples
+
+      iex> EctoShorts.Config.error_module!()
+      EctoShorts.Actions.Error
+  """
+  @spec error_module! :: module()
+  def error_module! do
+    error_module()
+  end
+
+  @doc since: "3.0.0"
+  @doc """
   Returns the configured `:repo` value from the `:ecto_shorts` application environment.
 
   Defaults to `nil` if not set.
@@ -204,6 +221,22 @@ defmodule EctoShorts.Config do
 
   @doc since: "3.0.0"
   @doc """
+  Returns the configured `:dynamic_builder_module`, or raises when not set.
+
+  ## Examples
+
+      # When configured:
+      # EctoShorts.Config.dynamic_builder_module!()
+      # => EctoShorts.DynamicBuilders.Postgres
+  """
+  @spec dynamic_builder_module! :: module()
+  def dynamic_builder_module! do
+    dynamic_builder_module() ||
+      raise "EctoShorts: :dynamic_builder_module is not configured"
+  end
+
+  @doc since: "3.0.0"
+  @doc """
   Returns the configured `:query_builder_module` value from the
   application environment. Defaults to `nil`.
 
@@ -219,6 +252,22 @@ defmodule EctoShorts.Config do
 
   @doc since: "3.0.0"
   @doc """
+  Returns the configured `:query_builder_module`, or raises when not set.
+
+  ## Examples
+
+      # When configured:
+      # EctoShorts.Config.query_builder_module!()
+      # => MyApp.CustomQueryBuilder
+  """
+  @spec query_builder_module! :: module()
+  def query_builder_module! do
+    query_builder_module() ||
+      raise "EctoShorts: :query_builder_module is not configured"
+  end
+
+  @doc since: "3.0.0"
+  @doc """
   Returns the configured `:query_provider_module` value from the
   application environment. Defaults to `nil`.
 
@@ -230,6 +279,22 @@ defmodule EctoShorts.Config do
   @spec query_provider_module :: module() | nil
   def query_provider_module do
     Application.get_env(@app, :query_provider_module)
+  end
+
+  @doc since: "3.0.0"
+  @doc """
+  Returns the configured `:query_provider_module`, or raises when not set.
+
+  ## Examples
+
+      # When configured:
+      # EctoShorts.Config.query_provider_module!()
+      # => MyApp.QueryProvider
+  """
+  @spec query_provider_module! :: module()
+  def query_provider_module! do
+    query_provider_module() ||
+      raise "EctoShorts: :query_provider_module is not configured"
   end
 
   @doc since: "3.0.0"
