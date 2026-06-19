@@ -172,7 +172,7 @@ defmodule EctoShorts.Actions do
   See also `all/1`, `all/3`, and `find/3`.
   """
   @spec all(queryable, params) :: list(term())
-  def all(queryable, params_or_opts), do: CRUD.all(queryable, params_or_opts)
+  def all(queryable, params), do: CRUD.all(queryable, params)
 
   @doc group: "CRUD"
   @doc """
