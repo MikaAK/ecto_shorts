@@ -211,7 +211,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
 
   describe "negated aggregate nil checks" do
     test "excludes nil aggregate using not ==" do
-      expected = from(p in Post, where: not is_nil(avg(p.views)))
+      expected = from(p in Post, group_by: p.id, having: not is_nil(avg(p.views)))
 
       actual =
         CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{==: nil}}}}, [])
@@ -220,7 +220,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
 
     test "includes nil aggregate using not !=" do
-      expected = from(p in Post, where: is_nil(avg(p.views)))
+      expected = from(p in Post, group_by: p.id, having: is_nil(avg(p.views)))
 
       actual =
         CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{!=: nil}}}}, [])
@@ -229,21 +229,21 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
 
     test "aggregate == nil produces is_nil check" do
-      expected = from(p in Post, where: is_nil(sum(p.views)))
+      expected = from(p in Post, group_by: p.id, having: is_nil(sum(p.views)))
       actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{==: nil}}}, [])
 
       assert_sql(expected, actual)
     end
 
     test "aggregate != nil produces not is_nil check" do
-      expected = from(p in Post, where: not is_nil(sum(p.views)))
+      expected = from(p in Post, group_by: p.id, having: not is_nil(sum(p.views)))
       actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{!=: nil}}}, [])
 
       assert_sql(expected, actual)
     end
 
     test "negated aggregate <= produces not <= check" do
-      expected = from(p in Post, where: not (avg(p.views) <= ^10))
+      expected = from(p in Post, group_by: p.id, having: not (avg(p.views) <= ^10))
 
       actual =
         CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{<=: 10}}}}, [])
@@ -252,7 +252,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
 
     test "negated aggregate != produces == check" do
-      expected = from(p in Post, where: avg(p.views) == ^50)
+      expected = from(p in Post, group_by: p.id, having: avg(p.views) == ^50)
 
       actual =
         CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{!=: 50}}}}, [])

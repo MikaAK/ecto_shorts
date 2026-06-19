@@ -267,7 +267,9 @@ defmodule EctoShorts.CommonFilters.SchemalessTest do
 
   describe "aggregate operators (schemaless)" do
     test "avg views greater than" do
-      expected = from(p in "posts", where: avg(p.views) > ^10)
+      # A schemaless source has no primary key to group by, so the aggregate
+      # lands in HAVING without an auto GROUP BY.
+      expected = from(p in "posts", having: avg(p.views) > ^10)
       actual = CommonFilters.convert_params_to_filter("posts", %{views: %{avg: %{>: 10}}}, [])
 
       assert_query(expected, actual)

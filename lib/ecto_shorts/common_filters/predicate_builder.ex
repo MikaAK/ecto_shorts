@@ -17,7 +17,6 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   @date_math_ops [:ago, :from_now, :shift, :add]
   @map_ops [:contains, :contained_by, :has_key, :has_any_key, :has_all_keys]
   @quantifier_ops [:all, :any]
-  @arith %{add: :+, subtract: :-, multiply: :*, divide: :/}
   # Both word forms (:add) and symbol forms (:+) name an arithmetic operand.
   @arith_keys %{
     add: :+,

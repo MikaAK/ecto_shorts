@@ -4,6 +4,7 @@ defmodule EctoShorts.CommonFilters.Builder do
 
   alias Ecto.Query
   alias EctoShorts.CommonQuery
+  alias EctoShorts.CommonSchema
   alias EctoShorts.DynamicBuilders
   alias EctoShorts.CommonFilters.PredicateBuilder
 
@@ -218,13 +219,50 @@ defmodule EctoShorts.CommonFilters.Builder do
   end
 
   # Place predicates produced for a :where. Aggregate predicates always land in
-  # HAVING (Task 4); plain predicates go to WHERE.
+  # HAVING (with an auto GROUP BY on the primary key when none is present);
+  # plain predicates go to WHERE.
   defp place_predicates(query, predicates, :where, selected_binding, opts) do
-    case merge_predicates(predicates, selected_binding, opts) do
+    {aggs, plain} = Enum.split_with(predicates, &aggregate_predicate?/1)
+
+    query =
+      case merge_predicates(plain, selected_binding, opts) do
+        nil -> query
+        dyn -> Query.where(query, ^dyn)
+      end
+
+    apply_having(query, aggs, selected_binding, opts)
+  end
+
+  defp aggregate_predicate?(%EctoShorts.CommonFilters.Predicate{expr: {agg, _}})
+       when agg in [:avg, :count, :max, :min, :sum],
+       do: true
+
+  defp aggregate_predicate?(_), do: false
+
+  defp apply_having(query, [], _binding, _opts), do: query
+
+  defp apply_having(query, aggs, binding, opts) do
+    query = ensure_group_by(query)
+
+    case merge_predicates(aggs, binding, opts) do
       nil -> query
-      dyn -> Query.where(query, ^dyn)
+      dyn -> Query.having(query, ^dyn)
     end
   end
+
+  # Add a GROUP BY on the source's primary key when the query has none, so an
+  # aggregate HAVING clause produces valid SQL.
+  defp ensure_group_by(%Ecto.Query{group_bys: [_ | _]} = query), do: query
+
+  defp ensure_group_by(%Ecto.Query{} = query) do
+    case CommonSchema.get_schema_reflection(query, :primary_key) do
+      [pk | _] -> Ecto.Query.group_by(query, [q], field(q, ^pk))
+      pk when is_atom(pk) and not is_nil(pk) -> Ecto.Query.group_by(query, [q], field(q, ^pk))
+      _ -> query
+    end
+  end
+
+  defp ensure_group_by(query), do: query
 
   # AND-merge the per-operator predicates for one field into one dynamic. A field
   # value map may carry several operators (`%{gt: 21, lte: 65}`), so reduce over
@@ -237,6 +275,50 @@ defmodule EctoShorts.CommonFilters.Builder do
       [] -> nil
       dyns -> Enum.reduce(dyns, fn dyn, acc -> Query.dynamic(^acc and ^dyn) end)
     end
+  end
+
+  @doc false
+  def having_from_params(query, source, key, value, selected_binding, opts) do
+    case PredicateBuilder.build(source, key, value, opts) do
+      :skip ->
+        query
+
+      {:ok, predicates} ->
+        query = ensure_group_by(query)
+
+        case merge_predicates(predicates, selected_binding, opts) do
+          nil -> query
+          dyn -> Query.having(query, ^dyn)
+        end
+    end
+  end
+
+  @doc false
+  def or_having_from_params(query, source, key, value, selected_binding, opts) do
+    case PredicateBuilder.build(source, key, value, opts) do
+      :skip ->
+        query
+
+      {:ok, predicates} ->
+        query = ensure_group_by(query)
+
+        case merge_predicates(predicates, selected_binding, opts) do
+          nil -> query
+          dyn -> Query.or_having(query, ^dyn)
+        end
+    end
+  end
+
+  @doc false
+  def place_having(query, dyns, _selected_binding, _opts) do
+    query = ensure_group_by(query)
+    Enum.reduce(dyns, query, fn dyn, acc -> Query.having(acc, ^dyn) end)
+  end
+
+  @doc false
+  def place_or_having(query, dyns, _selected_binding, _opts) do
+    query = ensure_group_by(query)
+    Enum.reduce(dyns, query, fn dyn, acc -> Query.or_having(acc, ^dyn) end)
   end
 
   defp resolve_source(source, _query, {:as, nil}), do: source
