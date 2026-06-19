@@ -54,7 +54,8 @@ defmodule EctoShorts.CommonFilters.LimitTest do
           assert_query(q, result)
         end)
 
-      assert log =~ "first" or log =~ "does not exist" or log =~ "unknown"
+      assert log =~ "first"
+      assert log =~ "does not exist on schema"
     end
   end
 

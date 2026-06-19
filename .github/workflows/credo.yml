@@ -18,6 +18,6 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: 25.1.2
-          elixir-version: 1.14.2
+          elixir-version: 1.15
       - run: mix deps.get
       - run: CI=true MIX_ENV=test mix credo
