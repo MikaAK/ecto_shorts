@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - Builds on Plans 01–03 (merged first).
+- **Wiring note (`PredicateBuilder` is not wired until Plan 05).** Unlike Plan 03's *new operators*, this plan's edits land in code that is **already live**: the shared Expr helpers (`scalar_expr.ex`'s `membership_*`, used by the still-live old path) and the live `CommonFilters`/filter modules (`reverse_order.ex`, `lock.ex`, `join.ex`, `common_filters.ex`). So **these changes ARE end-to-end-green in this plan** via `convert_params_to_filter`. The one exception: the `ScalarExpr` ordering-vs-`nil` raise (Task 4) — if the old tidier intercepts `nil` before `ScalarExpr`, test it at the **Expr-unit level** here and let Plan 05 re-verify it end-to-end after wiring.
 - **Subquery operands (`from`/`all`/`any`/`exists`/`parent`) and aggregate→HAVING placement are NOT here** — they need the resolver wiring and move to Plan 05.
 - **Never use `alias Module, as: X`** (project convention).
 - The decisions and their exact rules are in spec §3.9 (D-RAISE), §3.10 (D-PROVIDER), §3.5/§3.11 (D-NULL), §3.2 (D2 sort), §0.4 (D-ONE-WAY). The per-test verdicts are in `docs/superpowers/specs/test-audit.md`.

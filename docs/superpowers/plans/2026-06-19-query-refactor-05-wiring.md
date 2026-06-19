@@ -78,7 +78,7 @@ end
 In `dynamic_builder.ex`, change the `@callback` to the predicate shape. In
 `DynamicBuilders.Resolver`, change `build_dynamic/3` to forward `(predicate, binding, opts)` to the resolved adapter (the adapter-selection logic is unchanged).
 
-> `ShorthandExpr.dynamic_expr/6` from Plan 02 takes the field explicitly; here `field` already carries the shorthand's column (Task 3 ensures `PredicateBuilder` filled it in), so the call is uniform with the other helpers. (Adjust ShorthandExpr to the 5-arg `(binding, field, negated, expr, opts)` shape used by the others, since the operator is now in `expr`.)
+> All four Expr modules share the uniform `dynamic_expr(binding, field, negated, expr, opts)` shape (Plan 02 built `ShorthandExpr` that way; the shorthand operator rides inside `expr`). `field` already carries the shorthand.s column (Plan 05 Task 3 fills it in via `PredicateBuilder`).
 
 - [ ] **Step 4: Run + commit**
 
@@ -346,7 +346,8 @@ git commit -m "feat: subquery operands (all/any/exists/parent) via registered-al
 - Test: the full suite
 
 **Interfaces:**
-- After Tasks 1–5, nothing calls the old `Postgres.build_dynamic(source, binding, {key, params}, opts)` tidying chain. Remove `build_dynamic/4` (the old arity), `apply_expr/4`, `dispatch_expr/6`, `dispatch_field_expr/*`, `cast_value/2`, `build_rhs_entry/4`, `field_name_to_atom/3`, `resolve_datetime_*`, `op_alias/1`, `merge_dynamic/3` — all the tidying that `PredicateBuilder` now owns. Keep only the thin `build_dynamic(%Predicate{}, binding, opts)` adapter and the subquery builder.
+- After Tasks 1–5, nothing calls the old `Postgres.build_dynamic(source, binding, {key, params}, opts)` tidying chain. Remove `build_dynamic/4` (the old arity), `apply_expr/4`, `dispatch_expr/6`, `dispatch_field_expr/*`, `cast_value/2`, `build_rhs_entry/4`, `field_name_to_atom/3`, `resolve_datetime_*`, `op_alias/1`, `merge_dynamic/3`, **and the `:elements`/`:aggregate`-wrapper handling** — all the tidying that `PredicateBuilder` now owns. Keep only the thin `build_dynamic(%Predicate{}, binding, opts)` adapter and the subquery builder.
+- **Deferred from Plan 03 (now safe, the old producer is gone):** repurpose the `ArrayExpr` `:in` clause to **warn-and-skip** on a list column (D-LIST), and reconcile the schemaless tests that used `%{tags: %{elements: %{in: […]}}}` overlap / `:elements` to the `overlaps` spelling. These removals were intentionally NOT done in Plan 03 (the old path still fed `:in`/`:elements` then).
 
 - [ ] **Step 1: Confirm nothing references the old path**
 
@@ -369,6 +370,35 @@ Run the §5 verification greps:
 ```bash
 git add lib/ecto_shorts/dynamic_builders/postgres.ex
 git commit -m "refactor(postgres): delete the old tidying path; adapter is now thin"
+```
+
+---
+
+### Task 7: Post-wiring end-to-end verification of Plans 03–04
+
+**Files:** Test only — the operators/behaviors built in Plans 03–04.
+
+**Interfaces:** Now that `PredicateBuilder` is the live path (Tasks 1–2) and the old tidier is gone (Task 6), the new operators (Plan 03: `overlaps`, `trim`/`ltrim`/`rtrim`, `shift`, `value`/`field`/sibling operands, binary arithmetic) and behavior changes (Plan 04: D-NULL, the `gt nil` raise) can finally be asserted **end-to-end** through `convert_params_to_filter`. Plans 03–04 proved these at the unit level; this task adds the end-to-end coverage that wasn't possible before wiring.
+
+- [ ] **Step 1: Add the end-to-end assertions deferred from Plans 03–04**
+
+For each operator/behavior, add a `convert_params_to_filter` + `assert_query` test (the "illustrative" snippets from Plans 03–04 become real tests here). E.g.:
+```elixir
+test "overlaps end-to-end" do
+  import Ecto.Query
+  actual = EctoShorts.CommonFilters.convert_params_to_filter("posts", %{tags: %{overlaps: ["a","b"]}}, field_types: [tags: {:array, :string}])
+  assert_query(from(p in "posts", where: fragment("? && ?", p.tags, ^["a","b"])), actual)
+end
+# …and: trim, shift, column/sibling compare, arithmetic, not-in (D-NULL), gt-nil raise.
+```
+
+- [ ] **Step 2: Run + commit**
+
+Run: `mix test`
+Expected: PASS — the full language is now verified end-to-end through the new path.
+```bash
+git add test/
+git commit -m "test: end-to-end coverage for Plan 03/04 operators after wiring"
 ```
 
 ---

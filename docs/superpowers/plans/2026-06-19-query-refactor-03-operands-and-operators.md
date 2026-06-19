@@ -4,14 +4,17 @@
 
 **Goal:** Add the new caller-facing capabilities that don't involve subqueries: the `overlaps` operator, `trim`/`ltrim`/`rtrim` transforms, the `shift` date-math word, binary arithmetic as ordered-array operands, and the `value`/`field`/sibling-`as:` operand forms — extending `PredicateBuilder` (canonical output) and the Expr modules (SQL emission) together.
 
-**Architecture:** Each capability is built end-to-end in one task: extend `PredicateBuilder.build/4` to produce the new canonical shape, and extend the matching Expr module to emit SQL for it. `PredicateBuilder` parts are pure unit tests; Expr parts assert generated SQL through the existing pipeline.
+**Architecture:** Each capability is built in two halves, **both tested at the unit level** (because `PredicateBuilder` isn't wired until Plan 05): extend `PredicateBuilder.build/4` to produce the new canonical shape (assert the `%Predicate{}` output), and extend the matching Expr module to emit SQL (assert by calling the Expr module's `dynamic_expr/5` *directly* with the canonical term). End-to-end `convert_params_to_filter` verification of these operators is owned by Plan 05, after wiring. Any task snippet below that shows `convert_params_to_filter` is illustrative of intent — the executable test here is the unit-level pair.
 
-**Tech Stack:** Elixir, Ecto. `PredicateBuilder` unit tests: `ExUnit`. SQL-emitting tests: the existing `assert_sql`/`assert_query` style via `CommonFilters` (or direct Expr calls).
+**Tech Stack:** Elixir, Ecto. Tests: `ExUnit` — `PredicateBuilder.build/4` output assertions and direct `dynamic_expr/5` `assert_sql` assertions. No end-to-end `CommonFilters` assertions for new operators in this plan.
 
 ## Global Constraints
 
 - Builds on Plan 01 (`PredicateBuilder` comparison family) and Plan 02 (pure Expr, `comparison_impl` family router). Those are merged before this plan starts.
-- **Subquery operands are out of scope** — `from`/`all`/`any`/`exists`/`parent` move to Plan 04. This plan covers `value`, `field` (incl. sibling `as:`), and arithmetic operands only.
+- **`PredicateBuilder` is NOT wired into the live query path until Plan 05.** So this plan **must not** rely on `convert_params_to_filter` end-to-end for the new operators (the path that produces the new canonical shapes isn't live yet), and **must not remove or repurpose** anything the still-live old `Postgres` tidier feeds. Concretely:
+  - **Test at the unit level:** assert `PredicateBuilder.build/4`'s `%Predicate{}` output (pure), **and** call the relevant Expr module's `dynamic_expr/5` *directly* with the canonical term to assert the emitted SQL. Both are green without wiring.
+  - **Add only, remove nothing:** add new clauses (e.g. `overlaps` in `ArrayExpr`). Do **not** delete/repurpose existing clauses the old path still produces (e.g. the `ArrayExpr` `:in` clause) — that, and the full end-to-end verification, are owned by **Plan 05** (after wiring).
+- **Subquery operands are out of scope** — `from`/`all`/`any`/`exists`/`parent` are owned by **Plan 05**. This plan covers `value`, `field` (incl. sibling `as:`), and arithmetic operands only.
 - **Never use `alias Module, as: X`** (project convention).
 - Canonical shapes follow spec §1.5a/§2.2: arithmetic is `{op, {arith_sym, [operand, operand]}}` (binary, ordered); `arith_sym` ∈ `:+ :- :* :/`; operands are `{:field, atom}` / `{:field, {binding, atom}}` / `{:value, cast}`.
 - D-LIST (per the latest spec): a bare list is `eq`; `overlaps` is the explicit array-overlap operator; `:in` on a list column warns-and-skips.
@@ -26,93 +29,60 @@
 - Test: `test/ecto_shorts/common_filters_schemaless_test.exs` (array section) and/or `test/ecto_shorts/common_filters/common_filters_field_types_opt_test.exs`
 
 **Interfaces:**
-- Produces: ArrayExpr handles `{:overlaps, [values]}` → `fragment("? && ?", field, ^values)`; `{:in, _}` on an array column → warn-and-skip (returns `nil`). `{:==, list}` keeps emitting array equality; `{:==, scalar}` keeps element membership.
-- **Operator-driven routing:** `overlaps` (and list `count`, the array quantifiers) force `PredicateBuilder` to route the predicate to `:array` **regardless of known type** — so `%{tags: %{overlaps: [..]}}` works on a schemaless source with no `:field_types` (§3.4). Implement as the operator-override in routing (Plan 01 note): an array operator in the tidied term sets `routing: :array`. (Add a schemaless test: `overlaps` with no `:field_types` still emits `&&`.)
+- Produces: ArrayExpr gains an `{:overlaps, [values]}` clause → `fragment("? && ?", field, ^values)`. `{:==, list}` (array equality) and `{:==, scalar}` (element membership) are unchanged. The existing `:in`-on-array clause is **left alone here** (the old path still feeds it); repurposing `:in` to warn-and-skip is done in **Plan 05** when the old path is removed.
+- **Operator-driven routing** (Plan 01 note): `overlaps`/list `count`/array quantifiers set `routing: :array` regardless of known type. (Becomes observable end-to-end once `PredicateBuilder` is wired — Plan 05.)
 
-- [ ] **Step 1: Write the failing test**
+> **Unit-level testing (PredicateBuilder is not wired until Plan 05).** Test `overlaps` by calling `ArrayExpr.dynamic_expr` directly with the canonical term, and by asserting `PredicateBuilder.build`'s output — both green now. The end-to-end `convert_params_to_filter(... overlaps ...)` assertion, the `:in`-on-array warn-and-skip behavior, and the `:elements`-test reconciliation are owned by **Plan 05** (after wiring).
+
+- [ ] **Step 1: Write the failing test (Expr-unit + resolver-unit)**
 
 ```elixir
-test "overlaps emits the && array-overlap fragment" do
-  expected = from(p in "posts", where: fragment("? && ?", p.tags, ^["a", "b"]))
+# Expr-unit: the array helper emits && for a canonical overlaps term
+test "ArrayExpr emits && for an overlaps term" do
+  import Ecto.Query
+  alias EctoShorts.DynamicBuilders.Postgres.ArrayExpr
 
-  actual =
-    EctoShorts.CommonFilters.convert_params_to_filter(
-      "posts",
-      %{tags: %{overlaps: ["a", "b"]}},
-      field_types: [tags: {:array, :string}]
-    )
-
-  assert_query(expected, actual)
+  dyn = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:overlaps, ["a", "b"]}, [])
+  q = from(p in "posts", where: ^dyn)
+  assert_sql(from(p in "posts", where: fragment("? && ?", p.tags, ^["a", "b"])), q)
 end
 
-test ":in on a list column warns and skips (no clause added)" do
-  log =
-    capture_log(fn ->
-      actual =
-        EctoShorts.CommonFilters.convert_params_to_filter(
-          "posts",
-          %{tags: %{in: ["a", "b"]}},
-          field_types: [tags: {:array, :string}]
-        )
-
-      assert_query(from(p in "posts"), actual)
-    end)
-
-  assert log =~ ":in"
+# Resolver-unit: overlaps forces :array routing even with no known type
+test "PredicateBuilder routes overlaps to :array (operator-driven) with no field_types" do
+  alias EctoShorts.CommonFilters.{Predicate, PredicateBuilder}
+  assert {:ok, [%Predicate{routing: :array, expr: {:overlaps, ["a", "b"]}}]} =
+           PredicateBuilder.build({"posts", nil}, :tags, %{overlaps: ["a", "b"]}, [])
 end
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `mix test test/ecto_shorts/common_filters_schemaless_test.exs -k overlaps`
-Expected: FAIL — no `:overlaps` clause; `:in` still emits `&&`.
+Run: `mix test test/ecto_shorts/dynamic_builders/postgres/array_expr_test.exs test/ecto_shorts/common_filters/predicate_builder_test.exs -k overlaps`
+Expected: FAIL — no `:overlaps` clause / routing.
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 3: Implement (add only)**
 
-In `array_expr.ex`, add the `overlaps` clause and change the `:in` clause to warn-and-skip:
+In `array_expr.ex`, **add** the `overlaps` clause (leave every existing clause, including `:in`, untouched):
 
 ```elixir
 defp dispatch_expr(binding, key, {:overlaps, values}) when is_list(values) do
   field = field_dyn(binding, key)
   Query.dynamic([], fragment("? && ?", ^field, ^values))
 end
-
-# :in is a scalar-membership operator; not valid on a list column (D-LIST)
-defp dispatch_expr(_binding, key, {:in, _values}) do
-  EctoShorts.LogUtils.warning(
-    @logger_prefix,
-    ":in is not supported on array field #{inspect(key)} (use overlaps or eq), skipping"
-  )
-
-  nil
-end
 ```
 
-> Remove the old `defp dispatch_expr(binding, key, {:in, values}) when is_list(values)` overlap clause — `overlaps` replaces it. Keep `{:==, list}` (equality) and `{:==, scalar}` (membership) clauses unchanged.
+In `PredicateBuilder`, add `overlaps` (and the operator-driven `:array` override) so `build` produces `{:overlaps, cast_values}` with `routing: :array`.
 
-- [ ] **Step 4: Run to verify it passes + full suite**
+- [ ] **Step 4: Run + full suite**
 
-Run: `mix test test/ecto_shorts/common_filters_schemaless_test.exs && mix test`
-Expected: the new tests PASS. Note: existing schemaless tests that used `%{tags: %{elements: %{in: [...]}}}` for overlap will now fail — those are reconciled in Task 1b below (they move to `overlaps`).
-
-- [ ] **Step 4b: Reconcile the existing overlap tests**
-
-The schemaless tests that asserted `&&` via `%{... elements: %{in: [...]}}` are superseded (the `:elements` wrapper and `:in`-as-overlap are both gone). Update each to the new spelling, e.g.:
-
-```elixir
-# before: %{tags: %{elements: %{in: ["elixir", "ecto"]}}}
-# after:
-actual = CommonFilters.convert_params_to_filter("posts", %{tags: %{overlaps: ["elixir", "ecto"]}}, field_types: [tags: {:array, :string}])
-expected = from(p in "posts", where: fragment("? && ?", p.tags, ^["elixir", "ecto"]))
-```
-
-(The `:elements` wrapper removal itself lands fully in Plan 04/05; here, only the overlap-spelling tests are touched so the suite is green.)
+Run: `mix test test/ecto_shorts/dynamic_builders/postgres/array_expr_test.exs test/ecto_shorts/common_filters/predicate_builder_test.exs && mix test`
+Expected: PASS — the new clause/routing are added and unit-tested; nothing the old path feeds is removed, so the existing suite stays green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/dynamic_builders/postgres/array_expr.ex test/ecto_shorts/common_filters_schemaless_test.exs
-git commit -m "feat(array): add overlaps operator; :in on a list column warns-and-skips"
+git add lib/ecto_shorts/dynamic_builders/postgres/array_expr.ex lib/ecto_shorts/common_filters/predicate_builder.ex test/
+git commit -m "feat(array): add overlaps clause + operator-driven :array routing (unit-tested)"
 ```
 
 ---

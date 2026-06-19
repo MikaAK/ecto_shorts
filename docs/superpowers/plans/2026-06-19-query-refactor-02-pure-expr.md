@@ -241,7 +241,7 @@ git commit -m "refactor(scalar_expr): comparison_impl is now a family router (no
 
 **Interfaces:**
 - Consumes: a `field` resolved by the caller.
-- Produces: `ShorthandExpr.dynamic_expr(selected_binding, operator, field, negated, term, opts)` — the operator's target column arrives as `field` (e.g. `:id` for `:ids`/`:before`/…, `:inserted_at` for `:start_date`/…); `ShorthandExpr` no longer contains any column literal. `:exists` ignores `field` (passes `nil`).
+- Produces: `ShorthandExpr.dynamic_expr(selected_binding, field, negated, expr, opts)` (expr carries the operator, e.g. `{:ids, vals}`) — the operator's target column arrives as `field` (e.g. `:id` for `:ids`/`:before`/…, `:inserted_at` for `:start_date`/…); `ShorthandExpr` no longer contains any column literal. `:exists` ignores `field` (passes `nil`).
 - New caller helper: `EctoShorts.DynamicBuilders.Postgres.common_field_for(operator) :: atom() | nil` — maps the operator to its column (`:id` / `:inserted_at` / `nil` for `:exists`). (In Plan 05 this mapping moves into `PredicateBuilder`; here it lives at the caller so the behavior is unchanged.)
 
 - [ ] **Step 1: Write the failing test (characterization, now isolatable because ShorthandExpr takes the field)**
@@ -253,12 +253,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ShorthandExprTest do
   alias EctoShorts.DynamicBuilders.Postgres.ShorthandExpr
 
   test "ids builds an `in` over the given column" do
-    dyn = ShorthandExpr.dynamic_expr({:as, nil}, :ids, :id, nil, [1, 2, 3], [])
+    dyn = ShorthandExpr.dynamic_expr({:as, nil}, :id, nil, {:ids, [1, 2, 3]}, [])
     assert %Ecto.Query.DynamicExpr{} = dyn
   end
 
   test "start_date builds `>=` over the given column (no hardcoded inserted_at)" do
-    dyn = ShorthandExpr.dynamic_expr({:as, nil}, :start_date, :published_at, nil, ~U[2026-01-01 00:00:00Z], [])
+    dyn = ShorthandExpr.dynamic_expr({:as, nil}, :published_at, nil, {:start_date, ~U[2026-01-01 00:00:00Z]}, [])
     assert %Ecto.Query.DynamicExpr{} = dyn
   end
 end
@@ -267,15 +267,17 @@ end
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `mix test test/ecto_shorts/dynamic_builders/postgres/shorthand_expr_test.exs`
-Expected: FAIL — `dynamic_expr/6` undefined (current arity is 5, and the column is hardcoded).
+Expected: FAIL — `dynamic_expr/5` with the new `(field, negated, expr)` shape undefined (current entry takes the operator as the key and hardcodes the column).
 
 - [ ] **Step 3: Make `ShorthandExpr` take the field**
 
-Rewrite `shorthand_expr.ex` so the generated entry is `dynamic_expr/6` and `dispatch_expr` uses the passed `field`:
+Rewrite `shorthand_expr.ex` to the **uniform 5-arg `dynamic_expr(binding, field, negated, expr, opts)`** shape used by the other Expr modules (so the Plan 05 adapter calls all four the same way). The shorthand operator rides inside `expr` (`{:ids, vals}` / `{:before, n}` / `{:exists, q}`); the entry unpacks it and uses the passed `field`:
 
 ```elixir
 for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
-  def dynamic_expr(unquote(quoted_binding_head) = selected_binding, operator, field, negated, term, _opts) do
+  def dynamic_expr(unquote(quoted_binding_head) = selected_binding, field, negated, expr, _opts) do
+    {operator, term} = expr
+
     selected_binding
     |> dispatch_expr(operator, field, term)
     |> maybe_negate(negated)
@@ -286,7 +288,7 @@ for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
   end
 end
 
-def dynamic_expr(_selected_binding, _operator, _field, _negated, _term, _opts), do: nil
+def dynamic_expr(_selected_binding, _field, _negated, _expr, _opts), do: nil
 
 defp dispatch_expr(binding, :ids, field, term) do
   dyn = field_dyn(binding, field)
@@ -340,7 +342,7 @@ defp common_field_for(op) when op in [:start_date, :end_date, :since_date, :unti
 defp common_field_for(:exists), do: nil
 
 # at the common-expr dispatch site:
-ShorthandExpr.dynamic_expr(selected_binding, key, common_field_for(key), negated, term, opts)
+ShorthandExpr.dynamic_expr(selected_binding, common_field_for(key), negated, {key, term}, opts)
 ```
 
 - [ ] **Step 5: Run the new test + the suite**
@@ -366,6 +368,6 @@ git commit -m "refactor(common_expr): pass the column in; remove hardcoded :id/:
 
 - **Spec coverage:** D1 (decompose `comparison_impl` + family functions) → Tasks 1–4; D-CommonExpr-FIELD / B1–B2 (pure `ShorthandExpr`) → Task 5. The scalar leaf-matrix stays as the existing `apply_scalar_comparison/4` (already a clean 12-clause matrix); the larger `apply_arith_comparison` (48) collapse rides with Plan 03, where arithmetic is reshaped to the operand convention — collapsing it here would risk an SQL change with no behavioral payoff.
 - **Placeholders:** none. Bulk verbatim clause relocations are given as exact line ranges + the destination function and the routing predicate, which is a precise mechanical instruction (not "similar to Task N").
-- **Type consistency:** `ShorthandExpr.dynamic_expr/6` (added `field` arg) is matched by the single caller change in `postgres.ex`; `common_field_for/1` returns the column the old hardcoded clauses used. The family-function names (`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`, `datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`, `scalar_value_fallback`) are introduced once and reused by the `comparison_impl` router.
+- **Type consistency:** `ShorthandExpr.dynamic_expr/5` (uniform `(binding, field, negated, expr, opts)`, operator inside `expr`) is matched by the single caller change in `postgres.ex`; `common_field_for/1` returns the column the old hardcoded clauses used. The family-function names (`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`, `datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`, `scalar_value_fallback`) are introduced once and reused by the `comparison_impl` router.
 - **Carried to Plan 03:** the datetime/arithmetic/parent_as families still hold the `Keyword.fetch!`/`Keyword.get(:field)` impurities; Plan 03 removes them when `PredicateBuilder` supplies pre-resolved operands (`shift`, sibling `as:`, ordered-array arithmetic).
 - **Carried to Plan 05:** `common_field_for/1` moves into `PredicateBuilder` (the field is filled in upstream per D-CommonExpr-FIELD); `ShorthandExpr` stays pure.
