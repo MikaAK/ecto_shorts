@@ -466,6 +466,6 @@ defmodule EctoShorts.CommonFilters.Join do
   end
 
   defp query_provider(opts) do
-    opts[:query_provider_module] || Config.query_provider_module()
+    opts[:query_provider] || Config.query_provider_module()
   end
 end

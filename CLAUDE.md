@@ -93,7 +93,7 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 | `EctoShorts.DynamicBuilder` | Override dynamic expression building for a different DB dialect. Implement `build_dynamic/4` and pass `:dynamic_builder` at call time or set `config :ecto_shorts, dynamic_builder_module: MyModule`. |
 | `EctoShorts.QueryProvider` | Supply named query fragments referenced by the `:lock` filter or other structural filters. |
 
-`:dynamic_builder` (no `_module`) can be passed as a runtime opt to any `Actions` or `CommonFilters` call for a per-call DynamicBuilder override. `:query_builder_module` is the runtime opt key for overriding the `QueryBuilders` adapter.
+`:dynamic_builder`, `:query_builder`, and `:query_provider` (bare, no `_module` suffix) are the runtime opt keys for per-call overrides of each adapter. The `_module` suffix is reserved for app config keys only.
 
 ### Configuration keys (`config :ecto_shorts, ...`)
 
@@ -102,8 +102,8 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 | `:repo` | `nil` | Primary repo for writes |
 | `:replica` | `nil` | Read replica; falls back to `:repo` |
 | `:dynamic_builder_module` | auto-detected | `DynamicBuilder` implementation (runtime opt key is `:dynamic_builder`) |
-| `:query_builder_module` | `nil` | `QueryBuilder` override (same key for app config and runtime opts) |
-| `:query_provider_module` | `nil` | Named query-fragment provider |
+| `:query_builder_module` | `nil` | `QueryBuilder` override (runtime opt key is `:query_builder`) |
+| `:query_provider_module` | `nil` | Named query-fragment provider (runtime opt key is `:query_provider`) |
 | `:error_module` | `EctoShorts.Actions.Error` | Error-response builder for `Actions` |
 | `:max_positional_bindings` | `nil` (default 10) | Upper bound for `:at` positional bindings |
 

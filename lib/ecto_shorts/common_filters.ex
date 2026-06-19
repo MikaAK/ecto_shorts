@@ -347,7 +347,7 @@ defmodule EctoShorts.CommonFilters do
   * `:sorter` - receives the normalized keyword list and returns it in the
     order to evaluate
   * `:query_builder` - custom `EctoShorts.QueryBuilder`
-  * `:query_provider_module` - provider used by query families such as joins and
+  * `:query_provider` - provider used by query families such as joins and
     locks
 
   ## Examples

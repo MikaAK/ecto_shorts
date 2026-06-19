@@ -289,10 +289,31 @@ defmodule EctoShorts.CommonFilters.JoinTest do
               ]
             ]
           },
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)
+    end
+
+    test "legacy :query_provider_module runtime opt is NOT honored — raises because no provider is resolved" do
+      # When the old _module key is passed, the resolver reads opts[:query_provider]
+      # which is nil (key not present). Calling nil.query_expression raises — proving
+      # the old key is not picked up.
+      assert_raise UndefinedFunctionError, fn ->
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{
+            join: [
+              fragment: [
+                source: [name: :active_users, values: %{min_age: 18}],
+                as: :users,
+                on: true
+              ]
+            ]
+          },
+          query_provider_module: EctoShorts.TestQueryProvider
+        )
+      end
     end
 
     # A nil return from the provider leaves the query unchanged.
@@ -314,7 +335,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
               ]
             ]
           },
-          query_provider_module: EctoShorts.TestNoOpQueryProvider
+          query_provider: EctoShorts.TestNoOpQueryProvider
         )
 
       assert_query(expected, actual)
@@ -342,7 +363,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
                   ]
                 ]
               },
-              query_provider_module: EctoShorts.TestQueryProvider
+              query_provider: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -366,7 +387,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
               ]
             ]
           },
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
       end
     end
@@ -432,7 +453,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{join: [fragment: [source: [values: %{}], as: :users, on: true]]},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
       end
     end
@@ -442,7 +463,7 @@ defmodule EctoShorts.CommonFilters.JoinTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{join: [fragment: [source: [name: :active_users], as: :users, on: true]]},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
       end
     end

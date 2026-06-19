@@ -24,7 +24,7 @@ defmodule EctoShorts.CommonFilters.Lock do
   end
 
   defp query_provider_module(opts) do
-    Config.query_provider_module() || opts[:query_provider_module]
+    Config.query_provider_module() || opts[:query_provider]
   end
 
   ## Generated Functions

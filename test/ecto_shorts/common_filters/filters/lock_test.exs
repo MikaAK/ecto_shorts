@@ -50,7 +50,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :provider_for_update}},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)
@@ -63,10 +63,28 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :for_update_with_clause, values: %{clause: "SKIP LOCKED"}}},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
 
       assert_query(expected, actual)
+    end
+
+    test "legacy :query_provider_module runtime opt is NOT honored — falls through to no-provider path" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{lock: %{name: :provider_for_update}},
+              query_provider_module: EctoShorts.TestQueryProvider
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "No query provider module configured for lock filter"
     end
 
     test "logs warning and keeps query unchanged when no query provider module is configured" do
@@ -110,7 +128,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :provider_for_update}},
-          query_provider_module: EctoShorts.TestNoOpQueryProvider
+          query_provider: EctoShorts.TestNoOpQueryProvider
         )
 
       assert_query(expected, actual)
@@ -125,7 +143,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
             CommonFilters.convert_params_to_filter(
               Post,
               %{lock: %{name: :error_fragment}},
-              query_provider_module: EctoShorts.TestQueryProvider
+              query_provider: EctoShorts.TestQueryProvider
             )
 
           assert_query(expected, actual)
@@ -142,7 +160,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :legacy_for_update}},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
       end
     end
@@ -167,7 +185,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :callback_bad_return}},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
       end
     end
@@ -177,7 +195,7 @@ defmodule EctoShorts.CommonFilters.LockTest do
         CommonFilters.convert_params_to_filter(
           Post,
           %{lock: %{name: :callback_not_function}},
-          query_provider_module: EctoShorts.TestQueryProvider
+          query_provider: EctoShorts.TestQueryProvider
         )
       end
     end

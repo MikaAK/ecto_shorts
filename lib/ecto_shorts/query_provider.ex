@@ -9,7 +9,7 @@ defmodule EctoShorts.QueryProvider do
 
   The active provider is selected by:
 
-    1. The `:query_provider_module` option in the filter params or call-site opts.
+    1. The `:query_provider` option in the filter params or call-site opts.
     2. `EctoShorts.Config.query_provider_module/0` (configured in application env).
 
   ## Implementing a query provider
@@ -38,7 +38,7 @@ defmodule EctoShorts.QueryProvider do
       EctoShorts.CommonFilters.convert_params_to_filter(
         Post,
         %{join: %{name: :active_users}},
-        query_provider_module: MyApp.QueryProvider
+        query_provider: MyApp.QueryProvider
       )
 
   ## Return values
