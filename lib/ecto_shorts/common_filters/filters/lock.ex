@@ -18,12 +18,8 @@ defmodule EctoShorts.CommonFilters.Lock do
         name -> lock_expr(query, selected_binding, name, params, opts)
       end
     else
-      EctoShorts.LogUtils.warning(
-        @logger_prefix,
-        "Expected :lock value to be a map or keyword list with a :name key (e.g. %{name: :for_update}), got: #{inspect(params)}"
-      )
-
-      query
+      raise EctoShorts.FilterError,
+            "lock filter expects a map or keyword list with a :name key (e.g. %{name: :for_update}), got: #{inspect(params)}"
     end
   end
 

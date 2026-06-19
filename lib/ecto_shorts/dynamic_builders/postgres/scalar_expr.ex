@@ -379,6 +379,15 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     nil_field_dyn?(binding, key)
   end
 
+  # Ordering operators cannot be compared to nil (only :== / :!= accept nil).
+  defp scalar_comparison(_binding, _key, {op, nil}) when op in [:>, :>=, :<, :<=] do
+    raise EctoShorts.FilterError, "#{op} cannot be compared to nil"
+  end
+
+  defp scalar_comparison(_binding, _key, {:not, {op, nil}}) when op in [:>, :>=, :<, :<=] do
+    raise EctoShorts.FilterError, "#{op} cannot be compared to nil"
+  end
+
   # Scalar comparisons
   defp scalar_comparison(binding, key, {:==, v}) when not is_tuple(v) do
     f = field_dyn(binding, key)

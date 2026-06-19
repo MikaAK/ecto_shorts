@@ -9,6 +9,16 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
+  describe "ordering operator vs nil (D-RAISE)" do
+    test "an ordering operator given nil raises" do
+      for op <- [:gt, :gte, :lt, :lte] do
+        assert_raise EctoShorts.FilterError, ~r/cannot be compared to nil/, fn ->
+          CommonFilters.convert_params_to_filter(Post, %{views: %{op => nil}}, [])
+        end
+      end
+    end
+  end
+
   describe "comparison operators" do
     test "matches records where the field equals the value using ==" do
       expected = from(p in Post, where: p.id == ^1)
@@ -284,7 +294,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
 
     test "raises for an unsupported nil operator" do
-      assert_raise ArgumentError, fn ->
+      assert_raise EctoShorts.FilterError, ~r/cannot be compared to nil/, fn ->
         CommonFilters.convert_params_to_filter(Post, %{published_at: %{>: nil}}, [])
       end
     end

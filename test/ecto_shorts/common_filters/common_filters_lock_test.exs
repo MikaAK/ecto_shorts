@@ -85,42 +85,19 @@ defmodule EctoShorts.CommonFilters.LockTest do
     end
 
     # The accepted lock shape is `%{name: atom}` or `[name: atom]`. Raw strings and
-    # bare functions are not accepted; both produce a log warning and a no-op.
-    test "keeps the query unchanged for a direct raw string lock" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{lock: "FOR SHARE NOWAIT"},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :lock value to be a map or keyword list with a :name key"
+    # bare functions are malformed caller input; both raise (D-RAISE).
+    test "raises for a direct raw string lock" do
+      assert_raise EctoShorts.FilterError, ~r/:name key/, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{lock: "FOR SHARE NOWAIT"}, [])
+      end
     end
 
-    test "keeps the query unchanged for a direct raw function lock" do
+    test "raises for a direct raw function lock" do
       lock_fun = fn query -> from(p in query, lock: "FOR UPDATE") end
-      expected = from(p in Post)
 
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{lock: lock_fun},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :lock value to be a map or keyword list with a :name key"
+      assert_raise EctoShorts.FilterError, ~r/:name key/, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{lock: lock_fun}, [])
+      end
     end
 
     test "keeps the query unchanged when the lock provider returns nil" do

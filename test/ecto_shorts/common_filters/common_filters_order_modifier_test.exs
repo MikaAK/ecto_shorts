@@ -402,23 +402,13 @@ defmodule EctoShorts.CommonFilters.OrderModifierTest do
     end
   end
 
-  describe "reverse_order warning" do
-    test "logs a warning and returns the query unchanged when reverse_order is not true" do
-      expected = from(p in Post, order_by: [asc: p.title])
+  describe "reverse_order raises on non-true value (D-RAISE)" do
+    test "raises when reverse_order is not true" do
+      base = from(p in Post, order_by: [asc: p.title])
 
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              expected,
-              %{reverse_order: false},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :reverse_order value to be true"
+      assert_raise EctoShorts.FilterError, ~r/reverse_order/, fn ->
+        CommonFilters.convert_params_to_filter(base, %{reverse_order: false}, [])
+      end
     end
   end
 

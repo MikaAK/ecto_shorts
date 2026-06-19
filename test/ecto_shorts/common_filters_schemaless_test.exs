@@ -486,22 +486,10 @@ defmodule EctoShorts.CommonFilters.SchemalessTest do
       assert_query(expected, actual)
     end
 
-    test "keeps the query unchanged for a direct raw string lock" do
-      expected = from(p in "posts")
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              "posts",
-              %{lock: "FOR SHARE NOWAIT"},
-              []
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected :lock value to be a map or keyword list with a :name key"
+    test "raises for a direct raw string lock (D-RAISE)" do
+      assert_raise EctoShorts.FilterError, ~r/:name key/, fn ->
+        CommonFilters.convert_params_to_filter("posts", %{lock: "FOR SHARE NOWAIT"}, [])
+      end
     end
   end
 

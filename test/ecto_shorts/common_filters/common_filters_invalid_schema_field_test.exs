@@ -94,4 +94,12 @@ defmodule EctoShorts.CommonFilters.InvalidSchemaFieldTest do
       assert log =~ "Field \"does_not_exist\" does not exist on schema EctoShorts.Schema.Post"
     end
   end
+
+  describe "association given a scalar (D-RAISE)" do
+    test "an association filter given a non-map/keyword value raises" do
+      assert_raise EctoShorts.FilterError, ~r/association/, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{comments: "x"}, [])
+      end
+    end
+  end
 end
