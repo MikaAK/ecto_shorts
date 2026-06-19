@@ -256,9 +256,46 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
       nil_or_scalar?(term) -> scalar_comparison(binding, key, term)
       quantified?(term) -> quantified_comparison(binding, key, term)
       aggregate?(term) -> aggregate_comparison(binding, key, term)
-      true -> comparison_impl_rest(binding, key, term)
+      datetime?(term) -> datetime_comparison(binding, key, term)
+      arithmetic?(term) -> arithmetic_comparison(binding, key, term)
+      parent_as?(term) -> parent_as_comparison(binding, key, term)
+      true -> scalar_value_fallback(binding, key, term)
     end
   end
+
+  defp datetime?({op, {wrapper, {datetime_op, _}}})
+       when op in @comparison_operators and wrapper in [:datetime, :date] and
+              datetime_op in [:ago, :from_now, :add],
+       do: true
+
+  defp datetime?({:not, {op, {wrapper, {datetime_op, _}}}})
+       when op in @comparison_operators and wrapper in [:datetime, :date] and
+              datetime_op in [:ago, :from_now, :add],
+       do: true
+
+  defp datetime?(_), do: false
+
+  defp arithmetic?({op, {:value, {arith_op, {{:field, af}, {:value, _}}}}})
+       when op in @comparison_operators and arith_op in [:+, :-, :*, :/] and is_atom(af) and
+              af !== nil,
+       do: true
+
+  defp arithmetic?({:not, {op, {:value, {arith_op, {{:field, af}, {:value, _}}}}}})
+       when op in @comparison_operators and arith_op in [:+, :-, :*, :/] and is_atom(af) and
+              af !== nil,
+       do: true
+
+  defp arithmetic?(_), do: false
+
+  defp parent_as?({:parent_as, {_pb, _pf}}), do: true
+  defp parent_as?({:not, {:parent_as, {_pb, _pf}}}), do: true
+
+  defp parent_as?({op, {:parent_as, {_pb, _pf}}}) when op in @comparison_operators, do: true
+
+  defp parent_as?({:not, {op, {:parent_as, {_pb, _pf}}}}) when op in @comparison_operators,
+    do: true
+
+  defp parent_as?(_), do: false
 
   defp quantified?({_op, {q, _}}) when q in [:all, :any], do: true
   defp quantified?({:not, {_op, {q, _}}}) when q in [:all, :any], do: true
@@ -568,153 +605,178 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     dynamic([], not (^f <= ^v))
   end
 
-  # comparison_impl_rest holds the families not yet extracted; later tasks carve them out.
-  defp comparison_impl_rest(binding, key, term) do
-    case term do
-      # Datetime comparisons - interval is already a ^-pinned runtime var after Phase 1
-      {:==, {:date, {:ago, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = date_field_dyn(binding, key)
-        dynamic([], ^f == fragment("date(?)", ago(^count, ^interval)))
-
-      {:!=, {:date, {:from_now, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = date_field_dyn(binding, key)
-        dynamic([], ^f != fragment("date(?)", from_now(^count, ^interval)))
-
-      {:not, {:>, {:date, {:from_now, params}}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = date_field_dyn(binding, key)
-        dynamic([], not (^f > fragment("date(?)", from_now(^count, ^interval))))
-
-      {:>=, {:date, {:add, params}}} ->
-        field_name = Keyword.get(params, :field)
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = date_field_dyn(binding, key)
-        f2 = field_dyn(binding, field_name)
-        dynamic([], ^f >= fragment("date(?)", datetime_add(^f2, ^count, ^interval)))
-
-      {:>=, {:datetime, {:add, params}}} ->
-        field_name = Keyword.get(params, :field)
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        f2 = field_dyn(binding, field_name)
-        dynamic([], ^f >= datetime_add(^f2, ^count, ^interval))
-
-      {:not, {:>=, {:datetime, {:add, params}}}} ->
-        field_name = Keyword.get(params, :field)
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        f2 = field_dyn(binding, field_name)
-        dynamic([], not (^f >= datetime_add(^f2, ^count, ^interval)))
-
-      {:>, {:datetime, {:ago, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        dynamic([], ^f > ago(^count, ^interval))
-
-      {:>, {:datetime, {:from_now, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        dynamic([], ^f > from_now(^count, ^interval))
-
-      {:not, {:<, {:datetime, {:ago, params}}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        dynamic([], not (^f < ago(^count, ^interval)))
-
-      {:<, {:datetime, {:ago, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        dynamic([], ^f < ago(^count, ^interval))
-
-      {:<=, {:datetime, {:from_now, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = field_dyn(binding, key)
-        dynamic([], ^f <= from_now(^count, ^interval))
-
-      {:<, {:date, {:ago, params}}} ->
-        count = Keyword.fetch!(params, :count)
-        interval = Keyword.fetch!(params, :interval)
-        f = date_field_dyn(binding, key)
-        dynamic([], ^f < fragment("date(?)", ago(^count, ^interval)))
-
-      # Generic datetime - all ops × {datetime,date} × {ago,from_now,add}
-      {op_d, {wrapper, {datetime_op, params}}}
-      when op_d in @comparison_operators and wrapper in [:datetime, :date] and
-             datetime_op in [:ago, :from_now, :add] ->
-        apply_datetime_comparison(binding, key, op_d, wrapper, datetime_op, params, :plain)
-
-      {:not, {op_d, {wrapper, {datetime_op, params}}}}
-      when op_d in @comparison_operators and wrapper in [:datetime, :date] and
-             datetime_op in [:ago, :from_now, :add] ->
-        apply_datetime_comparison(binding, key, op_d, wrapper, datetime_op, params, :negated)
-
-      # Arithmetic: field OP field ARITH_OP value
-      {op_a, {:value, {arith_op, {{:field, af}, {:value, av}}}}}
-      when op_a in @comparison_operators and arith_op in [:+, :-, :*, :/] and is_atom(af) and
-             af !== nil ->
-        f = field_dyn(binding, key)
-        f2 = field_dyn(binding, af)
-        apply_arith_comparison(op_a, f, f2, arith_op, av, :plain)
-
-      {:not, {op_a, {:value, {arith_op, {{:field, af}, {:value, av}}}}}}
-      when op_a in @comparison_operators and arith_op in [:+, :-, :*, :/] and is_atom(af) and
-             af !== nil ->
-        f = field_dyn(binding, key)
-        f2 = field_dyn(binding, af)
-        apply_arith_comparison(op_a, f, f2, arith_op, av, :negated)
-
-      # Value wrapper (unwraps plain scalar/field references)
-      {:not, {op_v, {:value, v}}} when op_v in @comparison_operators ->
-        f = field_dyn(binding, key)
-        apply_scalar_comparison(op_v, f, v, :negated)
-
-      {op_v, {:value, v}} when op_v in @comparison_operators ->
-        f = field_dyn(binding, key)
-        apply_scalar_comparison(op_v, f, v, :plain)
-
-      # parent_as: compare current binding field against a field on a named parent binding
-      {:parent_as, {pb, pf}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f == field(parent_as(^pb), ^pf))
-
-      {:not, {:parent_as, {pb, pf}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f != field(parent_as(^pb), ^pf))
-
-      {op_g, {:parent_as, {pb, pf}}} when op_g in @comparison_operators ->
-        f = field_dyn(binding, key)
-        apply_parent_as_comparison(op_g, f, pb, pf, :plain)
-
-      {:not, {op_g, {:parent_as, {pb, pf}}}} when op_g in @comparison_operators ->
-        f = field_dyn(binding, key)
-        apply_parent_as_comparison(op_g, f, pb, pf, :negated)
-
-      # Generic scalar fallback (catches any remaining value)
-      {:not, {op_g, v}} when op_g in @comparison_operators ->
-        f = field_dyn(binding, key)
-        apply_scalar_comparison(op_g, f, v, :negated)
-
-      {op_g, v} when op_g in @comparison_operators ->
-        f = field_dyn(binding, key)
-        apply_scalar_comparison(op_g, f, v, :plain)
-
-      _ ->
-        nil
-    end
+  # Datetime comparisons - interval is already a ^-pinned runtime var after Phase 1
+  defp datetime_comparison(binding, key, {:==, {:date, {:ago, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = date_field_dyn(binding, key)
+    dynamic([], ^f == fragment("date(?)", ago(^count, ^interval)))
   end
+
+  defp datetime_comparison(binding, key, {:!=, {:date, {:from_now, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = date_field_dyn(binding, key)
+    dynamic([], ^f != fragment("date(?)", from_now(^count, ^interval)))
+  end
+
+  defp datetime_comparison(binding, key, {:not, {:>, {:date, {:from_now, params}}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = date_field_dyn(binding, key)
+    dynamic([], not (^f > fragment("date(?)", from_now(^count, ^interval))))
+  end
+
+  defp datetime_comparison(binding, key, {:>=, {:date, {:add, params}}}) do
+    field_name = Keyword.get(params, :field)
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = date_field_dyn(binding, key)
+    f2 = field_dyn(binding, field_name)
+    dynamic([], ^f >= fragment("date(?)", datetime_add(^f2, ^count, ^interval)))
+  end
+
+  defp datetime_comparison(binding, key, {:>=, {:datetime, {:add, params}}}) do
+    field_name = Keyword.get(params, :field)
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    f2 = field_dyn(binding, field_name)
+    dynamic([], ^f >= datetime_add(^f2, ^count, ^interval))
+  end
+
+  defp datetime_comparison(binding, key, {:not, {:>=, {:datetime, {:add, params}}}}) do
+    field_name = Keyword.get(params, :field)
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    f2 = field_dyn(binding, field_name)
+    dynamic([], not (^f >= datetime_add(^f2, ^count, ^interval)))
+  end
+
+  defp datetime_comparison(binding, key, {:>, {:datetime, {:ago, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    dynamic([], ^f > ago(^count, ^interval))
+  end
+
+  defp datetime_comparison(binding, key, {:>, {:datetime, {:from_now, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    dynamic([], ^f > from_now(^count, ^interval))
+  end
+
+  defp datetime_comparison(binding, key, {:not, {:<, {:datetime, {:ago, params}}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    dynamic([], not (^f < ago(^count, ^interval)))
+  end
+
+  defp datetime_comparison(binding, key, {:<, {:datetime, {:ago, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    dynamic([], ^f < ago(^count, ^interval))
+  end
+
+  defp datetime_comparison(binding, key, {:<=, {:datetime, {:from_now, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = field_dyn(binding, key)
+    dynamic([], ^f <= from_now(^count, ^interval))
+  end
+
+  defp datetime_comparison(binding, key, {:<, {:date, {:ago, params}}}) do
+    count = Keyword.fetch!(params, :count)
+    interval = Keyword.fetch!(params, :interval)
+    f = date_field_dyn(binding, key)
+    dynamic([], ^f < fragment("date(?)", ago(^count, ^interval)))
+  end
+
+  # Generic datetime - all ops × {datetime,date} × {ago,from_now,add}
+  defp datetime_comparison(binding, key, {op_d, {wrapper, {datetime_op, params}}})
+       when op_d in @comparison_operators and wrapper in [:datetime, :date] and
+              datetime_op in [:ago, :from_now, :add] do
+    apply_datetime_comparison(binding, key, op_d, wrapper, datetime_op, params, :plain)
+  end
+
+  defp datetime_comparison(binding, key, {:not, {op_d, {wrapper, {datetime_op, params}}}})
+       when op_d in @comparison_operators and wrapper in [:datetime, :date] and
+              datetime_op in [:ago, :from_now, :add] do
+    apply_datetime_comparison(binding, key, op_d, wrapper, datetime_op, params, :negated)
+  end
+
+  # Arithmetic: field OP field ARITH_OP value
+  defp arithmetic_comparison(binding, key, {op_a, {:value, {arith_op, {{:field, af}, {:value, av}}}}})
+       when op_a in @comparison_operators and arith_op in [:+, :-, :*, :/] and is_atom(af) and
+              af !== nil do
+    f = field_dyn(binding, key)
+    f2 = field_dyn(binding, af)
+    apply_arith_comparison(op_a, f, f2, arith_op, av, :plain)
+  end
+
+  defp arithmetic_comparison(
+         binding,
+         key,
+         {:not, {op_a, {:value, {arith_op, {{:field, af}, {:value, av}}}}}}
+       )
+       when op_a in @comparison_operators and arith_op in [:+, :-, :*, :/] and is_atom(af) and
+              af !== nil do
+    f = field_dyn(binding, key)
+    f2 = field_dyn(binding, af)
+    apply_arith_comparison(op_a, f, f2, arith_op, av, :negated)
+  end
+
+  # parent_as: compare current binding field against a field on a named parent binding
+  defp parent_as_comparison(binding, key, {:parent_as, {pb, pf}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f == field(parent_as(^pb), ^pf))
+  end
+
+  defp parent_as_comparison(binding, key, {:not, {:parent_as, {pb, pf}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f != field(parent_as(^pb), ^pf))
+  end
+
+  defp parent_as_comparison(binding, key, {op_g, {:parent_as, {pb, pf}}})
+       when op_g in @comparison_operators do
+    f = field_dyn(binding, key)
+    apply_parent_as_comparison(op_g, f, pb, pf, :plain)
+  end
+
+  defp parent_as_comparison(binding, key, {:not, {op_g, {:parent_as, {pb, pf}}}})
+       when op_g in @comparison_operators do
+    f = field_dyn(binding, key)
+    apply_parent_as_comparison(op_g, f, pb, pf, :negated)
+  end
+
+  # Value wrapper (unwraps plain scalar/field references)
+  defp scalar_value_fallback(binding, key, {:not, {op_v, {:value, v}}})
+       when op_v in @comparison_operators do
+    f = field_dyn(binding, key)
+    apply_scalar_comparison(op_v, f, v, :negated)
+  end
+
+  defp scalar_value_fallback(binding, key, {op_v, {:value, v}}) when op_v in @comparison_operators do
+    f = field_dyn(binding, key)
+    apply_scalar_comparison(op_v, f, v, :plain)
+  end
+
+  # Generic scalar fallback (catches any remaining value)
+  defp scalar_value_fallback(binding, key, {:not, {op_g, v}}) when op_g in @comparison_operators do
+    f = field_dyn(binding, key)
+    apply_scalar_comparison(op_g, f, v, :negated)
+  end
+
+  defp scalar_value_fallback(binding, key, {op_g, v}) when op_g in @comparison_operators do
+    f = field_dyn(binding, key)
+    apply_scalar_comparison(op_g, f, v, :plain)
+  end
+
+  defp scalar_value_fallback(_binding, _key, _term), do: nil
 
   defp agg_field_dyn(binding, key, :avg), do: avg_field_dyn(binding, key)
   defp agg_field_dyn(binding, key, :count), do: count_field_dyn(binding, key)
