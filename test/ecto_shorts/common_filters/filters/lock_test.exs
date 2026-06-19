@@ -69,6 +69,22 @@ defmodule EctoShorts.CommonFilters.LockTest do
       assert_query(expected, actual)
     end
 
+    # This test explicitly verifies that the runtime `query_provider:` opt takes
+    # priority over app config (which is nil in the test environment). Fix #1 in
+    # the A2 review — the resolution order was previously inverted.
+    test "runtime query_provider: opt is honored when Config.query_provider_module() is nil" do
+      expected = lock(Post, "FOR UPDATE")
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{lock: %{name: :provider_for_update}},
+          query_provider: EctoShorts.TestQueryProvider
+        )
+
+      assert_query(expected, actual)
+    end
+
     test "legacy :query_provider_module runtime opt is NOT honored — falls through to no-provider path" do
       expected = from(p in Post)
 

@@ -9,6 +9,7 @@
 - **`EctoShorts.CommonChanges.put_when/3` renamed to `EctoShorts.CommonChanges.apply_when/3`** — `apply_when/3` also raises `ArgumentError` if the change function does not return a changeset
 - **`EctoShorts.SchemaHelpers` function renames** — `schema?/1` -> `schema_struct?/1`, `all_schemas?/1` -> `all_schema_struct?/1`
 - **`EctoShorts.Actions.find_or_create_many/3` rewritten** — now uses `Ecto.Multi` internally and returns `{:ok, list}` | `{:error, reason}` instead of merging found/created records by index
+- **Runtime opt for query provider renamed** — the runtime opt key for supplying a `QueryProvider` to `CommonFilters` (and `Actions`) calls changed from `:query_provider_module` to `:query_provider`; the app-config key `:query_provider_module` is unchanged
 
 ##### New modules
 

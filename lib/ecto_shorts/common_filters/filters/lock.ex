@@ -23,8 +23,8 @@ defmodule EctoShorts.CommonFilters.Lock do
     end
   end
 
-  defp query_provider_module(opts) do
-    Config.query_provider_module() || opts[:query_provider]
+  defp query_provider(opts) do
+    opts[:query_provider] || Config.query_provider_module()
   end
 
   ## Generated Functions
@@ -43,7 +43,7 @@ defmodule EctoShorts.CommonFilters.Lock do
 
   defp lock_expr(query, selected_binding, custom_name, params, opts) do
     values = params[:values] || %{}
-    query_provider_module = query_provider_module(opts)
+    query_provider_module = query_provider(opts)
 
     if is_nil(query_provider_module) do
       EctoShorts.LogUtils.warning(

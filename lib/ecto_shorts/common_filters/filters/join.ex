@@ -109,31 +109,41 @@ defmodule EctoShorts.CommonFilters.Join do
   end
 
   defp resolve_expr_source(selected_binding, source_key, source_params, opts) do
-    case opts
-         |> query_provider()
-         |> QueryProvider.query_expression(
-           selected_binding,
-           source_key,
-           source_params,
-           opts
-         ) do
-      nil ->
-        :error
+    provider = query_provider(opts)
 
-      {:ok, source} ->
-        {:ok, source}
+    if is_nil(provider) do
+      EctoShorts.LogUtils.warning(
+        @logger_prefix,
+        "No query provider module configured for fragment join source #{inspect(source_key)}"
+      )
 
-      {:error, reason} ->
-        EctoShorts.LogUtils.warning(
-          @logger_prefix,
-          "Join source callback returned error for key #{inspect(source_key)}: #{inspect(reason)}"
-        )
+      :error
+    else
+      case QueryProvider.query_expression(
+             provider,
+             selected_binding,
+             source_key,
+             source_params,
+             opts
+           ) do
+        nil ->
+          :error
 
-        :error
+        {:ok, source} ->
+          {:ok, source}
 
-      other ->
-        raise EctoShorts.FilterError,
-              "join source callback must return {:ok, source} | {:error, reason} | nil, got: #{inspect(other)}"
+        {:error, reason} ->
+          EctoShorts.LogUtils.warning(
+            @logger_prefix,
+            "Join source callback returned error for key #{inspect(source_key)}: #{inspect(reason)}"
+          )
+
+          :error
+
+        other ->
+          raise EctoShorts.FilterError,
+                "join source callback must return {:ok, source} | {:error, reason} | nil, got: #{inspect(other)}"
+      end
     end
   end
 

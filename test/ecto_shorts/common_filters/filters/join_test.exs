@@ -295,25 +295,33 @@ defmodule EctoShorts.CommonFilters.JoinTest do
       assert_query(expected, actual)
     end
 
-    test "legacy :query_provider_module runtime opt is NOT honored — raises because no provider is resolved" do
-      # When the old _module key is passed, the resolver reads opts[:query_provider]
-      # which is nil (key not present). Calling nil.query_expression raises — proving
-      # the old key is not picked up.
-      assert_raise UndefinedFunctionError, fn ->
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{
-            join: [
-              fragment: [
-                source: [name: :active_users, values: %{min_age: 18}],
-                as: :users,
-                on: true
-              ]
-            ]
-          },
-          query_provider_module: EctoShorts.TestQueryProvider
-        )
-      end
+    test "legacy :query_provider_module runtime opt is NOT honored — falls through to no-provider path" do
+      # When the old _module key is passed, opts[:query_provider] is nil (key not
+      # present). The resolver finds no provider and emits a warning, leaving the
+      # query unchanged — proving the old key is not picked up.
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{
+                join: [
+                  fragment: [
+                    source: [name: :active_users, values: %{min_age: 18}],
+                    as: :users,
+                    on: true
+                  ]
+                ]
+              },
+              query_provider_module: EctoShorts.TestQueryProvider
+            )
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "No query provider module configured for fragment join source"
     end
 
     # A nil return from the provider leaves the query unchanged.
