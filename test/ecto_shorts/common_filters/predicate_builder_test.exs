@@ -184,6 +184,21 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
                )
     end
 
+    test "field operand on the current binding" do
+      assert {:ok, [%Predicate{expr: {:>, {:field, :id}}}]} =
+               PredicateBuilder.build(Post, :views, %{gt: %{field: :id}}, [])
+    end
+
+    test "field operand with a sibling binding records {binding, field}" do
+      assert {:ok, [%Predicate{expr: {:>, {:field, {:author, :age}}}}]} =
+               PredicateBuilder.build(Post, :views, %{gt: %{field: :age, as: :author}}, [])
+    end
+
+    test "value operand is always a single literal (cast), never membership" do
+      assert {:ok, [%Predicate{expr: {:==, {:value, [1, 2]}}}]} =
+               PredicateBuilder.build(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
+    end
+
     test "an unknown operator entry is dropped (warn); other entries survive" do
       log =
         capture_log(fn ->

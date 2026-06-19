@@ -213,6 +213,17 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
        when op in @comparison_ops and is_map_key(w, :shift),
        do: dt_term(op, :datetime, w)
 
+  # operand maps on the RHS of a comparison (recognized by key, not a singleton
+  # match): a literal value, or a field reference (optionally on a sibling
+  # binding via `as:`). See spec §1.5a/§3.11.
+  defp build_one(op, %{value: v}, type) when op in @comparison_ops do
+    [{op, {:value, cast(type, v)}}]
+  end
+
+  defp build_one(op, %{field: _} = m, _type) when op in @comparison_ops do
+    [{op, {:field, field_ref(m)}}]
+  end
+
   # text transforms on the value side: %{lower: v} (reduced, in case of several)
   defp build_one(op, %{} = inner, _type) when op in [:==, :!=] do
     Enum.reduce(inner, [], fn {raw_t, v}, acc ->
@@ -264,6 +275,11 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         []
     end
   end
+
+  # A field operand may target the current binding (an atom) or a sibling
+  # binding (`as:` — recorded as {binding, field}; validated later, §3.11).
+  defp field_ref(%{field: f, as: b}), do: {b, f}
+  defp field_ref(%{field: f}), do: f
 
   @date_units ~w(second minute hour day week month year)
 
