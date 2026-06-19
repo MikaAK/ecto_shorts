@@ -4,6 +4,7 @@
 
 ##### Breaking changes
 
+- **`EctoShorts.CommonChanges` predicate renames** — four predicate functions have been renamed for value-vs-change clarity: `changeset_field_nil?/2` → `field_nil?/2`, `changeset_field_empty?/2` → `field_empty?/2`, `has_nil_change?/2` → `change_nil?/2`, `has_empty_change?/2` → `change_empty?/2`
 - **Minimum Elixir version** raised from `~> 1.13` to `~> 1.15`
 - **`EctoShorts.CommonFilters` re-architected** — `EctoShorts.QueryBuilder`, `EctoShorts.QueryBuilder.Common`, and `EctoShorts.QueryBuilder.Schema` have been removed and replaced by a new dispatch system built on `EctoShorts.QueryBuilder` and dedicated per-filter builder modules under `EctoShorts.CommonFilters.*`
 - **`EctoShorts.CommonChanges.put_when/3` renamed to `EctoShorts.CommonChanges.apply_when/3`** — `apply_when/3` also raises `ArgumentError` if the change function does not return a changeset
@@ -55,8 +56,10 @@
 
 ##### New EctoShorts.CommonChanges functions
 
-- **`EctoShorts.CommonChanges.has_nil_change?/2`** — returns `true` when a field (or all fields in a list) have no pending change
-- **`EctoShorts.CommonChanges.has_empty_change?/2`** — returns `true` when a field change is `[]` or `%{}`
+- **`EctoShorts.CommonChanges.change_nil?/2`** — returns `true` when a field (or all fields in a list) have no pending change
+- **`EctoShorts.CommonChanges.change_empty?/2`** — returns `true` when a field change is `[]` or `%{}`
+- **`EctoShorts.CommonChanges.field_nil?/2`** — returns `true` when a field's current value (data or changes) is `nil`
+- **`EctoShorts.CommonChanges.field_empty?/2`** — returns `true` when a field's current value (data or changes) is `[]`
 - **`EctoShorts.CommonChanges.validate_not_unset/2`** — prevents a field from being set to `nil` when it already has a persisted value
 - **`EctoShorts.CommonChanges.truncate_datetime_change/3`** — truncates datetime changes to a given precision (`:second`, `:millisecond`, `:microsecond`)
 - **`EctoShorts.CommonChanges.trim_string_change/2`** — trims whitespace from string changes

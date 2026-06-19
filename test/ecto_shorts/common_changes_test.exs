@@ -196,7 +196,7 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "changeset_field_empty?: " do
+  describe "field_empty?: " do
     test "returns false when the field has items" do
       params = %{}
 
@@ -205,45 +205,45 @@ defmodule EctoShorts.CommonChangesTest do
         |> Post.changeset(params)
         |> Changeset.put_assoc(:comments, [%{body: "body"}])
 
-      refute CommonChanges.changeset_field_empty?(changeset, :comments)
+      refute CommonChanges.field_empty?(changeset, :comments)
     end
 
     test "returns true when the field is nil" do
       changeset = Post.changeset(%Post{}, %{})
 
-      assert CommonChanges.changeset_field_empty?(changeset, :comments)
+      assert CommonChanges.field_empty?(changeset, :comments)
     end
 
     test "returns true when the field is an empty list" do
       changeset = Post.changeset(%Post{}, %{comments: []})
 
-      assert CommonChanges.changeset_field_empty?(changeset, :comments)
+      assert CommonChanges.field_empty?(changeset, :comments)
     end
   end
 
-  describe "changeset_field_nil?: " do
+  describe "field_nil?: " do
     test "returns false when the field has a persisted value" do
       changeset = Post.changeset(%Post{title: "title"}, %{})
 
-      refute CommonChanges.changeset_field_nil?(changeset, :title)
+      refute CommonChanges.field_nil?(changeset, :title)
     end
 
     test "returns true when the field has no value" do
       changeset = Post.changeset(%Post{}, %{})
 
-      assert CommonChanges.changeset_field_nil?(changeset, :title)
+      assert CommonChanges.field_nil?(changeset, :title)
     end
 
     test "returns true when the field is changed to nil" do
       changeset = Post.changeset(%Post{}, %{title: nil})
 
-      assert CommonChanges.changeset_field_nil?(changeset, :title)
+      assert CommonChanges.field_nil?(changeset, :title)
     end
 
     test "returns false when a has_many association is set to nil in params" do
       changeset = Post.changeset(%Post{}, %{comments: nil})
 
-      refute CommonChanges.changeset_field_nil?(changeset, :comments)
+      refute CommonChanges.field_nil?(changeset, :comments)
     end
   end
 
@@ -1016,31 +1016,31 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
-  describe "has_nil_change?/2 with a list of fields" do
+  describe "change_nil?/2 with a list of fields" do
     test "returns true when all listed fields have nil changes" do
       changeset = Post.changeset(%Post{}, %{})
-      assert CommonChanges.has_nil_change?(changeset, [:title, :permalink])
+      assert CommonChanges.change_nil?(changeset, [:title, :permalink])
     end
 
     test "returns false when at least one listed field has a non-nil change" do
       changeset = Post.changeset(%Post{}, %{title: "hello"})
-      refute CommonChanges.has_nil_change?(changeset, [:title, :permalink])
+      refute CommonChanges.change_nil?(changeset, [:title, :permalink])
     end
   end
 
-  describe "has_nil_change?/2 with a single field" do
+  describe "change_nil?/2 with a single field" do
     test "returns false when the field has a non-nil change" do
       changeset = Post.changeset(%Post{}, %{title: "hello"})
-      refute CommonChanges.has_nil_change?(changeset, :title)
+      refute CommonChanges.change_nil?(changeset, :title)
     end
 
     test "returns true when the field change is nil" do
       changeset = Post.changeset(%Post{}, %{})
-      assert CommonChanges.has_nil_change?(changeset, :title)
+      assert CommonChanges.change_nil?(changeset, :title)
     end
   end
 
-  describe "has_empty_change?/2 with a list of fields" do
+  describe "change_empty?/2 with a list of fields" do
     test "returns true when all listed fields have empty changes" do
       changeset =
         %Post{}
@@ -1048,23 +1048,23 @@ defmodule EctoShorts.CommonChangesTest do
         |> Changeset.put_change(:tags, [])
         |> Changeset.put_change(:permalink, nil)
 
-      assert CommonChanges.has_empty_change?(changeset, [:tags])
+      assert CommonChanges.change_empty?(changeset, [:tags])
     end
 
     test "returns false when at least one listed field has a non-empty change" do
       changeset = Post.changeset(%Post{}, %{title: "hello"})
-      refute CommonChanges.has_empty_change?(changeset, [:title, :permalink])
+      refute CommonChanges.change_empty?(changeset, [:title, :permalink])
     end
   end
 
-  describe "has_empty_change?/2 with a single field" do
+  describe "change_empty?/2 with a single field" do
     test "returns true when the field change is an empty list" do
       changeset =
         %Post{}
         |> Post.changeset(%{})
         |> Changeset.put_change(:tags, [])
 
-      assert CommonChanges.has_empty_change?(changeset, :tags)
+      assert CommonChanges.change_empty?(changeset, :tags)
     end
 
     test "returns true when the field change is an empty map" do
@@ -1073,12 +1073,12 @@ defmodule EctoShorts.CommonChangesTest do
         |> Post.changeset(%{})
         |> Changeset.put_change(:notes, %{})
 
-      assert CommonChanges.has_empty_change?(changeset, :notes)
+      assert CommonChanges.change_empty?(changeset, :notes)
     end
 
     test "returns false when there is no change" do
       changeset = Post.changeset(%Post{}, %{})
-      refute CommonChanges.has_empty_change?(changeset, :tags)
+      refute CommonChanges.change_empty?(changeset, :tags)
     end
   end
 

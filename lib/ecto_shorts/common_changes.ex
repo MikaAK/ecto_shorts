@@ -24,7 +24,7 @@ defmodule EctoShorts.CommonChanges do
         post
         |> cast(params, [:title, :slug])
         |> EctoShorts.CommonChanges.apply_when(
-          &EctoShorts.CommonChanges.changeset_field_nil?(&1, :slug),
+          &EctoShorts.CommonChanges.field_nil?(&1, :slug),
           &put_change(&1, :slug, generate_slug(&1))
         )
       end
@@ -118,7 +118,7 @@ defmodule EctoShorts.CommonChanges do
         post
         |> cast(params, [:title, :published_at])
         |> apply_when(
-          &changeset_field_nil?(&1, :published_at),
+          &field_nil?(&1, :published_at),
           &put_change(&1, :published_at, DateTime.utc_now())
         )
       end
@@ -132,7 +132,7 @@ defmodule EctoShorts.CommonChanges do
 
       apply_when(
         changeset,
-        &changeset_field_nil?(&1, :slug),
+        &field_nil?(&1, :slug),
         &put_change(&1, :slug, generate_slug(&1))
       )
 
@@ -140,7 +140,7 @@ defmodule EctoShorts.CommonChanges do
 
       apply_when(
         changeset,
-        &has_nil_change?(&1, :status),
+        &change_nil?(&1, :status),
         &put_change(&1, :status, :draft)
       )
 
@@ -148,7 +148,7 @@ defmodule EctoShorts.CommonChanges do
 
       apply_when(
         changeset,
-        &changeset_field_empty?(&1, :tags),
+        &field_empty?(&1, :tags),
         &put_change(&1, :tags, ["uncategorized"])
       )
 
@@ -235,31 +235,31 @@ defmodule EctoShorts.CommonChanges do
 
   ### Check for nil changes
 
-  Use `has_nil_change?/2` to check if a field has no pending change:
+  Use `change_nil?/2` to check if a field has no pending change:
 
-      if has_nil_change?(changeset, :title) do
+      if change_nil?(changeset, :title) do
         # No title change pending
       end
 
   ### Check for empty changes
 
-  Use `has_empty_change?/2` to check if a field change is empty:
+  Use `change_empty?/2` to check if a field change is empty:
 
-      if has_empty_change?(changeset, :tags) do
+      if change_empty?(changeset, :tags) do
         # Tags change is [] or %{}
       end
 
   ### Check field values
 
-  Use `changeset_field_nil?/2` to check if a field is nil:
+  Use `field_nil?/2` to check if a field is nil:
 
-      if changeset_field_nil?(changeset, :published_at) do
+      if field_nil?(changeset, :published_at) do
         # Field is nil in data or changes
       end
 
-  Use `changeset_field_empty?/2` to check if a field is an empty list:
+  Use `field_empty?/2` to check if a field is an empty list:
 
-      if changeset_field_empty?(changeset, :comments) do
+      if field_empty?(changeset, :comments) do
         # Field is [] in data or changes
       end
 
@@ -271,7 +271,7 @@ defmodule EctoShorts.CommonChanges do
         post
         |> cast(params, [:title, :slug])
         |> apply_when(
-          &changeset_field_nil?(&1, :slug),
+          &field_nil?(&1, :slug),
           fn cs ->
             title = get_field(cs, :title)
             put_change(cs, :slug, slugify(title))
@@ -345,24 +345,27 @@ defmodule EctoShorts.CommonChanges do
   the change is `nil` (i.e. no change was cast). When `fields` is a list,
   returns `true` only if **all** fields have a `nil` change.
 
+  Use `field_nil?/2` when you need to check the current value (data or changes)
+  rather than whether a pending change exists.
+
   ## Examples
 
       iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{})
-      ...> EctoShorts.CommonChanges.has_nil_change?(changeset, :title)
+      ...> EctoShorts.CommonChanges.change_nil?(changeset, :title)
       true
 
       iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{}, title: "Hello")
-      ...> EctoShorts.CommonChanges.has_nil_change?(changeset, :title)
+      ...> EctoShorts.CommonChanges.change_nil?(changeset, :title)
       false
 
-  See also `has_empty_change?/2` and `changeset_field_nil?/2`.
+  See also `change_empty?/2` and `field_nil?/2`.
   """
-  @spec has_nil_change?(Ecto.Changeset.t(), atom() | list(atom())) :: boolean()
-  def has_nil_change?(changeset, fields) when is_list(fields) do
-    Enum.all?(fields, &has_nil_change?(changeset, &1))
+  @spec change_nil?(Ecto.Changeset.t(), atom() | list(atom())) :: boolean()
+  def change_nil?(changeset, fields) when is_list(fields) do
+    Enum.all?(fields, &change_nil?(changeset, &1))
   end
 
-  def has_nil_change?(changeset, field) do
+  def change_nil?(changeset, field) do
     changeset
     |> Changeset.get_change(field)
     |> is_nil()
@@ -377,24 +380,27 @@ defmodule EctoShorts.CommonChanges do
   changes or non-empty values return `false`. When `fields` is a list,
   returns `true` only if **all** fields have an empty change.
 
+  Use `field_empty?/2` when you need to check the current value (data or changes)
+  rather than whether a pending change is empty.
+
   ## Examples
 
       iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{}, comments: [])
-      ...> EctoShorts.CommonChanges.has_empty_change?(changeset, :comments)
+      ...> EctoShorts.CommonChanges.change_empty?(changeset, :comments)
       true
 
       iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{})
-      ...> EctoShorts.CommonChanges.has_empty_change?(changeset, :comments)
+      ...> EctoShorts.CommonChanges.change_empty?(changeset, :comments)
       false
 
-  See also `has_nil_change?/2` and `changeset_field_empty?/2`.
+  See also `change_nil?/2` and `field_empty?/2`.
   """
-  @spec has_empty_change?(Ecto.Changeset.t(), atom() | list(atom())) :: boolean()
-  def has_empty_change?(changeset, fields) when is_list(fields) do
-    Enum.all?(fields, &has_empty_change?(changeset, &1))
+  @spec change_empty?(Ecto.Changeset.t(), atom() | list(atom())) :: boolean()
+  def change_empty?(changeset, fields) when is_list(fields) do
+    Enum.all?(fields, &change_empty?(changeset, &1))
   end
 
-  def has_empty_change?(changeset, field) do
+  def change_empty?(changeset, field) do
     case Changeset.get_change(changeset, field) do
       [] -> true
       map when map === %{} -> true
@@ -419,7 +425,7 @@ defmodule EctoShorts.CommonChanges do
       ...> cs.errors[:title]
       {"can't be blank", []}
 
-  See also `put_new_change/3` and `changeset_field_nil?/2`.
+  See also `put_new_change/3` and `field_nil?/2`.
   """
   @spec validate_not_unset(Ecto.Changeset.t(), atom() | list(atom())) :: Ecto.Changeset.t()
   def validate_not_unset(changeset, fields) when is_list(fields) do
@@ -525,6 +531,10 @@ defmodule EctoShorts.CommonChanges do
   @doc """
   Puts a change only if the field has no pending change.
 
+  This is change-based: it uses `Ecto.Changeset.get_change/2` to check for a
+  pending change. See `put_new_value/3` for the value-based variant, which
+  also considers the persisted value in `changeset.data`.
+
   `value` can be a literal value, a 0-arity function (called to produce the
   value), or a 1-arity function that receives the field name.
 
@@ -560,10 +570,13 @@ defmodule EctoShorts.CommonChanges do
   @doc """
   Puts a change only if the field's current value (data or changes) is `nil`.
 
-  Unlike `put_new_change/3` which only checks pending changes, this function
-  also considers the persisted value in `changeset.data`. `value` can be a
-  literal value, a 0-arity function, or a 1-arity function that receives the
-  field name.
+  This is value-based: it uses `Ecto.Changeset.get_field/2` which reads the
+  current value from changes first, then falls back to data. See
+  `put_new_change/3` for the change-based variant, which only checks pending
+  changes.
+
+  `value` can be a literal value, a 0-arity function, or a 1-arity function
+  that receives the field name.
 
   ## Examples
 
@@ -607,13 +620,13 @@ defmodule EctoShorts.CommonChanges do
       iex> changeset = Ecto.Changeset.change(%EctoShorts.Schema.Post{title: nil})
       ...> changeset = EctoShorts.CommonChanges.apply_when(
       ...>   changeset,
-      ...>   &EctoShorts.CommonChanges.changeset_field_nil?(&1, :title),
+      ...>   &EctoShorts.CommonChanges.field_nil?(&1, :title),
       ...>   &Ecto.Changeset.put_change(&1, :title, "Fallback")
       ...> )
       ...> Ecto.Changeset.get_change(changeset, :title)
       ...> "Fallback"
 
-  See also `put_new_change/3`, `put_new_value/3`, and `has_nil_change?/2`.
+  See also `put_new_change/3`, `put_new_value/3`, and `change_nil?/2`.
   """
   @spec apply_when(
           Ecto.Changeset.t(),
@@ -641,16 +654,19 @@ defmodule EctoShorts.CommonChanges do
   Uses `Ecto.Changeset.get_field/2` which reads the current value from
   changes first, then falls back to data.
 
+  Use `change_empty?/2` when you need to check whether a pending change
+  (not the current value) is empty.
+
   ## Examples
 
       iex> cs = Ecto.Changeset.change(%EctoShorts.Schema.Post{comments: []})
-      ...> EctoShorts.CommonChanges.changeset_field_empty?(cs, :comments)
+      ...> EctoShorts.CommonChanges.field_empty?(cs, :comments)
       true
 
-  See also `changeset_field_nil?/2` and `has_empty_change?/2`.
+  See also `field_nil?/2` and `change_empty?/2`.
   """
-  @spec changeset_field_empty?(Changeset.t(), atom) :: boolean
-  def changeset_field_empty?(changeset, key) do
+  @spec field_empty?(Changeset.t(), atom) :: boolean
+  def field_empty?(changeset, key) do
     Changeset.get_field(changeset, key) === []
   end
 
@@ -661,16 +677,19 @@ defmodule EctoShorts.CommonChanges do
   Uses `Ecto.Changeset.get_field/2` which reads from changes first, then
   falls back to data.
 
+  Use `change_nil?/2` when you need to check whether a pending change exists
+  (not the current value).
+
   ## Examples
 
       iex> cs = Ecto.Changeset.change(%EctoShorts.Schema.Post{title: nil})
-      ...> EctoShorts.CommonChanges.changeset_field_nil?(cs, :title)
+      ...> EctoShorts.CommonChanges.field_nil?(cs, :title)
       true
 
-  See also `changeset_field_empty?/2` and `has_nil_change?/2`.
+  See also `field_empty?/2` and `change_nil?/2`.
   """
-  @spec changeset_field_nil?(Changeset.t(), atom) :: boolean
-  def changeset_field_nil?(changeset, key) do
+  @spec field_nil?(Changeset.t(), atom) :: boolean
+  def field_nil?(changeset, key) do
     changeset |> Changeset.get_field(key) |> is_nil()
   end
 
@@ -683,15 +702,9 @@ defmodule EctoShorts.CommonChanges do
   it preloads the existing data so `cast_assoc/3` can diff correctly.
   When absent, falls back to `Ecto.Changeset.cast_assoc/3`.
 
-  Internally this function calls `preload_changeset_assoc/3` followed by
+  Internally this function preloads the association data, then calls
   `put_or_cast_assoc/3` when the association is present in params. For most
-  use cases this is the only function you need:
-
-  1. `preload_change_assoc/3` - **use this in your `changeset/2`** for full
-     association management.
-  2. `preload_changeset_assoc/3` - lower-level: only preloads the data.
-  3. `put_or_cast_assoc/3` - lower-level: only selects and applies
-     `put_assoc` vs `cast_assoc`.
+  use cases this is the only function you need.
 
   ## Options
 
@@ -713,13 +726,13 @@ defmodule EctoShorts.CommonChanges do
       ...>   required_when_missing: :author_id
       ...> )
 
-  See also `preload_changeset_assoc/3` and `put_or_cast_assoc/3`.
+  See also `put_or_cast_assoc/3`.
   """
   @spec preload_change_assoc(Changeset.t(), atom(), keyword()) :: Changeset.t()
   def preload_change_assoc(changeset, key, opts \\ []) do
     required? =
       if opts[:required_when_missing] do
-        changeset_field_nil?(changeset, opts[:required_when_missing])
+        field_nil?(changeset, opts[:required_when_missing])
       else
         opts[:required] === true
       end
@@ -735,35 +748,7 @@ defmodule EctoShorts.CommonChanges do
     end
   end
 
-  @doc group: "Association management"
-  @doc """
-  Preloads the given association on the changeset's data struct.
-
-  When `:ids` is provided in `opts`, queries for records with those IDs and
-  replaces the association list directly. Otherwise, calls
-  `c:Ecto.Repo.preload/3` on the data struct.
-
-  Returns the changeset with the association preloaded in `changeset.data`.
-
-  You typically do not call this directly - use `preload_change_assoc/3`
-  which calls this then `put_or_cast_assoc/3` in one step.
-
-  ## Options
-
-    * `:ids` - a list of IDs. When given, queries for those records and sets
-      the association directly instead of using `Repo.preload/3`.
-    * `:repo` - the `Ecto.Repo` to use. Defaults to `EctoShorts.Config.repo/0`.
-
-  ## Examples
-
-      iex> EctoShorts.CommonChanges.preload_changeset_assoc(changeset, :comments)
-      # changeset with changeset.data.comments preloaded from the database
-
-      iex> EctoShorts.CommonChanges.preload_changeset_assoc(changeset, :comments, ids: [1, 2, 3])
-      # changeset with changeset.data.comments set to the records with those IDs
-
-  See also `preload_change_assoc/3` and `put_or_cast_assoc/3`.
-  """
+  @doc false
   @spec preload_changeset_assoc(Changeset.t(), atom) :: Changeset.t()
   @spec preload_changeset_assoc(Changeset.t(), atom, keyword()) :: Changeset.t()
   def preload_changeset_assoc(changeset, key, opts \\ [])
@@ -808,7 +793,7 @@ defmodule EctoShorts.CommonChanges do
   * Otherwise - `cast_assoc`.
 
   You typically do not call this directly - use `preload_change_assoc/3`
-  which calls `preload_changeset_assoc/3` then this function in one step.
+  which preloads the association data then calls this function in one step.
 
   ## Examples
 
@@ -824,7 +809,7 @@ defmodule EctoShorts.CommonChanges do
       changeset = Ecto.Changeset.change(user, %{"fruits" => [%{"id" => 1}, %{"id" => 3}]})
       EctoShorts.CommonChanges.put_or_cast_assoc(changeset, :fruits)
 
-  See also `preload_change_assoc/3` and `preload_changeset_assoc/3`.
+  See also `preload_change_assoc/3`.
   """
   @spec put_or_cast_assoc(Changeset.t(), atom) :: Changeset.t()
   @spec put_or_cast_assoc(Changeset.t(), atom, Keyword.t()) :: Changeset.t()
