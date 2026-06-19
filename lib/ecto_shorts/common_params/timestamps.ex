@@ -50,7 +50,8 @@ defmodule EctoShorts.CommonParams.Timestamps do
   defp maybe_put_inserted_at(input, datetime, schema, opts) do
     source_key = inserted_at_source_key(opts)
 
-    if source_key === false do
+    if source_key === false or
+         not include_timestamp?(schema, source_key, explicit_inserted_at?(opts)) do
       input
     else
       result =
@@ -101,6 +102,18 @@ defmodule EctoShorts.CommonParams.Timestamps do
         value = prepare_timestamp_updated_at(value || datetime, source_key, schema, opts)
         Map.put(input, source_key, value)
     end
+  end
+
+  defp include_timestamp?(nil, _source_key, _explicit?), do: true
+  defp include_timestamp?(_schema, _source_key, true), do: true
+  defp include_timestamp?(schema, source_key, false), do: source_key in schema.__schema__(:fields)
+
+  defp explicit_inserted_at?(opts) do
+    Keyword.has_key?(opts, :inserted_at) or Keyword.has_key?(opts, :inserted_at_source)
+  end
+
+  defp explicit_updated_at?(opts) do
+    Keyword.has_key?(opts, :updated_at) or Keyword.has_key?(opts, :updated_at_source)
   end
 
   defp get_updated_at_source(opts) do
