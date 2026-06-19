@@ -286,7 +286,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   # route directly to CommonExpr regardless of term shape.
   defp dispatch_expr(_source, selected_binding, key, negated, term, opts)
        when key in @common_expr_operators do
-    CommonExpr.dynamic_expr(selected_binding, key, negated, term, opts)
+    CommonExpr.dynamic_expr(selected_binding, common_field_for(key), negated, {key, term}, opts)
   end
 
   # Scalar (non-tuple, non-list) — the bare value shape means equality.
@@ -465,6 +465,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   defp dispatch_expr(source, selected_binding, key, negated, term, opts) do
     dispatch_field_expr(source, selected_binding, key, negated, term, opts)
   end
+
+  defp common_field_for(op) when op in [:ids, :before, :after, :since, :until], do: :id
+
+  defp common_field_for(op) when op in [:start_date, :end_date, :since_date, :until_date],
+    do: :inserted_at
+
+  defp common_field_for(:exists), do: nil
 
   defp dispatch_field_expr(source, selected_binding, key, negated, term, opts) do
     cond do

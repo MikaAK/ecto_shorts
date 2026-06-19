@@ -27,13 +27,15 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
   for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
     def dynamic_expr(
           unquote(quoted_binding_head) = selected_binding,
-          operator,
+          field,
           negated,
-          term,
+          expr,
           _opts
         ) do
+      {operator, term} = expr
+
       selected_binding
-      |> dispatch_expr(operator, term)
+      |> dispatch_expr(operator, field, term)
       |> maybe_negate(negated)
     end
 
@@ -45,48 +47,48 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
     end
   end
 
-  def dynamic_expr(_selected_binding, _operator, _negated, _term, _opts), do: nil
+  def dynamic_expr(_selected_binding, _field, _negated, _expr, _opts), do: nil
 
-  defp dispatch_expr(binding, :ids, term) do
-    dyn = field_dyn(binding, :id)
+  defp dispatch_expr(binding, :ids, field, term) do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn in ^term)
   end
 
-  defp dispatch_expr(binding, :after, term) do
-    dyn = field_dyn(binding, :id)
+  defp dispatch_expr(binding, :after, field, term) do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn > ^term)
   end
 
-  defp dispatch_expr(binding, :before, term) do
-    dyn = field_dyn(binding, :id)
+  defp dispatch_expr(binding, :before, field, term) do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn < ^term)
   end
 
-  defp dispatch_expr(binding, :since, term) do
-    dyn = field_dyn(binding, :id)
+  defp dispatch_expr(binding, :since, field, term) do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn >= ^term)
   end
 
-  defp dispatch_expr(binding, :until, term) do
-    dyn = field_dyn(binding, :id)
+  defp dispatch_expr(binding, :until, field, term) do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn <= ^term)
   end
 
-  defp dispatch_expr(binding, operator, term) when operator in [:start_date, :since_date] do
-    dyn = field_dyn(binding, :inserted_at)
+  defp dispatch_expr(binding, operator, field, term) when operator in [:start_date, :since_date] do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn >= ^term)
   end
 
-  defp dispatch_expr(binding, operator, term) when operator in [:end_date, :until_date] do
-    dyn = field_dyn(binding, :inserted_at)
+  defp dispatch_expr(binding, operator, field, term) when operator in [:end_date, :until_date] do
+    dyn = field_dyn(binding, field)
     Query.dynamic([], ^dyn <= ^term)
   end
 
-  defp dispatch_expr(_binding, :exists, term) do
+  defp dispatch_expr(_binding, :exists, _field, term) do
     Query.dynamic([], exists(term))
   end
 
-  defp dispatch_expr(_binding, _operator, _term), do: nil
+  defp dispatch_expr(_binding, _operator, _field, _term), do: nil
 
   defp maybe_negate(nil, _negated), do: nil
   defp maybe_negate(expr, :not), do: Query.dynamic([], not (^expr))
