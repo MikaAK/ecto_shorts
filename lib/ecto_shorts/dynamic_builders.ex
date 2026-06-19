@@ -9,47 +9,38 @@ defmodule EctoShorts.DynamicBuilders do
   ## Operator routing
 
   Once the adapter is resolved, each filter operator is normalised and routed to
-  one of the Postgres expression sub-modules. Drag the adapter hubs apart to see
-  which operators each one owns, and how `Normalizer` rewrites aliases:
+  one of the Postgres expression sub-modules. The diagram below shows that
+  routing — **click an adapter to open its documentation** — and the table that
+  follows lists every operator's destination.
 
-  ```cytoscape
-  {
-    "title": "Operator routing",
-    "height": 520,
-    "layout": {
-      "name": "concentric",
-      "minNodeSpacing": 40,
-      "concentric": "function(n){ return n.data('tier'); }",
-      "levelWidth": "function(){ return 1; }"
-    },
-    "elements": [
-      {"data": {"id": "norm",   "label": "Normalizer",  "tier": 3, "kind": "module"}},
-      {"data": {"id": "scalar", "label": "ScalarExpr",  "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
-      {"data": {"id": "array",  "label": "ArrayExpr",   "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
-      {"data": {"id": "common", "label": "CommonExpr",  "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
-      {"data": {"id": "map",    "label": "MapExpr",     "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
+  ```mermaid
+  flowchart LR
+    eq["== != #60; #62; in"] --> scalar["ScalarExpr"]
+    like["like ilike"] --> scalar
+    agg["avg sum max min"] --> scalar
+    arr["#38;#38; @#62; (array)"] --> array["ArrayExpr"]
+    cur["before after since until"] --> common["CommonExpr"]
+    ex["exists"] --> common
+    json["@#62; #60;@ jsonb_exists"] --> map["MapExpr"]
 
-      {"data": {"id": "eq",   "label": "==, !=, <, >, in", "tier": 1}},
-      {"data": {"id": "like", "label": "like, ilike",      "tier": 1}},
-      {"data": {"id": "agg",  "label": "avg, sum, max, min", "tier": 1}},
-      {"data": {"id": "arr",  "label": "&&, @> (array)",   "tier": 1}},
-      {"data": {"id": "cur",  "label": "before, after, since, until", "tier": 1}},
-      {"data": {"id": "ex",   "label": "exists",           "tier": 1}},
-      {"data": {"id": "json", "label": "@>, <@, jsonb_exists", "tier": 1}},
+    norm["Normalizer"] -. "eq → ==" .-> eq
+    norm -. "downcase → lower" .-> like
 
-      {"data": {"source": "eq",   "target": "scalar"}},
-      {"data": {"source": "like", "target": "scalar"}},
-      {"data": {"source": "agg",  "target": "scalar"}},
-      {"data": {"source": "arr",  "target": "array"}},
-      {"data": {"source": "cur",  "target": "common"}},
-      {"data": {"source": "ex",   "target": "common"}},
-      {"data": {"source": "json", "target": "map"}},
-
-      {"data": {"source": "norm", "target": "eq",   "label": "eq->=="}},
-      {"data": {"source": "norm", "target": "like", "label": "downcase->lower"}}
-    ]
-  }
+    click scalar href "EctoShorts.DynamicBuilders.Postgres.html" "Scalar comparisons, in, like/ilike, aggregates"
+    click array href "EctoShorts.DynamicBuilders.Postgres.html" "Postgres array operators"
+    click common href "EctoShorts.DynamicBuilders.Postgres.html" "Cursor, timestamp, and exists filters"
+    click map href "EctoShorts.DynamicBuilders.Postgres.html" "JSONB operators"
   ```
+
+  | Operator(s) | Routes to | What it does |
+  | --- | --- | --- |
+  | `==` `!=` `<` `>` `in` | [`ScalarExpr`](EctoShorts.DynamicBuilders.Postgres.html) | Comparisons, equality, membership |
+  | `like` `ilike` | [`ScalarExpr`](EctoShorts.DynamicBuilders.Postgres.html) | Pattern matching |
+  | `avg` `sum` `max` `min` | [`ScalarExpr`](EctoShorts.DynamicBuilders.Postgres.html) | Aggregate comparisons |
+  | `&&` `@>` (array) | [`ArrayExpr`](EctoShorts.DynamicBuilders.Postgres.html) | Postgres array operators |
+  | `before` `after` `since` `until` | [`CommonExpr`](EctoShorts.DynamicBuilders.Postgres.html) | Cursor / timestamp filters |
+  | `exists` | [`CommonExpr`](EctoShorts.DynamicBuilders.Postgres.html) | Existence subqueries |
+  | `@>` `<@` `jsonb_exists` | [`MapExpr`](EctoShorts.DynamicBuilders.Postgres.html) | JSONB operators |
 
   `EctoShorts.DynamicBuilders` delegates the work to a dynamic adapter. The adapter
   may be given explicitly, configured globally, or inferred from the repo
