@@ -9,10 +9,10 @@ index is the map.
 | # | Plan | Delivers | Key decisions |
 |---|---|---|---|
 | 01 | `TermResolver` foundation | A pure, dialect-agnostic translator: operator canonicalization (atom + string safe-list), field resolution, casting, routing family, and the **core** canonical-term output. No wiring yet — unit-tested in isolation. | D-ELIXIR-FIRST, D-WIRE (string ops), D-COLLISION, routing (§3.4) |
-| 02 | Pure adapter + Expr cleanup | Shrink `DynamicBuilders.Postgres` to a thin adapter over canonical terms; make `CommonExpr`/`ScalarExpr` pure; decompose the ~370-line `comparison_impl` and collapse the builder matrix. | D1, D-CommonExpr-FIELD, B1/B2 |
+| 02 | Pure Expr + `comparison_impl` decomposition | Behavior-preserving refactor: split the ~373-line `comparison_impl` into per-family dispatchers; make `CommonExpr` pure (column passed in). Guarded by the existing `assert_sql` suite. *(Shrinking `build_dynamic` to a thin adapter moves to Plan 05 — it depends on `TermResolver` being wired.)* | D1, D-CommonExpr-FIELD, B1/B2 |
 | 03 | Operand convention + new capabilities | `value`/`field`/`from`/`parent` operands, sibling `as:`, binary arithmetic, `overlaps`, exact array equality, `shift`/`unit` date-math, `trim`/`ltrim`/`rtrim`. | D-OPERAND, D-SIBLING, D-LIST, D-ADD-SHIFT, D-TRIM |
 | 04 | Behavior changes | D-NULL (plain-SQL nulls), D-RAISE (incl. malformed-value & `gt nil`), D-ONE-WAY, D-PROVIDER, single-pass `sort_filter_params` (D2), aggregate→HAVING + auto-GROUP-BY. | D-NULL, D-RAISE, D-ONE-WAY, D-PROVIDER, D2 |
-| 05 | CommonFilters wiring | Route predicates through `TermResolver` → adapter; integrate everything end-to-end; reconcile the schema-backed + schemaless suites. | integration |
+| 05 | CommonFilters wiring + thin adapter | Route predicates through `TermResolver` → a thin `build_dynamic` adapter (the tidying removed from `Postgres`); move `common_field_for` into `TermResolver`; aggregate→HAVING; integrate end-to-end; reconcile both suites. | integration, D-CommonExpr-FIELD |
 | 06 | Validate step (HTTP entry) | Allow-listing, casting-to-errors-as-data, configurable limits; settles the §8 open items (error-data shape, registered-alias registry, limit defaults). | D-WIRE, D-RAISE (HTTP→4xx) |
 
 **Test reconciliation** (the ~67 audit CHANGEs in `docs/superpowers/specs/test-audit.md`)
