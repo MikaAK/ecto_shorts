@@ -15,6 +15,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   @string_ops [:like, :ilike]
   @list_ops [:in, :nin, :overlaps]
   @date_math_ops [:ago, :from_now, :shift]
+  @arith %{add: :+, subtract: :-, multiply: :*, divide: :/}
 
   # Canonical operator atoms recognized from the wire (as strings).
   @operator_atoms @comparison_ops ++
@@ -224,14 +225,28 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     [{op, {:field, field_ref(m)}}]
   end
 
-  # text transforms on the value side: %{lower: v} (reduced, in case of several)
-  defp build_one(op, %{} = inner, _type) when op in [:==, :!=] do
-    Enum.reduce(inner, [], fn {raw_t, v}, acc ->
-      case canonical_op(raw_t) do
-        t when t in @text_transforms -> acc ++ [{op, {t, v}}]
-        _ -> (warn_skip("Unknown transform, skipping"); acc)
-      end
-    end)
+  # arithmetic operand: exactly one arith key whose value is a 2-element operand
+  # list. Recognized by an explicit Enum.filter over the known arith keys (never
+  # a singleton Map.to_list match). Falls through to the transform branch when no
+  # arith key is present. Placed after value/field/date-math, before scalar.
+  defp build_one(op, %{} = m, type) when op in @comparison_ops do
+    case Enum.filter(Map.keys(@arith), &Map.has_key?(m, &1)) do
+      [arith] ->
+        case Map.fetch!(m, arith) do
+          [a, b] ->
+            [{op, {Map.fetch!(@arith, arith), [operand(a, type), operand(b, type)]}}]
+
+          _ ->
+            raise EctoShorts.FilterError, "arithmetic takes exactly two operands"
+        end
+
+      [] ->
+        build_one_transform(op, m, type)
+
+      _many ->
+        raise EctoShorts.FilterError,
+              "expected a single arithmetic operator, got: #{inspect(Map.keys(m))}"
+    end
   end
 
   # like/ilike with auto-wrap
@@ -258,6 +273,21 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     []
   end
 
+  # text transforms on the value side: %{lower: v} (reduced, in case of several).
+  defp build_one_transform(op, %{} = inner, _type) when op in [:==, :!=] do
+    Enum.reduce(inner, [], fn {raw_t, v}, acc ->
+      case canonical_op(raw_t) do
+        t when t in @text_transforms -> acc ++ [{op, {t, v}}]
+        _ -> (warn_skip("Unknown transform, skipping"); acc)
+      end
+    end)
+  end
+
+  defp build_one_transform(_op, _inner, _type) do
+    warn_skip("Unsupported operator/value, skipping")
+    []
+  end
+
   # Reduce a comparison value (map/keyword) into a list of {canonical_op, value}.
   defp compares(value, type) do
     cond do
@@ -280,6 +310,10 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # binding (`as:` — recorded as {binding, field}; validated later, §3.11).
   defp field_ref(%{field: f, as: b}), do: {b, f}
   defp field_ref(%{field: f}), do: f
+
+  # operand of an arithmetic expression: a field reference or a literal value.
+  defp operand(%{field: _} = m, _type), do: {:field, field_ref(m)}
+  defp operand(%{value: v}, type), do: {:value, cast(type, v)}
 
   @date_units ~w(second minute hour day week month year)
 

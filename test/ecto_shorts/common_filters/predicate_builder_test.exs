@@ -199,6 +199,22 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
                PredicateBuilder.build(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
     end
 
+    test "binary arithmetic operand tidies to an ordered-array term" do
+      assert {:ok, [%Predicate{expr: {:>, {:+, [{:field, :id}, {:value, 5}]}}}]} =
+               PredicateBuilder.build(Post, :views, %{gt: %{add: [%{field: :id}, %{value: "5"}]}}, [])
+    end
+
+    test "arithmetic with three operands raises (binary only)" do
+      assert_raise EctoShorts.FilterError, fn ->
+        PredicateBuilder.build(
+          Post,
+          :views,
+          %{gt: %{add: [%{field: :a}, %{field: :b}, %{value: 1}]}},
+          []
+        )
+      end
+    end
+
     test "an unknown operator entry is dropped (warn); other entries survive" do
       log =
         capture_log(fn ->

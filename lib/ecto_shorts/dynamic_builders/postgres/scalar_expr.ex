@@ -300,6 +300,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
       aggregate?(term) -> aggregate_comparison(binding, key, term)
       datetime?(term) -> datetime_comparison(binding, key, term)
       arithmetic?(term) -> arithmetic_comparison(binding, key, term)
+      operand?(term) -> operand_comparison(binding, key, term)
       parent_as?(term) -> parent_as_comparison(binding, key, term)
       true -> scalar_value_fallback(binding, key, term)
     end
@@ -328,6 +329,18 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
        do: true
 
   defp arithmetic?(_), do: false
+
+  # New operand shapes (spec §1.5a): a field/sibling reference, or a binary
+  # arithmetic expression with ordered-array operands.
+  defp operand?({op, rhs}) when op in @comparison_operators, do: operand_rhs?(rhs)
+  defp operand?({:not, {op, rhs}}) when op in @comparison_operators, do: operand_rhs?(rhs)
+  defp operand?(_), do: false
+
+  defp operand_rhs?({:field, col}) when is_atom(col) and col !== nil, do: true
+  defp operand_rhs?({:field, {_b, col}}) when is_atom(col) and col !== nil, do: true
+
+  defp operand_rhs?({sym, [_a, _b]}) when sym in [:+, :-, :*, :/], do: true
+  defp operand_rhs?(_), do: false
 
   defp parent_as?({:parent_as, {_pb, _pf}}), do: true
   defp parent_as?({:not, {:parent_as, {_pb, _pf}}}), do: true
@@ -770,6 +783,39 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     f = field_dyn(binding, key)
     f2 = field_dyn(binding, af)
     apply_arith_comparison(op_a, f, f2, arith_op, av, :negated)
+  end
+
+  # New operand comparisons: field/sibling reference and binary arithmetic.
+  defp operand_comparison(binding, key, {op, rhs}) when op in @comparison_operators do
+    lhs = field_dyn(binding, key)
+    apply_dyn_comparison(op, lhs, comparison_rhs(binding, rhs), :plain)
+  end
+
+  defp operand_comparison(binding, key, {:not, {op, rhs}}) when op in @comparison_operators do
+    lhs = field_dyn(binding, key)
+    apply_dyn_comparison(op, lhs, comparison_rhs(binding, rhs), :negated)
+  end
+
+  defp operand_dyn(binding, {:field, {bind, col}}) when bind !== nil do
+    _ = binding
+    dynamic([], field(as(^bind), ^col))
+  end
+
+  defp operand_dyn(binding, {:field, col}), do: field_dyn(binding, col)
+  defp operand_dyn(_binding, {:value, v}), do: dynamic([], ^v)
+
+  defp comparison_rhs(binding, {:field, _} = f), do: operand_dyn(binding, f)
+
+  defp comparison_rhs(binding, {sym, [a, b]}) when sym in [:+, :-, :*, :/] do
+    da = operand_dyn(binding, a)
+    db = operand_dyn(binding, b)
+
+    case sym do
+      :+ -> dynamic([], ^da + ^db)
+      :- -> dynamic([], ^da - ^db)
+      :* -> dynamic([], ^da * ^db)
+      :/ -> dynamic([], ^da / ^db)
+    end
   end
 
   # parent_as: compare current binding field against a field on a named parent binding

@@ -445,6 +445,37 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     end
   end
 
+  describe "field / sibling / arithmetic operands" do
+    test "{:>, {:field, col}} compares to another column on the current binding" do
+      expected = dynamic([q], field(q, :views) > field(q, :id))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>, {:field, :id}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, {:field, {binding, col}}} compares to a column on a sibling binding" do
+      expected = dynamic([q], field(q, :views) > field(as(:author), :age))
+      actual = ScalarExpr.dynamic_expr({:as, nil}, :views, nil, {:>, {:field, {:author, :age}}}, [])
+
+      assert_dynamic(expected, actual)
+    end
+
+    test "{:>, {:+, [field, value]}} compares against computed-field arithmetic" do
+      expected = dynamic([q], field(q, :views) > field(q, :id) + ^5)
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :views,
+          nil,
+          {:>, {:+, [{:field, :id}, {:value, 5}]}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+  end
+
   describe ":parent_as field comparisons" do
     test "{:==, {:parent_as, binding}} produces equality against parent binding" do
       expected = dynamic([q], field(q, :id) == field(parent_as(:post), :id))
