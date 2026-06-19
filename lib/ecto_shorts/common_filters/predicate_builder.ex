@@ -452,6 +452,27 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp build_one(op, value, type) when op in @comparison_ops,
     do: [{op, cast(type, value)}]
 
+  # :aggregate wrapper: normalizes %{aggregate: %{fn: F, compare: C, value: V}} or
+  # keyword form into the same canonical term as the shorthand {F, {C, V}}.
+  defp build_one(:aggregate, params, type) when is_map(params) and not is_struct(params) do
+    agg_fn = Map.fetch!(params, :fn)
+    compare_op = Map.fetch!(params, :compare)
+    value = Map.fetch!(params, :value)
+    build_one(agg_fn, %{compare_op => value}, type)
+  end
+
+  defp build_one(:aggregate, params, type) when is_list(params) do
+    if Keyword.keyword?(params) do
+      agg_fn = Keyword.fetch!(params, :fn)
+      compare_op = Keyword.fetch!(params, :compare)
+      value = Keyword.fetch!(params, :value)
+      build_one(agg_fn, %{compare_op => value}, type)
+    else
+      warn_skip("Unsupported operator/value, skipping")
+      []
+    end
+  end
+
   defp build_one(_op, _value, _type) do
     warn_skip("Unsupported operator/value, skipping")
     []

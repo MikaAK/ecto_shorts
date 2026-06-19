@@ -3077,7 +3077,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
     end
   end
 
-  describe ":aggregate wrapper removed (D-ONE-WAY)" do
+  describe ":aggregate wrapper (alias of shorthand form)" do
   @describetag feature: :aggregate_operators
     test "the short aggregate spelling works (gt spelling, end-to-end)" do
       source = from(p in Post, group_by: p.author_id)
@@ -3088,17 +3088,36 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_sql(from(p in Post, group_by: p.author_id, having: avg(p.views) > ^5), actual)
     end
 
-    test "the :aggregate wrapper is no longer supported (unrecognized operator is skipped)" do
-      # With the wrapper clauses removed, an :aggregate key is an unrecognized
-      # operator on a valid field, which resolves to no predicate and is skipped.
-      actual =
+    test "the :aggregate wrapper produces the same HAVING query as the shorthand spelling (map params)" do
+      source = from(p in Post, group_by: p.author_id)
+
+      shorthand =
+        CommonFilters.convert_params_to_filter(source, %{having: %{views: %{avg: %{>: 5}}}}, [])
+
+      wrapper =
         CommonFilters.convert_params_to_filter(
-          Post,
-          %{views: %{aggregate: %{fn: :avg, compare: :>, value: 5}}},
+          source,
+          %{having: %{views: %{aggregate: %{fn: :avg, compare: :>, value: 5}}}},
           []
         )
 
-      assert_sql(from(p in Post), actual)
+      assert_sql(shorthand, wrapper)
+    end
+
+    test "the :aggregate wrapper accepts keyword list params" do
+      source = from(p in Post, group_by: p.author_id)
+
+      shorthand =
+        CommonFilters.convert_params_to_filter(source, %{having: %{views: %{avg: %{>: 5}}}}, [])
+
+      wrapper =
+        CommonFilters.convert_params_to_filter(
+          source,
+          %{having: %{views: %{aggregate: [fn: :avg, compare: :>, value: 5]}}},
+          []
+        )
+
+      assert_sql(shorthand, wrapper)
     end
   end
 
