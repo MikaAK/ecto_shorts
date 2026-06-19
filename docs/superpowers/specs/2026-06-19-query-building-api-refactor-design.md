@@ -1,83 +1,145 @@
-# Specification — `convert_params_to_filter/3` and the Query-Building Pipeline
+# Plan — Rebuilding How EctoShorts Turns Filters Into Database Queries
 
 **Status:** Draft for review · **Date:** 2026-06-19 · **Branch:** v3.0.0
 
-This document is the **single source of truth** for the behavior of the EctoShorts
-query-building pipeline and the target architecture of its refactor. It is
-self-contained: every public contract, every internal contract, the canonical
-data structure that crosses each boundary, and the behavior at each boundary is
-defined here. Where current behavior is contested, the **Behavior Decisions**
-(§4) record the ruling — the spec overrides both code and tests.
+## What this document is
 
-Grounded in the behavior inventory at `./inventory/` (4 files, alongside this
-spec) and the probe constraints at
-`autoresearch/probe-260619-0650/constraints.md`.
+EctoShorts is a small library that lets you describe what rows you want from a
+database by writing a plain Elixir map, instead of writing a query by hand. For
+example, you write `%{age: %{gt: 21}}` and the library builds the database request
+that means "rows where age is greater than 21."
+
+This document is the agreed description of **how that translation should work** —
+both the part other people's code depends on (the promises we keep to callers)
+and the part inside the library (how the pieces fit together). It is the single
+source of truth: if the code or a test disagrees with this document, this document
+wins, and we change the code or test to match.
+
+The goal is a rewrite that is simpler and clearer, without changing what callers
+see. Everything here is grounded in a detailed survey of the current code and
+tests, stored alongside this file in `./inventory/` (four files).
 
 ---
 
-## 0. Goal, Non-Goals, and Governing Principles
+## Words used in this document
+
+- **Ecto** — the standard Elixir library for talking to a database.
+- **Query** — a database request (the thing that fetches or changes rows).
+- **Schema** — an Elixir description of one database table: its columns and the
+  type of each column. EctoShorts can also work "schemaless," meaning it does not
+  have this description and must be told column types another way.
+- **Field** — one column of a table (for example, `age` or `title`).
+- **Filter** — a piece of a request that narrows down which rows you want.
+- **Operator** — a comparison word, such as "equals," "greater than," or "is one
+  of." In code these are short symbols like `:==`, `:>`, `:in`.
+- **Operator nickname (alias)** — a friendlier spelling of an operator. Callers
+  may write `:gt`; the library treats it as `:>`. `:eq`→`:==`, `:ne`→`:!=`,
+  `:gt`→`:>`, `:gte`→`:>=`, `:lt`→`:<`, `:lte`→`:<=`, `:downcase`→`:lower`,
+  `:upcase`→`:upper`.
+- **Condition (predicate)** — a true/false test applied to a row, such as
+  "age > 21."
+- **Ecto dynamic** — a condition built up in code that Ecto can later drop into a
+  query. When this document says a piece of code "builds a condition," it means it
+  produces one of these.
+- **Tidied form (canonical form)** — the single standard shape we put a filter
+  into before building the query. For example, after tidying, the nickname `:gt`
+  has become `:>`, the text `"21"` has become the number `21`, and a column name
+  given as text has become an Elixir atom.
+- **Convert a value (cast)** — change a value into the type the column expects.
+  Turning the text `"5"` into the number `5` is casting.
+- **Go through one by one (reduce/fold)** — walk a list of items, building up a
+  result as you go. This is the plain loop pattern we want the code to use.
+- **Binding** — which table a condition points at, when a query involves more than
+  one table. Most conditions point at the main table; some point at a joined one.
+- **Association** — a link between two tables, such as a post and its author.
+- **Subquery** — a query nested inside another query.
+- **Aggregate** — a function that boils many rows down to one number, like average
+  or count.
+- **Pure helper (pure function)** — a function that only turns its inputs into an
+  output. It does not look anything up, read configuration, or change anything
+  outside itself. Pure helpers are easy to understand and test because the same
+  input always gives the same output.
+- **Database brand (dialect)** — the specific database product. Today EctoShorts
+  only supports PostgreSQL.
+- **Logs a warning and skips** — when the library is given something it cannot use
+  (an unknown column, an unsupported combination), it writes a warning message to
+  the log and simply leaves that filter out, rather than crashing.
+
+---
+
+## 0. Goal, what we are NOT doing, and the rules we follow
 
 ### 0.1 Goal
-Restructure the pipeline so that:
-1. **Normalization-as-a-pass is eliminated.** No stage walks the param tree and
-   rewrites it into a normalized tree before building. Canonicalization happens
-   **at the leaf, inside a single reduce**, per entry, at dispatch time.
-2. **The leaf `*Expr` modules are pure.** `ScalarExpr`, `ArrayExpr`, `MapExpr`,
-   `CommonExpr` receive a fully-canonical term plus a resolved field atom and
-   binding, and do exactly one thing: emit an `Ecto.Query.dynamic`. They never
-   alias operators, cast values, resolve field names, reflect on schemas, or
-   hardcode field names.
-3. **One dialect-agnostic resolver** owns operator canonicalization, value
-   casting, field-name resolution, field-type routing, and wrapper expansion.
-4. **Reduce patterns replace recursive rewrite chains** at every point they were
-   masquerading as something else (`sort_filter_params`, `build_dynamic`,
-   `apply_expr`, `cast_value`).
-5. **`comparison_impl` is decomposed** into per-family dispatchers plus one
-   collapsed comparison matrix.
+Reshape the translation so that:
 
-### 0.2 Non-Goals
-- No change to the **public param language** callers use today (§1). Every param
-  shape that works now keeps working identically.
-- No new database dialects implemented. The resolver is made dialect-agnostic so
-  a future dialect *could* be added, but only Postgres ships.
-- No redesign of the error policy beyond what §4 rules. `warn + nil` is preserved
-  unless a decision in §4 says otherwise.
+1. **There is no separate "tidy everything first" step.** Today the code makes
+   several passes that rewrite the whole input into a tidied shape before building
+   anything. We are removing that. Instead, each filter is tidied *at the moment
+   it is handled*, inside one simple loop.
+2. **The small SQL-building helpers become pure helpers.** Four helper modules
+   (`ScalarExpr`, `ArrayExpr`, `MapExpr`, `CommonExpr`) should each do exactly one
+   thing: take an already-tidied filter and produce a database condition. They
+   should never rename operators, convert values, look up column names, read the
+   schema, or assume a column is called `id`.
+3. **One translator does all the tidying.** A single piece — which we will call
+   the **resolver** — turns a caller's raw input into the tidied form: it renames
+   operators, converts values, resolves column names, and decides which helper
+   should handle each filter. It contains no SQL and is not tied to any database
+   brand.
+4. **Plain loops replace the rewrite chains** everywhere they were hiding behind
+   other names.
+5. **The biggest tangled function is broken up.** One function in `ScalarExpr` is
+   about 370 lines and handles a dozen different cases at once; we split it into
+   small, clearly named pieces.
 
-### 0.3 Governing Principles (from `RULES.md`)
-- **Design against public contracts, not internal representations.** Each
-  boundary in §1–§3 is defined by the shape passed in and the shape returned.
-- **Behaviour spec before implementation.** This document is that spec; no code
-  until it is approved.
-- **Show state and state changes.** Every transformation below shows literal
-  `before → after` term shapes.
+### 0.2 What we are NOT doing
+- We are **not** changing the filters callers write. Every map shape that works
+  today keeps working exactly the same way (§1).
+- We are **not** adding support for other databases. We make the translator
+  database-agnostic so another could be added later, but only PostgreSQL ships.
+- We are **not** changing how errors are handled, except where §4 explicitly says
+  so. "Log a warning and skip" stays the behavior.
+
+### 0.3 The rules we follow (from `RULES.md`)
+- **Depend on promises, not on inner workings.** Each boundary below is described
+  by what goes in and what comes out, not by how it happens to be coded today.
+- **Write the plan before the code.** This document is that plan. No code is
+  written until it is approved.
+- **Show the actual values, not just descriptions.** Every translation below shows
+  a real "before" and "after."
 
 ---
 
-## 1. PUBLIC CONTRACT — `EctoShorts.CommonFilters.convert_params_to_filter/3`
+## 1. THE PROMISE TO CALLERS — `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
-### 1.1 Signature
+This is the front door. Other people's code calls it; it must keep behaving
+exactly as it does today.
+
+### 1.1 How it is called
 ```elixir
-@spec convert_params_to_filter(source, params, opts) :: Ecto.Query.t()
-  when source :: module() | {binary(), module()} | Ecto.Query.t(),
-       params :: map() | keyword(),
-       opts   :: keyword()
+convert_params_to_filter(source, params, opts \\ [])
 ```
+- `source` — what you are querying: a schema, or a `{table_name, schema}` pair, or
+  an existing query.
+- `params` — your filters, as a map or a keyword list.
+- `opts` — extra options (listed in §1.6).
 
-### 1.2 Inputs
-| Param | Accepted shapes | Notes |
+It returns one query with all your filters applied.
+
+### 1.2 What it accepts
+| Input | Accepted forms | Notes |
 |---|---|---|
-| `source` | schema module · `{source_string, schema}` tuple · pre-built `Ecto.Query` | Coerced to `Ecto.Query` via `CommonSchema.to_query/1`. Schemaless `{source, schema}` carries no field types unless `:field_types` is supplied. |
-| `params` | plain map (non-struct) · keyword list | Keyword lists preserve **duplicate keys and order**; maps are converted to a keyword list internally. No validation — unknown keys fall through to field/`:where` routing (§1.5). |
-| `opts` | keyword list | Recognized keys in §1.6. |
+| `source` | a schema · a `{table_name, schema}` pair · an existing query | Turned into a query internally. The schemaless `{table_name, schema}` form has no column types unless you pass `:field_types`. |
+| `params` | a plain map · a keyword list | Keyword lists keep duplicate keys and their order. A map is turned into a keyword list internally. Unknown keys are treated as a column filter (§1.5). |
+| `opts` | a keyword list | See §1.6. |
 
-### 1.3 Output
-A single `Ecto.Query.t()` with all recognized filters applied. **The function
-never raises for unrecognized fields or unsupported operator/field combinations**
-— it emits a `Logger.warning` and skips that filter (see §4-D1 for the one
-audited exception around datetime wrappers).
+### 1.3 What it returns
+A single query with every recognized filter applied. **It never crashes because of
+an unknown column or an unsupported combination** — it logs a warning and skips
+that filter. (There is one audited exception, noted in §4.)
 
-### 1.4 The public param language (closed list of recognized keys)
-Structural filter keys (routed to `Builder`/sub-modules):
+### 1.4 The filters callers may write (the full, frozen list)
+These are the structural filter words the library recognizes:
 ```
 :and :distinct :except :except_all :exclude :first :group_by :having
 :intersect :intersect_all :join :last :limit :lock :offset :or :or_having
@@ -85,429 +147,410 @@ Structural filter keys (routed to `Builder`/sub-modules):
 :reverse_order :select :select_merge :subquery :union :union_all :update
 :where :windows :with_cte :with_named_binding :with_ties
 ```
-Special-dispatch keys: `:as`, `:at` (binding selectors).
-Implicit keys: **any schema association name** (→ implicit join + recurse), **any
-other key** (→ treated as a `:where` field predicate).
+Two special words pick which table a filter points at: `:as` and `:at`.
+Anything else is handled automatically: a key that names an **association** turns
+into a join plus a nested filter; any **other** key is treated as a column filter
+(the same as putting it under `:where`).
 
-> The exhaustive per-key table (accepted shapes, emitted clause, warn/nil cases,
-> file:line) lives in `inventory/01-common-filters.md` §7 and is incorporated by
-> reference. The refactor MUST preserve every row of that table except where §4
-> rules otherwise.
+> The full table of every filter word — what shapes it accepts, what it adds to the
+> query, and when it warns-and-skips — lives in `inventory/01-common-filters.md`,
+> section 7. The rewrite must keep every row of that table the same, except where
+> §4 says otherwise.
 
-### 1.5 Predicate value language (the part this refactor reshapes internally)
-Within `:where` / `:or_where` / `:having` / `:or_having` / `:and` / `:or` and
-bare field keys, a field maps to a **value expression**. The public value
-grammar (callers depend on this) is:
+### 1.5 The filter-value language (the part this rewrite reshapes inside)
+Inside `:where`, `:or_where`, `:having`, `:or_having`, `:and`, `:or`, and plain
+column keys, a column maps to a **value test**. Here is the full set of value
+tests callers can write (callers depend on this; it does not change):
 
 ```
-value_expr :=
-    scalar                              # {field: 1}                 → field == 1
-  | nil                                 # {field: {==: nil}}         → is_nil(field)
-  | [v, ...]                            # {field: [1,2]}             → field IN [1,2]  (scalar) / overlap (array)
-  | %{op => operand}  | [op: operand]   # {field: %{gt: 5}}          → field > 5
-  | %{:not => value_expr}               # {field: %{not: %{eq: 5}}}  → NOT (field == 5)
-  | %{agg => %{op => v}}                # {field: %{avg: %{gt: 5}}}  → avg(field) > 5
-  | %{op => %{all|any => qspec}}        # {id: %{==: %{all: %{from: C, ...}}}}
-  | %{arithmetic: %{...}}               # computed-field comparison (CLAUDE.md)
-  | %{aggregate: %{...}}                # aggregate comparison (CLAUDE.md)
-  | %{elements: value_expr}             # force array routing (CLAUDE.md)
-  | %{op => %{value|field|date|datetime|parent_as => ...}}  # RHS expressions
-  | %{contains|contained_by|has_key|has_any_key|has_all_keys => ...}  # JSONB (map fields)
-  | datetime/date wrappers (:ago :from_now :add)
+A value test can be:
+  a plain value          %{id: 1}                  → id equals 1
+  nothing (nil)          %{published_at: %{eq: nil}} → published_at has no value
+  a list                 %{id: [1, 2]}             → id is one of 1, 2
+  an operator + value    %{age: %{gt: 21}}         → age greater than 21
+  "not" + a value test   %{age: %{not: %{eq: 5}}}  → age is not 5
+  an aggregate test      %{views: %{avg: %{gt: 5}}} → average of views greater than 5
+  a compare-to-a-set     %{id: %{eq: %{all: ...}}}  → id equals every value from a subquery
+  a computed-field test  %{score: %{arithmetic: ...}}  → compare against a calculation
+  an aggregate wrapper    %{score: %{aggregate: ...}}   → another way to write an aggregate test
+  a force-list wrapper    %{tags: %{elements: ...}}     → treat the column as a list
+  a right-hand expression %{a: %{gt: %{field: :b}}}      → compare one column to another
+  a JSON test            %{data: %{has_key: "role"}}    → for columns that store JSON
+  a date-math test       %{at: %{gt: %{ago: {1, :day}}}} → compare against "1 day ago", etc.
 ```
 
-**Operator aliases (public, kept):**
-`:eq→:==`, `:ne→:!=`, `:gt→:>`, `:gte→:>=`, `:lt→:<`, `:lte→:<=`,
-`:downcase→:lower`, `:upcase→:upper`.
+The operator nicknames listed in the glossary (`:gt`, `:downcase`, …) are part of
+this public language and stay. Section 2 describes the **tidied** form we turn all
+of this into inside the library.
 
-This public grammar is **frozen**. §2 defines the *internal canonical* grammar the
-resolver produces from it.
-
-### 1.6 Recognized `opts`
-| Key | Meaning |
+### 1.6 The options it accepts
+| Option | Meaning |
 |---|---|
-| `:field_types` | `keyword()` of `field → Ecto type`; overrides schema reflection (required for typed routing on schemaless sources). |
-| `:allowed_keys` | string-field allowlist used when no schema is present (field-name resolution, §3.3). |
-| `:sorter` | custom 1-arity sorter replacing `sort_filter_params/1`. |
-| `:dynamic_builder` | per-call `DynamicBuilder` override (dialect adapter). |
-| `:query_builder_module` | per-call `QueryBuilder` override. |
-| (app config) | `:repo`, `:replica`, `:dynamic_builder_module`, `:query_builder_module`, `:query_provider_module`, `:error_module`, `:max_positional_bindings`. |
+| `:field_types` | A list of `column → type`. Overrides the schema, and is required to get list/JSON behavior on schemaless sources. |
+| `:allowed_keys` | When there is no schema, the list of column names (as text) the library is allowed to accept. |
+| `:sorter` | Your own function to order the filters, replacing the built-in ordering. |
+| `:dynamic_builder` | Use a different database-brand translator for this one call. |
+| `:query_builder_module` | Use a different filter dispatcher for this one call. |
+| (set in app config) | `:repo`, `:replica`, `:dynamic_builder_module`, `:query_builder_module`, `:query_provider_module`, `:error_module`, `:max_positional_bindings`. |
 
 ---
 
-## 2. INTERNAL CONTRACT — Canonical-Term Grammar & Resolver
+## 2. THE INSIDE PROMISE — the tidied form and the translator
 
-This is the heart of the refactor. **Resolution of T3** (probe conflict): a
-canonical term is produced **inline, at the leaf, within the fold** — there is no
-intermediate normalized tree. The grammar below defines what a *single resolved
-leaf* looks like when it is handed to a dialect adapter; it is never materialized
-as a rewritten copy of the whole param structure.
+This is the heart of the rewrite.
 
-### 2.1 The resolved leaf (what the dialect adapter / Expr modules receive)
+**An important point first.** We tidy each filter *at the moment we handle it*,
+right before building its condition — not by rewriting the whole input up front.
+There is never a fully-rewritten copy of your input sitting in memory. (This is the
+distinction the team cares about most; it is what "no separate tidy-everything
+step" means in practice.)
+
+### 2.1 What a fully-tidied filter looks like
+When a filter is ready to be turned into SQL, it is described by five things:
 ```
-ExprInput := {
-  binding   :: query_binding,        # root | {:as, name} | {:at, pos}
-  field     :: atom,                 # already resolved, never a string, never nil
-  negated   :: :not | nil,           # negation lifted out, applied once at the end
-  term      :: canonical_term,       # see 2.2 — operators canonical, values cast
-  routing   :: :scalar | :array | :map | :common
-}
-```
-
-### 2.2 `canonical_term` grammar (closed)
-```
-canonical_op   := :== | :!= | :> | :>= | :< | :<=          # aliases already resolved
-agg_fn         := :avg | :count | :max | :min | :sum
-quantifier     := :all | :any
-arith_op       := :+ | :- | :* | :/
-dt_wrapper     := :date | :datetime
-dt_op          := :ago | :from_now | :add
-case_op        := :lower | :upper                          # :downcase/:upcase resolved away
-
-canonical_term :=
-  # — scalar / nil / membership (routing :scalar or :array per field type) —
-    {canonical_op, scalar_value}                           # cast scalar
-  | {canonical_op, nil}                                    # nil check
-  | {:in, [cast_value, ...]}                               # membership
-  | {canonical_op, [cast_value, ...]}                      # list (==/!= → membership; array → overlap)
-
-  # — string —
-  | {:like | :ilike, pattern | [pattern, ...]}             # patterns pre-wrapped per §4-D5
-  | {canonical_op, {case_op, value}}                       # lower/upper transform
-
-  # — aggregate —
-  | {agg_fn, {canonical_op, cast_value | nil}}
-
-  # — quantified —
-  | {canonical_op, {quantifier, qspec}}                    # qspec = subquery | list
-
-  # — datetime / date —
-  | {canonical_op, {dt_wrapper, {dt_op, [count: int, interval: bin, field: atom?]}}}
-
-  # — arithmetic (computed field) —
-  | {canonical_op, {:value, {arith_op, {{:field, atom}, {:value, cast_value}}}}}
-
-  # — parent_as —
-  | {canonical_op, {:parent_as, {binding_atom, field_atom}}}
-  | {:parent_as, {binding_atom, field_atom}}               # bare, implies :==
-
-  # — array-specific (routing :array) —
-  | {:count, {canonical_op, integer}}
-  | {quantifier, {canonical_op | :in, value | [value]}}
-
-  # — map / JSONB (routing :map) —
-  | {:contains | :contained_by, {key, value} | json_binary | json_list}
-  | {:has_key, key}
-  | {:has_any_key, [key, ...]}
-  | {:has_all_keys, [key, ...]}
-
-  # — common shorthand (routing :common) —
-  | {:ids, [value]} | {:before|:after|:since|:until, value} | {:exists, query}
-  | {:start_date|:end_date|:since_date|:until_date, timestamp}
+- binding:  which table the condition points at (main table, or a named/numbered one)
+- field:    the column, always as an atom (never text, never missing)
+- negated:  whether this is the "not" case (yes or no)
+- term:     the tidied operator-and-value (see 2.2)
+- routing:  which helper handles it — scalar, array (list), map (JSON), or common
 ```
 
-**Invariants the resolver guarantees before a term reaches a dialect adapter:**
-1. Every operator is canonical (no `:eq`, `:gt`, `:downcase`, …).
-2. Every scalar/list value is already cast to the field's Ecto type.
-3. `field` is a resolved atom; field-name strings have been converted/validated.
-4. `:not` has been lifted into the `negated` slot exactly once.
-5. `routing` is decided (scalar/array/map/common) — adapters do not re-infer it.
-6. Wrapper sugar (`:arithmetic`, `:aggregate`, `:elements`, datetime wrappers,
-   common shorthands like `:ids`/`:start_date`) has been expanded to the closed
-   forms above, **and the shorthand's implicit field is resolved** (e.g. `:ids`
-   carries `:id`, `:start_date` carries `:inserted_at`) so `CommonExpr` no longer
-   hardcodes field names.
+### 2.2 The complete list of tidied filter shapes
+After tidying, every operator is a real symbol (no nicknames left), every value is
+converted to the column's type, and any "not" has been pulled out into the
+`negated` slot. The allowed shapes are exactly these — nothing else reaches a
+helper:
 
-### 2.3 Resolver contract (dialect-agnostic)
-A new module — working name `EctoShorts.QueryBuilder.TermResolver` (final name in
-the plan) — owns all raw→canonical work. It contains **no SQL and no dialect
-knowledge**; it depends only on Ecto type casting and schema reflection.
+```
+operators (after tidying): :== :!= :> :>= :< :<=
+aggregates: :avg :count :max :min :sum
+compare-to-a-set words: :all :any        (every value / at least one value)
+math words: :+ :- :* :/
+date-math: :ago :from_now :add, wrapped in :date or :datetime
+text-case words: :lower :upper
+
+A tidied filter is one of:
+  {operator, value}                         a plain comparison
+  {operator, nil}                           a "has a value / has no value" check
+  {:in, [values]}                           is one of a list
+  {operator, [values]}                      list form of equals / not-equals
+  {:like or :ilike, text or [texts]}        text pattern match
+  {operator, {:lower or :upper, value}}     compare after lowercasing/uppercasing
+  {aggregate, {operator, value}}            e.g. average greater than 5
+  {operator, {:all or :any, set}}           compare against every/any value in a set
+  {operator, {:date or :datetime, {date-math, [count, interval, maybe field]}}}
+  {operator, {:value, {math, {{:field, col}, {:value, n}}}}}   a calculation
+  {operator, {:parent_as, {table, col}}}    compare to a column in an outer query
+  {:count, {operator, number}}              how many items in a list column
+  {:all or :any, {operator or :in, value}}  list-column comparisons
+  {:contains / :contained_by, ...}          JSON containment
+  {:has_key / :has_any_key / :has_all_keys, ...}   JSON key checks
+  {:ids, [..]} / {:before/:after/:since/:until, n} / {:exists, query}   shorthands
+  {:start_date/:end_date/:since_date/:until_date, time}   date shorthands
+```
+
+**What the translator guarantees before any helper sees a filter:**
+1. The operator is a real symbol — no nicknames like `:gt` or `:downcase` remain.
+2. Every value has already been converted to the column's type.
+3. The column is an atom; if it came in as text, it has been resolved and checked.
+4. Any "not" has been pulled out into the `negated` slot, exactly once.
+5. The helper to use (scalar / array / map / common) has already been chosen.
+6. The convenience wrappers (`:arithmetic`, `:aggregate`, `:elements`, the date
+   wrappers, and shorthands like `:ids` or `:start_date`) have been expanded into
+   the plain shapes above — **and the column a shorthand implies has been filled
+   in** (for example `:ids` carries `:id`, `:start_date` carries `:inserted_at`),
+   so the helpers never have to assume a column name.
+
+### 2.3 The translator (the "resolver") — one place, no SQL, no database brand
+A new piece — working name `EctoShorts.QueryBuilder.TermResolver` (final name
+decided in the plan) — does all the tidying. It contains no SQL and knows nothing
+about any specific database. It only knows how to convert values and read the
+schema.
 
 ```elixir
-@spec canonicalize(source, key :: atom, raw_term, opts) ::
-        {:ok, %{field: atom, routing: routing, term: canonical_term, negated: :not | nil}}
-      | :skip                       # field/op unresolvable; a warning was already emitted
+# The one entry point the main loop calls for each filter:
+canonicalize(source, key, raw_term, opts)
+  → {:ok, %{field: atom, routing: which_helper, term: tidied_term, negated: yes/no}}
+  → :skip      # column or operator could not be used; a warning was already logged
 
-# Supporting pure helpers (no SQL):
-@spec canonical_op(raw_op) :: canonical_op
-@spec resolve_field(source, name :: atom | binary, opts) :: {:ok, atom} | :skip
-@spec routing_family(source, field :: atom, opts) :: routing
-@spec cast(field_type, value) :: cast_value
+# Small pure helpers it uses:
+canonical_op(raw_op)            # turns a nickname into the real operator
+resolve_field(source, name, opts)   # turns a column name into a checked atom, or :skip
+routing_family(source, field, opts) # decides scalar / array / map / common
+cast(field_type, value)         # converts a value to the column's type
 ```
 
-- `canonicalize/4` is the only entry the fold calls per leaf. It returns `:skip`
-  (after warning) for unknown fields / unsupported shapes, so the fold simply
-  drops that leaf — preserving today's `warn + nil` (§4).
-- Aliases live here (resolution of probe answer "alias home = in the dispatch
-  reduce, above Expr" — the resolver IS that layer, sitting above the adapters).
+When `canonicalize` cannot use a filter (unknown column, unsupported shape), it
+logs a warning and returns `:skip`, and the main loop simply leaves that filter
+out — which keeps today's "log a warning and skip" behavior.
 
-### 2.4 Dialect adapter contract (`EctoShorts.DynamicBuilder`)
+This translator is also where operator nicknames are turned into real operators —
+it sits directly above the SQL helpers, which is exactly where we decided that work
+belongs.
+
+### 2.4 The database-brand helper (the "adapter")
 ```elixir
-@callback build_dynamic(routing, ExprInput) :: Ecto.Query.dynamic_expr() | nil
+build_dynamic(routing, tidied_filter) → a database condition (or nothing)
 ```
-The Postgres adapter dispatches on `routing` to the matching **pure** Expr module
-and applies `negated` once. Adapters receive only canonical input — they perform
-no casting, aliasing, field resolution, or schema reflection.
+The PostgreSQL adapter looks at `routing` and hands the filter to the matching
+**pure** helper, then applies the "not" once if needed. The adapter receives only
+tidied input — it never converts values, renames operators, resolves columns, or
+reads the schema.
 
-### 2.5 Worked examples — every distinct shape
+### 2.5 Examples — what every shape looks like, end to end
 
-Each row shows the **public param** a caller writes (left), the **resolved
-`ExprInput`** the resolver hands to the adapter (middle: `field` · `negated` ·
-`term` · `routing`), and the **emitted SQL** (right). Examples use the `Post`
-schema (`inventory/04` §6): `views :integer`, `title :string`,
-`published :boolean`, `tags {:array,:string}`, `inserted_at/published_at
-:utc_datetime`; `UserData.data :map`. SQL is shown in Ecto-fragment shorthand;
-`^x` marks a bound parameter.
+Each row shows three things: the **filter a caller writes** (left), the **tidied
+filter** the translator produces (middle: which column · whether it is negated · the
+tidied operator-and-value · which helper), and **the database condition it becomes**
+(right). The examples use a sample `Post` table with columns `views` (number),
+`title` (text), `published` (true/false), `tags` (a list of text), and
+`inserted_at`/`published_at` (timestamps); plus a `UserData` table with a `data`
+column that stores JSON. Conditions are shown in a short readable form; `^x` marks a
+value that is filled in safely at run time.
 
-#### Scalar / nil / membership — `routing: :scalar`
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Plain comparisons, "has a value" checks, and lists — helper: scalar**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{id: 1}` | `:id` · `nil` · `{:==, 1}` | `id == ^1` |
-| `%{views: %{gt: 10}}` | `:views` · `nil` · `{:>, 10}` | `views > ^10` |
-| `%{published_at: %{eq: nil}}` | `:published_at` · `nil` · `{:==, nil}` | `is_nil(published_at)` |
-| `%{published_at: %{ne: nil}}` | `:published_at` · `nil` · `{:!=, nil}` | `not is_nil(published_at)` |
-| `%{published: %{in: [true, false]}}` | `:published` · `nil` · `{:in, [true, false]}` | `published in ^[true, false]` |
-| `%{published: [true, false]}` | `:published` · `nil` · `{:==, [true, false]}` | `published in ^[true, false]` *(list rewrite)* |
-| `%{published: %{ne: [true]}}` | `:published` · `nil` · `{:!=, [true]}` | `is_nil(published) or published not in ^[true]` *(D-NEQ-LIST)* |
+| `%{id: 1}` | `:id` · no · `{:==, 1}` | id equals `^1` |
+| `%{views: %{gt: 10}}` | `:views` · no · `{:>, 10}` | views greater than `^10` |
+| `%{published_at: %{eq: nil}}` | `:published_at` · no · `{:==, nil}` | published_at has no value |
+| `%{published_at: %{ne: nil}}` | `:published_at` · no · `{:!=, nil}` | published_at has a value |
+| `%{published: %{in: [true, false]}}` | `:published` · no · `{:in, [true, false]}` | published is one of `^[true, false]` |
+| `%{published: [true, false]}` | `:published` · no · `{:==, [true, false]}` | published is one of `^[true, false]` *(a plain list means "is one of")* |
+| `%{published: %{ne: [true]}}` | `:published` · no · `{:!=, [true]}` | published has no value OR is not one of `^[true]` *(see decision D-NEQ-LIST)* |
 
-#### String match & transform — `routing: :scalar`
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Text matching and upper/lowercasing — helper: scalar**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{title: %{like: "hello"}}` | `:title` · `nil` · `{:like, "%hello%"}` | `like(title, ^"%hello%")` *(auto-wrap, D-LIKE-WRAP)* |
-| `%{title: %{like: "hello%"}}` | `:title` · `nil` · `{:like, "hello%"}` | `like(title, ^"hello%")` *(preserved)* |
-| `%{title: %{ilike: ["a", "b"]}}` | `:title` · `nil` · `{:ilike, ["%a%", "%b%"]}` | `fragment("? ILIKE ANY(?)", title, ^[...])` |
-| `%{title: %{eq: %{downcase: "HELLO"}}}` | `:title` · `nil` · `{:==, {:lower, "HELLO"}}` | `lower(title) == ^"HELLO"` *(`:downcase`→`:lower`)* |
+| `%{title: %{like: "hello"}}` | `:title` · no · `{:like, "%hello%"}` | title contains "hello" *(the `%` are added automatically; see D-LIKE-WRAP)* |
+| `%{title: %{like: "hello%"}}` | `:title` · no · `{:like, "hello%"}` | title starts with "hello" *(you wrote your own `%`, so it is left as-is)* |
+| `%{title: %{ilike: ["a", "b"]}}` | `:title` · no · `{:ilike, ["%a%", "%b%"]}` | title matches "a" or "b", ignoring upper/lowercase |
+| `%{title: %{eq: %{downcase: "HELLO"}}}` | `:title` · no · `{:==, {:lower, "HELLO"}}` | lowercased title equals "HELLO" *(`:downcase` becomes `:lower`)* |
 
-#### Aggregate — `routing: :scalar`
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Summaries of many rows (aggregates) — helper: scalar**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{views: %{avg: %{gt: 10}}}` | `:views` · `nil` · `{:avg, {:>, 10}}` | `avg(views) > ^10` |
-| `%{views: %{aggregate: %{fn: :sum, compare: :==, value: 1000}}}` | `:views` · `nil` · `{:sum, {:==, 1000}}` | `sum(views) == ^1000` |
+| `%{views: %{avg: %{gt: 10}}}` | `:views` · no · `{:avg, {:>, 10}}` | average of views greater than `^10` |
+| `%{views: %{aggregate: %{fn: :sum, compare: :==, value: 1000}}}` | `:views` · no · `{:sum, {:==, 1000}}` | sum of views equals `^1000` |
 
-#### Quantified subquery — `routing: :scalar`
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Compare against a set from a subquery — helper: scalar**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{id: %{eq: %{all: %{from: Comment, where: %{published: true}}}}}` | `:id` · `nil` · `{:==, {:all, «subquery»}}` | `id == all(SELECT ... FROM comments WHERE published = ^true)` |
+| `%{id: %{eq: %{all: %{from: Comment, where: %{published: true}}}}}` | `:id` · no · `{:==, {:all, «subquery»}}` | id equals every value returned by (a subquery over comments where published is true) |
 
-#### Datetime / date wrappers — `routing: :scalar`
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Date math — helper: scalar**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{inserted_at: %{eq: %{ago: {1, :day}}}}` | `:inserted_at` · `nil` · `{:==, {:datetime, {:ago, [count: 1, interval: "day"]}}}` | `inserted_at == ago(^1, "day")` |
-| `%{published_at: %{gte: %{from_now: {1, :day}}}}` | `:published_at` · `nil` · `{:>=, {:datetime, {:from_now, [count: 1, interval: "day"]}}}` | `published_at >= from_now(^1, "day")` |
-| `%{inserted_at: %{gte: %{date: %{add: %{count: 7, interval: "day"}}}}}` | `:inserted_at` · `nil` · `{:>=, {:date, {:add, [count: 7, interval: "day"]}}}` | `date(inserted_at) >= date(...)` |
+| `%{inserted_at: %{eq: %{ago: {1, :day}}}}` | `:inserted_at` · no · `{:==, {:datetime, {:ago, [count: 1, interval: "day"]}}}` | inserted_at equals the time 1 day ago |
+| `%{published_at: %{gte: %{from_now: {1, :day}}}}` | `:published_at` · no · `{:>=, {:datetime, {:from_now, [count: 1, interval: "day"]}}}` | published_at is at or after the time 1 day from now |
+| `%{inserted_at: %{gte: %{date: %{add: %{count: 7, interval: "day"}}}}}` | `:inserted_at` · no · `{:>=, {:date, {:add, [count: 7, interval: "day"]}}}` | the date part of inserted_at is at or after a date 7 days out |
 
-#### Arithmetic (computed field) & parent_as — `routing: :scalar`
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Calculations and comparing one column to another — helper: scalar**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{views: %{arithmetic: %{compare: :>, add: %{field: :id, value: 5}}}}` | `:views` · `nil` · `{:>, {:value, {:+, {{:field, :id}, {:value, 5}}}}}` | `views > (id + ^5)` |
-| `%{post_id: %{parent_as: %{post: :id}}}` | `:post_id` · `nil` · `{:parent_as, {:post, :id}}` | `post_id == field(parent_as(:post), :id)` |
+| `%{views: %{arithmetic: %{compare: :>, add: %{field: :id, value: 5}}}}` | `:views` · no · `{:>, {:value, {:+, {{:field, :id}, {:value, 5}}}}}` | views greater than (id + `^5`) |
+| `%{post_id: %{parent_as: %{post: :id}}}` | `:post_id` · no · `{:parent_as, {:post, :id}}` | post_id equals the `id` column of the outer query's `post` table |
 
-#### Array — `routing: :array` (schema-backed `tags`, or schemaless via `:elements`/`:field_types`)
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**List columns — helper: array** (a real list column like `tags`, or a schemaless
+column forced to a list with `:elements` or declared with `:field_types`)
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{tags: %{in: ["a", "b"]}}` *(schema array field)* | `:tags` · `nil` · `{:in, ["a", "b"]}` | `fragment("? && ?", tags, ^["a","b"])` *(overlap)* |
-| `%{tags: %{elements: %{in: ["a", "b"]}}}` *(schemaless)* | `:tags` · `nil` · `{:in, ["a", "b"]}` | `fragment("? && ?", tags, ^["a","b"])` |
-| `%{tags: "elixir"}` *(with `field_types: [tags: {:array, :string}]`)* | `:tags` · `nil` · `{:==, "elixir"}` | `^"elixir" in tags` *(membership)* |
-| `%{tags: %{elements: %{count: %{gt: 3}}}}` | `:tags` · `nil` · `{:count, {:>, 3}}` | `array_length(tags, 1) > ^3` |
-| `%{tags: %{elements: %{all: %{in: ["a"]}}}}` | `:tags` · `nil` · `{:all, {:in, ["a"]}}` | `fragment("? <@ ?", tags, ^["a"])` *(subset)* |
+| `%{tags: %{in: ["a", "b"]}}` *(real list column)* | `:tags` · no · `{:in, ["a", "b"]}` | tags shares any value with `^["a","b"]` |
+| `%{tags: %{elements: %{in: ["a", "b"]}}}` *(schemaless)* | `:tags` · no · `{:in, ["a", "b"]}` | same as above |
+| `%{tags: "elixir"}` *(with `field_types: [tags: {:array, :string}]`)* | `:tags` · no · `{:==, "elixir"}` | "elixir" is one of the values in tags |
+| `%{tags: %{elements: %{count: %{gt: 3}}}}` | `:tags` · no · `{:count, {:>, 3}}` | tags has more than `^3` items |
+| `%{tags: %{elements: %{all: %{in: ["a"]}}}}` | `:tags` · no · `{:all, {:in, ["a"]}}` | every value in tags is inside `^["a"]` |
 
-#### Map / JSONB — `routing: :map` (`data :map`, or `:field_types`)
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**JSON columns — helper: map** (the `data` column, or a column declared with
+`:field_types`)
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{data: %{contains: %{role: "admin"}}}` | `:data` · `nil` · `{:contains, {:role, "admin"}}` | `fragment("? @> ?::jsonb", data, ^%{role: "admin"})` |
-| `%{data: %{contained_by: %{role: "admin"}}}` | `:data` · `nil` · `{:contained_by, {:role, "admin"}}` | `fragment("? <@ ?::jsonb", data, ^%{role: "admin"})` |
-| `%{data: %{has_key: "role"}}` | `:data` · `nil` · `{:has_key, "role"}` | `fragment("jsonb_exists(?, ?)", data, ^"role")` |
-| `%{data: %{has_any_key: ["a", "b"]}}` | `:data` · `nil` · `{:has_any_key, ["a", "b"]}` | `fragment("jsonb_exists_any(?, ?)", data, ^["a","b"])` |
+| `%{data: %{contains: %{role: "admin"}}}` | `:data` · no · `{:contains, {:role, "admin"}}` | the JSON in data contains `{role: "admin"}` |
+| `%{data: %{contained_by: %{role: "admin"}}}` | `:data` · no · `{:contained_by, {:role, "admin"}}` | the JSON in data is contained within `{role: "admin"}` |
+| `%{data: %{has_key: "role"}}` | `:data` · no · `{:has_key, "role"}` | the JSON in data has a key "role" |
+| `%{data: %{has_any_key: ["a", "b"]}}` | `:data` · no · `{:has_any_key, ["a", "b"]}` | the JSON in data has at least one of these keys |
 
-#### Common shorthand — `routing: :common` (field resolved by resolver, §3.6 / D-CommonExpr-FIELD)
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**Shorthands — helper: common** (the translator fills in the column these imply, so
+the helper no longer assumes a column name; see §3.6 / D-CommonExpr-FIELD)
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{ids: [1, 2, 3]}` | `:id` · `nil` · `{:ids, [1, 2, 3]}` | `id in ^[1, 2, 3]` |
-| `%{before: 100}` | `:id` · `nil` · `{:before, 100}` | `id < ^100` |
-| `%{after: 100}` | `:id` · `nil` · `{:after, 100}` | `id > ^100` |
-| `%{start_date: ts}` | `:inserted_at` · `nil` · `{:start_date, ts}` | `inserted_at >= ^ts` |
-| `%{end_date: ts}` | `:inserted_at` · `nil` · `{:end_date, ts}` | `inserted_at <= ^ts` |
-| `%{exists: «subquery»}` | *(no field)* · `nil` · `{:exists, «subquery»}` | `exists(subquery)` |
+| `%{ids: [1, 2, 3]}` | `:id` · no · `{:ids, [1, 2, 3]}` | id is one of `^[1, 2, 3]` |
+| `%{before: 100}` | `:id` · no · `{:before, 100}` | id less than `^100` |
+| `%{after: 100}` | `:id` · no · `{:after, 100}` | id greater than `^100` |
+| `%{start_date: t}` | `:inserted_at` · no · `{:start_date, t}` | inserted_at at or after `^t` |
+| `%{end_date: t}` | `:inserted_at` · no · `{:end_date, t}` | inserted_at at or before `^t` |
+| `%{exists: «subquery»}` | *(no column)* · no · `{:exists, «subquery»}` | rows for which the subquery returns anything |
 
-#### Negation — applies to any shape above (`negated` slot)
-| Public param | `field` · `negated` · `term` | Emitted SQL |
+**The "not" case — works on top of any shape above (the `negated` slot)**
+| Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{views: %{not: %{eq: 10}}}` | `:views` · `:not` · `{:==, 10}` | `not (views == ^10)` |
-| `%{published: %{not: %{in: [true]}}}` | `:published` · `:not` · `{:in, [true]}` | `is_nil(published) or published not in ^[true]` |
-| `%{published_at: %{not: %{eq: nil}}}` | `:published_at` · `:not` · `{:==, nil}` | `not is_nil(published_at)` |
+| `%{views: %{not: %{eq: 10}}}` | `:views` · **yes** · `{:==, 10}` | not (views equals `^10`) |
+| `%{published: %{not: %{in: [true]}}}` | `:published` · **yes** · `{:in, [true]}` | published has no value OR is not one of `^[true]` |
+| `%{published_at: %{not: %{eq: nil}}}` | `:published_at` · **yes** · `{:==, nil}` | published_at has a value |
 
-> **Reading note:** the middle column is the post-resolution shape — operators
-> canonical, values cast, field an atom, `:not` lifted out. The left column is
-> what callers actually write (with aliases like `eq`/`gt`/`downcase` still
-> present). The resolver (§2.3) is the only thing that turns left into middle.
+> **How to read these tables.** The left column is what a caller actually types
+> (with friendly nicknames like `eq`, `gt`, `downcase`). The middle column is the
+> same filter after the translator has tidied it (real operators, converted values,
+> a resolved column, the "not" pulled out). Turning the left column into the middle
+> column is the translator's entire job.
 
 ---
 
-## 3. BEHAVIOR ACROSS BOUNDARIES
+## 3. HOW THE PIECES FIT TOGETHER
 
-### 3.1 Boundary map (target)
+### 3.1 The path a filter takes (the new design)
 ```
-convert_params_to_filter/3
-  │  coerce source → Ecto.Query        (CommonSchema.to_query/1)
-  │  sort params                       (§3.2 — single-pass reduce)
+convert_params_to_filter
+  │  turn the source into a query
+  │  put the filters in the right order  (§3.2 — now a single pass)
   ▼
-reduce_filters  (one fold over sorted entries)         ── EctoShorts.CommonFilters
-  ├─ binding selectors :as/:at         → resolve binding, recurse
-  ├─ structural keys (§1.4)            → Builder → filter sub-modules   (UNCHANGED behavior)
-  ├─ assoc shorthand                   → implicit join + recurse
-  ├─ :and/:or grouping                 → recurse with same/or filter type
-  └─ predicate leaves (:where/:or_where/field/:having/:or_having)
-        │  for each {key, raw_term}:
+one loop over the filters                          ── EctoShorts.CommonFilters
+  ├─ :as / :at      → pick which table the next filters point at, then continue
+  ├─ structural words (§1.4) → hand to the matching builder module   (UNCHANGED)
+  ├─ an association name      → add a join and continue with the linked table
+  ├─ :and / :or               → continue with the grouped filters
+  └─ a column condition (:where, :or_where, a column key, :having, :or_having)
+        │  for each one:
         ▼
-     TermResolver.canonicalize/4   ── DIALECT-AGNOSTIC (§2.3)
-        │   {:ok, %{field, routing, term, negated}}  |  :skip(+warn)
+     translator: canonicalize(...)        ── no SQL, no database brand (§2.3)
+        │   gives back a tidied filter, or "skip" (after logging a warning)
         ▼
-     DynamicBuilder.build_dynamic/2  (dialect adapter, §2.4)
+     database-brand adapter: build_dynamic(...)     (§2.4)
         ▼
-     ScalarExpr | ArrayExpr | MapExpr | CommonExpr   ── PURE (emit dynamic only)
+     one of the pure helpers: scalar / array / map / common   (build the condition)
         │
-        ▼  merge_dynamic into accumulator (:and / :or) → where/or_where on query
+        ▼  add the condition to the running query (joined with AND or OR)
 ```
 
-### 3.2 `sort_filter_params/1` — single-pass reduce (D2)
-**Behavior (unchanged):** reorder entries to evaluation order
-`:where → others → :or_where → terminal(:last, :subquery)`.
-**Change:** replace the four `Enum.filter` scans with one `Enum.reduce` that
-classifies each entry into four accumulators, then concatenates. Output order is
-**identical** to today (verified against `inventory/01` §2 example).
+### 3.2 Putting filters in order — now a single pass (cleanup item D2)
+**What it does (unchanged):** reorder the filters so they run in the right order:
+plain `:where` first, then most others, then `:or_where`, then the two that must
+come last (`:last`, `:subquery`).
+**What changes:** today this makes four separate passes over the list. We replace
+that with one pass that sorts each filter into one of four buckets, then joins the
+buckets. The resulting order is exactly the same as today.
 
-### 3.3 Field-name resolution (moves into TermResolver, §2.3)
-Behavior preserved from `field_name_to_atom/3` (`inventory/02` §7), restated as a
-flat contract (no nested defensive conditionals):
-| Case | Result |
+### 3.3 Turning a column name into a checked column (moves into the translator)
+Same behavior as today, written as one clear set of cases instead of nested checks:
+| Situation | Result |
 |---|---|
-| already an atom | passthrough |
-| string, schema present, field in schema | `String.to_existing_atom/1` |
-| string, schema present, field absent | `:skip` + warn "does not exist on schema" |
-| string, no schema, in `:allowed_keys` | `String.to_atom/1` |
-| string, no schema, not in `:allowed_keys` | `:skip` + warn "not in :allowed_keys" |
-| string, no schema, no `:allowed_keys` | `:skip` + warn "no schema or :allowed_keys" |
+| already an atom | use it as-is |
+| text, schema present, column exists | use the matching atom |
+| text, schema present, column does not exist | skip + warn "does not exist on schema" |
+| text, no schema, name is in `:allowed_keys` | use it |
+| text, no schema, name not in `:allowed_keys` | skip + warn "not in :allowed_keys" |
+| text, no schema, no `:allowed_keys` given | skip + warn "no schema or allowed_keys" |
 
-### 3.4 Field-type routing (moves into TermResolver, §2.3)
-Preserved from `dispatch_field_expr/dispatch_field_type` (`inventory/02` §4, §14):
-priority `opts[:field_types]` → schema reflection. `{:array, _}`→`:array`;
-`:map`/`{:map,_}`→`:map`; common-shorthand keys→`:common`; else `:scalar`.
-Invalid schema field → `:skip` + warn (preserved).
+### 3.4 Choosing the right helper (moves into the translator)
+Same as today: first look at `:field_types`, otherwise read the schema. A list
+column → the array helper; a JSON/map column → the map helper; a shorthand word →
+the common helper; everything else → the scalar helper. An unknown column → skip and
+warn.
 
-### 3.5 Casting (moves into TermResolver, §2.3) — concern split (D5)
-Today `cast_value/2` (18 overloads) **both** casts values **and** unwraps
-operators/aliases. Split into two pure responsibilities:
-- `canonical_op/1` — alias resolution only.
-- `cast/2` — `Types.cast` against the (possibly `{:array, inner}`) field type
-  only; recurses into list elements and into operand positions of canonical terms
-  **without** itself rewriting operators.
-Observable casting behavior (array element casting, integer cast of `:count`,
-inner-type cast of `:all`/`:in`, enum casting) is preserved exactly
-(`inventory/02` §5, `inventory/04` §2 enum/typed-casting rows).
+### 3.5 Converting values, kept separate from renaming operators (cleanup item D5)
+Today one function both converts values **and** renames operators, which mixes two
+jobs. We split them:
+- one helper renames operators (nicknames → real operators),
+- one helper converts values to the column's type, reaching into lists and into the
+  value parts of a filter, but it never touches operators.
+What actually gets converted (list items, the count in a "how many" check, enum
+values, and so on) stays exactly the same as today.
 
-### 3.6 Expr-module purity (B1/B2) — what is removed
-| Module | Current violation (`inventory/03` §Purity) | Target |
+### 3.6 Making the helpers pure (the main cleanup) — what gets removed
+| Helper | What it does wrong today | After |
 |---|---|---|
-| `CommonExpr` | hardcodes `:id`, `:inserted_at` | field arrives resolved in `ExprInput.field` (resolver expands shorthand→field) |
-| `ScalarExpr` | `Keyword.get(params, :field)` / `Keyword.fetch!` for datetime/arith field & count/interval | resolver pre-extracts these into the canonical term's keyword payload; ScalarExpr reads positionally from the closed shape, never fetches/falls back |
-| `ArrayExpr`, `MapExpr` | none | unchanged (already pure) |
+| `CommonExpr` | assumes the columns are called `id` and `inserted_at` | the translator fills in the real column and passes it in |
+| `ScalarExpr` | digs the column name and the count/interval out of its input itself | the translator pulls those out first; `ScalarExpr` just reads them from a fixed spot |
+| `ArrayExpr`, `MapExpr` | nothing wrong | unchanged |
 
-After refactor, the four Expr modules contain **zero** calls to `Types.cast`,
-`String.to_*atom`, `op_alias`, `CommonSchema.*`, or hardcoded field literals.
-(This is a mechanical verification gate — see §5.)
+After the rewrite, the four helpers contain **no** value conversion, no column-name
+work, no operator renaming, no schema reading, and no hardcoded column names. We
+will check this with a simple search (§5).
 
-### 3.7 `comparison_impl` decomposition (D1)
-Split the ~370-line `comparison_impl` into per-family private dispatchers —
-`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`,
-`datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`,
-`nil_comparison` — selected by matching the closed canonical shapes in §2.2.
-Collapse the leaf code-generators (`apply_scalar_comparison`,
-`apply_parent_as_comparison`, `apply_arith_comparison`, `apply_dyn_comparison`,
-the 42 overloads) into a single matrix:
-```elixir
-@spec apply_comparison(canonical_op, lhs_dyn, rhs_dyn, :plain | :negated) :: dynamic
-```
-The emitted SQL for every `(op, negated)` pair is preserved exactly per
-`inventory/03` §ScalarExpr tables.
+### 3.7 Breaking up the 370-line function (cleanup item D1)
+Split the one giant comparison function in `ScalarExpr` into small, clearly named
+pieces — one for plain comparisons, one for "compare against a set," one for
+aggregates, one for date math, one for calculations, one for comparing to an outer
+query's column, one for "has a value" checks — each chosen by matching the tidied
+shapes in §2.2. Then collapse the dozens of tiny near-identical builder clauses into
+one small table that, given an operator and whether it is negated, produces the
+condition. The conditions produced stay exactly the same.
 
-### 3.8 Structural filters (UNCHANGED)
-All non-predicate keys (`:join`, `:order_by`, `:select`, `:with_cte`, set ops,
-pagination, etc.) keep their current modules and behavior verbatim, including
-their warn/nil cases (`inventory/01` §7, §9). The reduce in §3.1 routes to them
-exactly as today. They are in scope only insofar as they call the shared field
-resolver (§3.3) — their public behavior does not change.
+### 3.8 The structural filters (UNCHANGED)
+All the non-column filter words (`:join`, `:order_by`, `:select`, `:with_cte`, the
+set operations, the pagination words, and so on) keep their current modules and
+behavior exactly, including when they warn-and-skip. The loop in §3.1 hands work to
+them just as today. They are touched only so they share the one column-name helper
+(§3.3); what callers see does not change.
 
 ---
 
-## 4. BEHAVIOR DECISIONS (resolving contested behavior — T2)
+## 4. DECISIONS — what we keep and what we change
 
-**Parity baseline (T2 ruling):** parity is measured against **this spec**, not
-against current code and not against current tests. Where a decision below says
-*Keep*, current behavior is the contract. Where it says *Change*, the spec
-overrides code and tests, and the test audit (§5) updates the test.
+**The most important rule (resolving the "what do we measure against?" question):**
+correctness is measured against **this document**, not against the current code and
+not against the current tests. Where a decision says *keep*, today's behavior is the
+promise. Where it says *change*, this document wins and we update the code and tests
+to match.
 
-| ID | Behavior (current) | Ruling | Rationale |
+| ID | Today's behavior | Decision | Why |
 |---|---|---|---|
-| D-WARN | Unsupported field/op combos & invalid fields → `Logger.warning` + skip (query unchanged). 37+ cases in `inventory/04` §3. | **Keep** | Probe E1. Pure structural refactor; `:skip` from `TermResolver` reproduces it. |
-| D-API | Public param language & opts (§1). | **Keep / frozen** | Probe E2 — zero public breaks. |
-| D-INTERNAL | Module names, arities, sub-module boundaries (`build_dynamic`, `apply_expr`, `dispatch_expr`, `cast_value`, `field_name_to_atom`). | **Change freely** | Probe E2 — internal-only breaks allowed. These names need not survive. |
-| D1 | `comparison_impl` 370-line monolith; 42 `apply_*` generators. | **Change (decompose)** | §3.7. Output SQL identical. |
-| D-NEQ-LIST | `{field: {!=: [a,b]}}` → `is_nil(field) OR field NOT IN [a,b]` (`inventory/04` audit). | **Keep, document** | NULL-inclusion is deliberate SQL semantics; document it in moduledocs, do not change. |
-| D-LIKE-WRAP | `{like: "x"}`→`"%x%"` but `"x%"` preserved (heuristic). | **Keep, document** | Public behavior; freeze and document the heuristic in §1.5. |
-| D-ELEMENTS | Schemaless arrays need `:elements`; `:field_types` makes it unnecessary (audit MEDIUM). | **Keep** | Documented gotcha in CLAUDE.md; out of scope for a behavior change here. |
-| D-PROVIDER | Lock/join provider contracts loosely validated. | **Keep** | Out of scope; structural refactor only. Flag for a later effort. |
-| D-CommonExpr-FIELD | `CommonExpr` hardcodes `:id`/`:inserted_at`. | **Change (internal)** | §3.6 — field resolved upstream; observable SQL unchanged (still targets `id`/`inserted_at` for those shorthands). |
+| D-WARN | Unknown column / unsupported combination → log a warning and skip (37+ such cases in `inventory/04`, section 3). | **Keep** | A pure structural cleanup; the translator returning "skip" reproduces it. |
+| D-API | The filters and options callers write (§1). | **Keep, frozen** | We promised no change to what callers see. |
+| D-INTERNAL | Today's internal function names and shapes (`build_dynamic`, `apply_expr`, `dispatch_expr`, `cast_value`, `field_name_to_atom`, …). | **Free to change** | These are internal; they do not need to survive. |
+| D1 | The 370-line comparison function and dozens of tiny builder clauses. | **Change (break up)** | §3.7. The conditions produced are identical. |
+| D-NEQ-LIST | `%{field: %{ne: [a, b]}}` becomes "has no value OR is not one of [a, b]". | **Keep, and document** | Including "has no value" is deliberate; we will explain it in the code comments rather than change it. |
+| D-LIKE-WRAP | `%{like: "x"}` becomes "contains x" by adding `%` signs, but `"x%"` is left alone. | **Keep, and document** | This is public behavior; we freeze it and describe it in §1.5. |
+| D-ELEMENTS | On schemaless sources, list behavior needs `:elements`, unless `:field_types` is given. | **Keep** | Already a documented quirk; changing it is out of scope here. |
+| D-PROVIDER | The "lock" and "join" provider hooks are loosely checked. | **Keep** | Out of scope; note it for a later, separate effort. |
+| D-CommonExpr-FIELD | The shorthand helper assumes columns `id` and `inserted_at`. | **Change (internal only)** | §3.6 — the column is filled in earlier; the resulting condition is identical (still uses `id` / `inserted_at` for those shorthands). |
 
-**Open items requiring confirmation during design (not blocking the spec):**
-- The remaining audit candidates in `inventory/04` §5 (LOW severity) are **Keep +
-  document** by default; any that should *change* must be raised in the test
-  audit (§5) and added to this table before implementation.
-
----
-
-## 5. VERIFICATION STRATEGY (defines "done")
-
-Per probe G1/G4/G5 — tests are **not** the contract; this spec is.
-
-1. **Spec approval** (this document) — gate 1.
-2. **Test audit (case-by-case, G4):** walk every test in
-   `test/ecto_shorts/common_filters/` and
-   `test/ecto_shorts/common_filters_schemaless/` against §1–§4. For each test:
-   - **Agrees with spec** → keep.
-   - **Disagrees** → the test is presumed wrong; resolve interactively, record the
-     decision as a new row in §4, then update the test. No blanket auto-rewrite.
-   - Produce `autoresearch/probe-260619-0650/test-audit.md` (per-test verdict).
-3. **Mechanical purity gates** (must hold post-refactor):
-   ```
-   # Expr modules contain no casting/aliasing/resolution/reflection/hardcoded fields:
-   grep -nE "Types\.cast|to_existing_atom|to_atom|op_alias|CommonSchema|:inserted_at|:id\b" \
-     lib/ecto_shorts/dynamic_builders/postgres/{scalar,array,map,common}_expr.ex   # → empty
-   # sort_filter_params uses a single reduce (no 4× Enum.filter):
-   ```
-4. **Behavioral gates:** `mix test` (post-audit suite) · `mix credo` ·
-   `mix dialyzer` all green.
-5. **Implementation** is delegated to `claude-copilot:code-implementer` per
-   `RULES.md`, against the approved spec + plan.
+**Still to confirm during the work (not blocking this plan):** the remaining
+questionable behaviors listed in `inventory/04`, section 5 are *keep-and-document* by
+default. If any should actually change, we raise it during the test review (§5) and
+add a row to this table first.
 
 ---
 
-## 6. TARGET MODULE INVENTORY (deltas only)
+## 5. HOW WE KNOW WE ARE DONE
+
+Because the tests are not the source of truth (this document is), the order is:
+
+1. **Approve this document** — first gate.
+2. **Review the tests one by one** against sections 1–4. For each test:
+   - agrees with this document → keep it;
+   - disagrees → the test is presumed wrong; we decide what is right, add a row to
+     §4 recording the decision, then fix the test. No blanket auto-changing.
+   - The result is written to `docs/superpowers/specs/test-audit.md`.
+3. **Simple mechanical checks** that must pass after the rewrite:
+   - the four helper files contain no value-conversion, operator-renaming,
+     column-name, schema-reading, or hardcoded-column code (a quick text search
+     finds none);
+   - the filter-ordering function makes a single pass (no four separate scans).
+4. **The usual checks all pass:** the test suite (after the review), the style
+   checker (`mix credo`), and the type checker (`mix dialyzer`).
+5. **The code is written** by the `claude-copilot:code-implementer` helper (per
+   `RULES.md`), following this approved document and the implementation plan.
+
+---
+
+## 6. WHICH MODULES CHANGE (only the differences)
 
 | Module | Change |
 |---|---|
-| `EctoShorts.CommonFilters` | `sort_filter_params` → single-pass reduce; `reduce_filters` stays a fold; predicate leaves route through `TermResolver` then the dialect adapter. Public API unchanged. |
-| `EctoShorts.QueryBuilder.TermResolver` *(new, dialect-agnostic)* | Owns `canonicalize/4`, `canonical_op/1`, `resolve_field/3`, `routing_family/3`, `cast/2`. Absorbs the raw→canonical logic currently in `Postgres.{build_dynamic,apply_expr,dispatch_expr,cast_value,build_rhs_entry,field_name_to_atom}`. |
-| `EctoShorts.DynamicBuilders.Postgres` | Reduced to a thin dialect adapter implementing `build_dynamic/2` over canonical `ExprInput`; dispatches by `routing` to the pure Expr modules and applies negation. No normalization. |
-| `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` | Pure. `comparison_impl` decomposed (§3.7); `apply_*` collapsed to one matrix; datetime/arith field & count/interval read from the closed canonical payload (no `Keyword.fetch!`). |
-| `…ArrayExpr`, `…MapExpr` | Pure already; receive canonical terms only. |
-| `…CommonExpr` | Pure; field arrives via `ExprInput.field` (no hardcoded `:id`/`:inserted_at`). |
-| Structural filter sub-modules | Unchanged except shared field resolution via §3.3. |
+| `EctoShorts.CommonFilters` | filter-ordering becomes one pass; the main loop sends column conditions through the translator, then the adapter. What callers see does not change. |
+| `EctoShorts.QueryBuilder.TermResolver` *(new, no database brand)* | the translator. Holds all the tidying that today is scattered across the PostgreSQL builder. |
+| `EctoShorts.DynamicBuilders.Postgres` | shrinks to a thin adapter: take a tidied filter, pick the helper by `routing`, apply the "not." No tidying. |
+| `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` | becomes pure; the giant function is broken up (§3.7); the tiny builders collapse into one table. |
+| `…ArrayExpr`, `…MapExpr` | already pure; now receive tidied filters only. |
+| `…CommonExpr` | becomes pure; the column is passed in instead of assumed. |
+| the structural filter modules | unchanged, except they share the one column-name helper. |
 
 ---
 
-## 7. Out-of-scope follow-ups (logged, not done here)
-- Error-policy redesign (fail-fast vs warn+nil) — D-WARN keeps current behavior.
-- Provider-contract hardening (D-PROVIDER).
-- Coverage gaps in `inventory/04` §4 (limit, recursive-CTE depth, arithmetic
-  nesting, association-`through:`).
+## 7. Things noted for later (not part of this work)
+- Whether to crash loudly instead of warn-and-skip (D-WARN keeps warn-and-skip).
+- Tightening the "lock" and "join" provider hooks (D-PROVIDER).
+- Filling the thin test spots listed in `inventory/04`, section 4 (limit, recursive
+  CTE depth, nested calculations, association links).
 ```

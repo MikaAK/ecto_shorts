@@ -2,11 +2,42 @@
 
 ## Overview
 
-This inventory documents the complete behavior of `EctoShorts.CommonFilters`, the public query language entry layer. It covers the param coercion pipeline, sorting semantics, filter routing, and every recognized filter key with its accepted shapes and warning conditions.
+This document explains everything `EctoShorts.CommonFilters` does. Think of `CommonFilters` as a translator: you hand it some plain data (a map or a list of key/value pairs), and it turns that data into a database request (a query) you can run.
+
+It is the main, public way you tell the library "find me the rows I want." This document covers, step by step:
+- how your input is cleaned up and put in order before anything happens,
+- how each piece of input is matched to the right helper,
+- every key (instruction word) the library understands, what data shapes each one accepts, and
+- every case where the library logs a warning instead of doing what you asked.
+
+---
+
+## Words used in this document
+
+- **Ecto** — Ecto, the Elixir library for talking to a database. EctoShorts is built on top of it.
+- **query** — a database request (a query). The thing you build up and eventually run to get rows back.
+- **schema** — a schema: an Elixir description of a database table and its columns.
+- **field** — field (a column of a table).
+- **dynamic** — a query condition built up in code (Ecto calls this a "dynamic").
+- **operator** — operator: a comparison word such as "equals" or "greater than."
+- **operator alias** — nickname for an operator.
+- **canonical** — the standard, tidied-up form.
+- **term** — the filter piece / the value being matched.
+- **predicate** — condition (a true/false test).
+- **normalization** — tidying the input into one standard shape.
+- **reduce / fold** — go through the items one by one, building up the result.
+- **binding** — binding: which table in the query a condition points to.
+- **pure function** — a function that only turns its inputs into an output, without looking anything up or changing anything outside itself.
+- **association** — association: a link between two tables (for example, a post and its author).
+- **subquery** — subquery: a query nested inside another query.
+- **CTE** — CTE (common table expression): a named, temporary result you can reuse inside one query.
+- **warn+nil / no-op** — logs a warning and skips that part, leaving the query unchanged.
 
 ---
 
 ## 1. Entry Point & Parameter Pipeline
+
+This is the single function you call to start everything.
 
 ### `convert_params_to_filter/3`
 
@@ -16,36 +47,39 @@ This inventory documents the complete behavior of `EctoShorts.CommonFilters`, th
 ```elixir
 def convert_params_to_filter(source, params, opts \\ [])
 ```
+This shows the function name and its three inputs: where to read from, what to filter by, and extra options.
 
-**Input shapes:**
-- `source`: Schema module | `{source, schema}` tuple | pre-built `Ecto.Query`
-- `params`: Map (plain, not struct) | keyword list
-- `opts`: Keyword list (default: `[]`)
+**Input shapes (what each input is allowed to be):**
+- `source`: a schema (an Elixir description of a database table) module | a `{source, schema}` tuple | an already-built database request (`Ecto.Query`)
+- `params`: a map (a plain map, not a struct) | a keyword list (a list of key/value pairs)
+- `opts`: a keyword list (default: `[]`, meaning none)
 
-**Pipeline:**
-1. Coerce `source` to `Ecto.Query` via `CommonSchema.to_query/1`
-2. Apply sorter (custom or default `sort_filter_params`)
-3. Call `reduce_filters/6` starting with filter type `:where`
+**Pipeline (the steps it runs, in order):**
+1. Turn `source` into a database request (`Ecto.Query`) using `CommonSchema.to_query/1`
+2. Put the input in order using a sorter (either one you supply or the built-in `sort_filter_params`)
+3. Go through the input one by one, building up the query (`reduce_filters/6`), starting with the filter type `:where`
 
-**Param coercion rules:**
-- Maps and keyword lists are both accepted
-- Keyword lists preserve duplicate keys and evaluation order
-- Maps are converted to keyword lists internally for ordering
-- No automatic validation—invalid keys fall through to `:where` filter routing
+**Rules for accepting input:**
+- Both maps and keyword lists are accepted
+- Keyword lists keep duplicate keys and keep their order
+- Maps are turned into keyword lists internally so the order is fixed
+- No automatic checking — keys the library does not recognize quietly fall through to the `:where` filter (treated as a plain condition)
 
 ---
 
 ## 2. Param Sorting: `sort_filter_params/1`
 
+Before doing the work, the library reorders your input so that certain instructions run before others. This matters because some pieces (like adding more conditions) must happen before terminal pieces (like wrapping everything in a smaller query).
+
 **Location:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters.ex:526-538`
 
-**Rule order (evaluation sequence):**
-1. `:where` filters (all entries with key `:where`)
+**Order things run in:**
+1. `:where` filters (all entries whose key is `:where`)
 2. All other filters except `:or_where`, `:last`, `:subquery`
-3. `:or_where` filters (all entries with key `:or_where`)
-4. Terminal filters (`:last`, `:subquery`)
+3. `:or_where` filters (all entries whose key is `:or_where`)
+4. Terminal filters, which must come last (`:last`, `:subquery`)
 
-**Example:**
+**Example (input before sorting, then the same input after sorting):**
 ```elixir
 # Input
 [or_where: %{x: 1}, limit: 10, where: %{y: 2}, subquery: %{...}]
@@ -53,53 +87,60 @@ def convert_params_to_filter(source, params, opts \\ [])
 # After sort
 [where: %{y: 2}, limit: 10, or_where: %{x: 1}, subquery: %{...}]
 ```
+This shows `:where` moving to the front and `:subquery` ending up last.
 
-**Custom sorter option:**
+**Supplying your own sorter:**
 ```elixir
 CommonFilters.convert_params_to_filter(Post, params, sorter: fn p -> ... end)
 ```
+This shows passing a `sorter:` option to replace the built-in ordering.
 
 ---
 
 ## 3. Filter Routing & Apply Logic
 
+Once the input is in order, the library looks at each key and decides which helper should handle it. That decision is "routing."
+
 ### Dispatch Entry: `apply_filter/6`
 
 **Location:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters.ex:396-462`
 
-**Routing logic (in evaluation order):**
+**Routing logic (checked top to bottom; the first match wins):**
 
 | Condition | Action | Emit |
 |-----------|--------|------|
-| `key in [:as, :at]` | Resolve binding selector, recurse into nested map | `:error` or `{:ok, resolved_binding}` |
-| `key in [:where, :or_where, :having, :or_having]` | List-of-params? → reduce; params? → reduce; else → dispatch to Builder | nil or dyn |
-| `assoc_key?(source, key)` | Implicit join + recurse on association scope; warn if value not params | query or warning |
-| `key === :and` | Reduce params without changing filter type | query |
-| `key === :or` | If list-of-params → reduce as `:or_where`; else → emit each entry as `:or_where` | query |
-| `key in @filters` | Dispatch to `Builder.build_query(key, ...)` | varies |
-| **default** | Treat as field filter: dispatch with `{key, params}` tuple to `:where` | varies |
+| `key in [:as, :at]` | Pick which table the next conditions point to (the binding), then go into the nested map | `:error` or `{:ok, resolved_binding}` |
+| `key in [:where, :or_where, :having, :or_having]` | A list of params? → go through them one by one; a single set of params? → go through them; otherwise → hand to the Builder | nil or a built condition (dynamic) |
+| `assoc_key?(source, key)` | This key names a link to another table (an association): add an automatic join and recurse into that table; warn if the value is not params | query or warning |
+| `key === :and` | Go through the params without changing the filter type | query |
+| `key === :or` | If it is a list of params → go through them as `:or_where`; otherwise → send each entry as `:or_where` | query |
+| `key in @filters` | Hand to `Builder.build_query(key, ...)` | varies |
+| **default** | Treat as a plain field condition: send `{key, params}` to `:where` | varies |
 
 ---
 
 ## 4. Binding Selectors: `:as` and `:at`
 
+A query can involve more than one table (for example, posts joined to their authors). A "binding" says which of those tables a condition points to. `:as` and `:at` let you aim the following conditions at a specific table.
+
 **Location:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters.ex:398-414, 484-510`
 
-### `:as` (Named Binding)
+### `:as` (point at a table by name)
 
 **Accepted shapes:**
 ```elixir
 %{as: %{author: %{select: :first_name}}}
 %{as: [author: [select: :first_name]]}
 ```
+These both aim the inner filters at the table named `author`.
 
 **Behavior:**
-- Key resolves to named binding in query
-- Value must be map or keyword list
-- Each entry `{binding_name, filters}` in the map/list recursively applies filters scoped to that binding
-- Returns `{:ok, {:as, binding_name}}` for use in nested filters
+- The key names a table that was given a name in the query (a named binding)
+- The value must be a map or a keyword list
+- Each entry `{binding_name, filters}` runs its filters aimed at that named table
+- Returns `{:ok, {:as, binding_name}}` so nested filters know which table to use
 
-### `:at` (Positional Binding)
+### `:at` (point at a table by position)
 
 **Accepted shapes:**
 ```elixir
@@ -108,16 +149,19 @@ CommonFilters.convert_params_to_filter(Post, params, sorter: fn p -> ... end)
 %{at: %{last: %{...}}}
 %{at: %{2 => [order_by: :name]}}
 ```
+These aim the inner filters at the table in a given position (first, last, or a number).
 
 **Behavior:**
 - `:first` → `{:ok, {:at, 1}}`
 - `:last` → `{:ok, {:at, CommonQuery.query_binding_count(query)}}`
-- Integer >= 1 → validated against `Config.max_positional_bindings()` (default 10)
-- Out-of-range position → logs warning, returns `:error`, filter skipped
+- An integer 1 or higher → checked against `Config.max_positional_bindings()` (default 10)
+- A position outside that range → logs a warning, returns `:error`, and that filter is skipped
 
 ---
 
 ## 5. Boolean Operators: `:and`, `:or`
+
+These let you group conditions. `:and` means "all of these must be true." `:or` means "any of these may be true."
 
 ### `:and`
 
@@ -128,10 +172,11 @@ CommonFilters.convert_params_to_filter(Post, params, sorter: fn p -> ... end)
 %{and: %{field1: value1, field2: value2}}
 %{and: [field1: value1, field2: value2]}
 ```
+These group two conditions together with AND.
 
 **Behavior:**
-- Passes params through to reducer with same filter type (transparent grouping)
-- Each entry becomes a separate WHERE predicate (AND semantics in SQL)
+- Passes the params straight through with the same filter type (it is just a see-through wrapper)
+- Each entry becomes its own WHERE condition, and several WHERE conditions are combined with AND in SQL
 
 ### `:or`
 
@@ -143,15 +188,18 @@ CommonFilters.convert_params_to_filter(Post, params, sorter: fn p -> ... end)
 %{or: [field1: value1, field2: value2]}
 %{or: [%{field1: value1}, %{field2: value2}]}
 ```
+These group conditions together with OR.
 
 **Behavior:**
-- If value is `list_of_params?` (list of maps/keyword lists) → reduce as `:or_where`
-- Else → iterate entries, dispatch each as `:or_where` filter
-- Results in `OR_WHERE` clauses (OR semantics in SQL)
+- If the value is a list of param sets (`list_of_params?`, a list of maps or keyword lists) → go through them as `:or_where`
+- Otherwise → go through each entry, sending each as an `:or_where` filter
+- Produces `OR_WHERE` clauses (OR in SQL)
 
 ---
 
 ## 6. Association Shorthand
+
+An association is a link between two tables (for example, a post and its author). If you use a key that names one of these links, the library automatically joins to the linked table and applies the inner filters there.
 
 **Location:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters.ex:428-438, 468-482`
 
@@ -160,14 +208,15 @@ CommonFilters.convert_params_to_filter(Post, params, sorter: fn p -> ... end)
 %{comments: %{approved: true}}
 %{author: [published: true, name: "Alice"]}
 ```
+These filter by something on a linked table (comments, author).
 
 **Behavior:**
-1. Check if `key` matches a declared association on the source schema
-2. If match:
-   - Emit implicit `:join` with `association:` source family
-   - Binds association as `:as` named binding (same as key)
-   - Recurse with association schema and filters
-3. If value not params (map/keyword list) → log warning, skip
+1. Check whether `key` names a declared link (association) on the source schema
+2. If it does:
+   - Add an automatic `:join` using the `association:` source family
+   - Give the joined table a name (an `:as` named binding) equal to the key
+   - Recurse into the linked table's schema and filters
+3. If the value is not params (a map or keyword list) → log a warning and skip
 
 **Warning condition:** "Expected association filter value to be a map or keyword list, got: ..."
 **File:Line:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters.ex:432-438`
@@ -176,9 +225,11 @@ CommonFilters.convert_params_to_filter(Post, params, sorter: fn p -> ... end)
 
 ## 7. Recognized Filter Keys
 
-All filter keys below are recognized by the main dispatcher and routed via `Builder.build_query/6`.
+Below are all the keys the main router understands. Each one is handled through `Builder.build_query/6`.
 
 ### Boolean & Predicate Filters
+
+These build conditions (true/false tests) on the query.
 
 | Key | Dispatches to | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|---------------|---------------|-------|-----------------|
@@ -189,9 +240,11 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 **Files:**
 - `:where`, `:or_where`: `Builder.apply_filter(:where|:or_where, ...)` at `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/builder.ex:183-199`
-- Dynamic build: `DynamicBuilders.build_dynamic(...)` (not detailed here)
+- Builds the condition (dynamic): `DynamicBuilders.build_dynamic(...)` (covered elsewhere, not here)
 
 ### Binding Selectors
+
+These pick which table the following conditions point to. See Section 4 for details.
 
 | Key | Dispatches to | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|---------------|---------------|-------|-----------------|
@@ -201,6 +254,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 **File:Line:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters.ex:484-510`
 
 ### Join & Association Filters
+
+A join pulls in another table so you can filter or read from it.
 
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
@@ -223,22 +278,25 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 # Nested list/map form
 [{type1, opts1}, {type2, opts2}, ...]
 ```
+This shows the three ways to write a join: name the kind of source explicitly, lean on an association name, or pass several joins at once.
 
-**Join type dispatch (lines 170-235):**
+**Join type dispatch (lines 170-235), one entry per kind of source:**
 - `:association` → `{:association, key}`
 - `:schema` → `{:source, schema_or_{table,schema}_tuple}`
 - `:table` → `{:source, table_name}`
 - `:query` → `{:source, Ecto.Query{...}}`
-- `:subquery` → builds from params or recursively via `convert_params_to_filter`
-- `:fragment` → requires `name:` and `values:` in params, resolved via `QueryProvider`
+- `:subquery` → builds from params, or recurses through `convert_params_to_filter` (a subquery: a query nested inside another query)
+- `:fragment` → needs `name:` and `values:` in the params, looked up through `QueryProvider`
 
 **Warning conditions (file: `join.ex`):**
-- Line 60-66: Join type not in `@join_types` and not association → "Expected join type to be one of #{inspect(@join_types)}, got: ..."
+- Line 60-66: Join type not in `@join_types` and not an association → "Expected join type to be one of #{inspect(@join_types)}, got: ..."
 - Line 102-108: Missing `:source` key → "Expected join options to have a :source key, got: ..."
 - Line 127-141: QueryProvider callback error → "Join source callback returned error for key #{inspect(source_key)}: ..."
 - Line 255-273: Invalid `:on` params → "Expected :on to be a keyword list, map, or true, got: ..."
 
 ### Ordering Filters
+
+These control the sort order of the results.
 
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
@@ -246,10 +304,10 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 | `:prepend_order_by` | `PrependOrderBy` | Same as `:order_by` | Prepended `ORDER BY` | Unknown field → warning, filtered out |
 | `:reverse_order` | `ReverseOrder` | `nil` or `true` | Reverses existing `ORDER BY` | Non-true value → warning, query unchanged |
 
-**OrderBy directions:** `:asc`, `:asc_nulls_last`, `:asc_nulls_first`, `:desc`, `:desc_nulls_last`, `:desc_nulls_first`
+**OrderBy directions (which way to sort, and where empty values go):** `:asc`, `:asc_nulls_last`, `:asc_nulls_first`, `:desc`, `:desc_nulls_last`, `:desc_nulls_first`
 
 **Field validation (OrderBy file: `order_by.ex:68-87`):**
-- Validates field exists on schema; missing field → warning: "Field \"#{field_name}\" does not exist on schema #{inspect(schema)}, skipping field reference"
+- Checks the field (column) exists on the schema; a missing field → warning: "Field \"#{field_name}\" does not exist on schema #{inspect(schema)}, skipping field reference"
 
 **Files:**
 - `OrderBy`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/order_by.ex`
@@ -258,6 +316,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Grouping & Aggregate Filters
 
+Grouping bundles rows together (for counts, sums, and so on); `:having` filters those groups.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:group_by` | `GroupBy` | Atom field / list of atoms / raw dynamic | `GROUP BY` clause | Unknown field → warning, filtered out |
@@ -265,7 +325,7 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 | `:or_having` | `OrHaving` | Map / keyword / raw dynamic | `OR HAVING` clause | `nil` → no clause |
 
 **Field validation (GroupBy: `group_by.ex:62-87`):**
-- Same as OrderBy: missing field → warning, filtered out
+- Same as OrderBy: a missing field (column) → warning, filtered out
 
 **Files:**
 - `GroupBy`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/group_by.ex`
@@ -273,6 +333,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 - `OrHaving`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/or_having.ex`
 
 ### Uniqueness Filter
+
+This removes duplicate rows.
 
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
@@ -282,6 +344,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Pagination & Cardinality Filters
 
+These control how many rows you get back and where in the result set you start.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:limit` | `Limit` | Integer or string (coerced to integer) | `LIMIT` clause | Coerced via `Types.cast(:integer, expr)` |
@@ -290,14 +354,14 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 | `:page` | `Page` | Offset-based: `%{index: N, size: M}` or cursor-based: `%{after\|before: cursor, by: field, size: N}` | `LIMIT` + `OFFSET` or cursor-filtered `LIMIT` | Invalid param shape → logged as part of pattern match failure |
 | `:last` | `Last` | Integer / `{sort_key, limit}` tuple / keyword/map with pairs | Nested subquery with reverse order | Invalid shape → warning: "Expected :last value to be an integer, a {sort_key, limit} tuple, or a map/keyword list of such pairs, got: ..." |
 
-**Page shapes (file: `page.ex:13-86`):**
-1. Offset: `%{index: 1, size: 10}` → offset = (index - 1) * size, limit = size
-2. Cursor forward: `%{after: cursor, by: field, size: size}` → filters `field > cursor`, orders ASC, limits
-3. Cursor backward: `%{before: cursor, by: field, size: size}` → filters `field < cursor`, orders DESC, limits
+**Page shapes (file: `page.ex:13-86`), the three ways to ask for a page of results:**
+1. By page number: `%{index: 1, size: 10}` → offset = (index - 1) * size, limit = size
+2. Forward from a marker (cursor): `%{after: cursor, by: field, size: size}` → keeps rows where `field > cursor`, sorts ascending, limits
+3. Backward from a marker (cursor): `%{before: cursor, by: field, size: size}` → keeps rows where `field < cursor`, sorts descending, limits
 
 **Last internals (file: `last.ex:13-50`):**
-- Accepts `{sort_key, limit}` tuple where sort_key is nil (uses `:id` or primary key) or an atom
-- Creates subquery: order by sort_key DESC, limit, then outer order by sort_key ASC
+- Accepts a `{sort_key, limit}` tuple where `sort_key` is `nil` (uses `:id` or the primary key) or an atom
+- Builds a subquery (a query nested inside another query): sort by `sort_key` descending, limit, then the outer query sorts by `sort_key` ascending
 
 **Files:**
 - `Limit`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/limit.ex`
@@ -307,23 +371,25 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Projection Filters
 
+"Projection" means choosing which fields (columns) come back, instead of the whole row.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:select` | `Select` | Atom field / list of atoms / `true` / `{:map, params}` / `{:struct, fields}` / raw dynamic / map / keyword | `SELECT` clause (replaces previous) | Raw dynamic passed through; boolean coercion |
 | `:select_merge` | `SelectMerge` | Same as `:select` but additive | `SELECT MERGE` clause | Same as `:select` |
 
 **Select shapes (file: `select.ex:11-73`):**
-- `:field_name` → selects single field
-- `[field1, field2, ...]` → as keyword list → recursive merge, or as list → raw select
-- `true` → selects entire binding
-- `%{key1: field1, key2: field2}` → builds map with aliases
-- `{:map, params}` → forces map projection
-- `{:struct, fields}` → forces struct projection with specific fields
+- `:field_name` → returns a single field (column)
+- `[field1, field2, ...]` → if it is a keyword list → merge them one by one; if a plain list → use as a raw select
+- `true` → returns the whole table for the current binding
+- `%{key1: field1, key2: field2}` → builds a map, with the keys as labels
+- `{:map, params}` → forces the result to be a map
+- `{:struct, fields}` → forces a struct result with only those fields
 
-**SelectMerge behavior (file: `select_merge.ex:10-92`):**
-- Incrementally adds fields to select
-- `{field_alias, field_name}` where both atoms → maps field from source
-- `{field_alias, dynamic}` → merges computed field
+**SelectMerge behavior (file: `select_merge.ex:10-92`), which adds to the select instead of replacing it:**
+- Adds fields one at a time
+- `{field_alias, field_name}` where both are atoms → takes the field from the source under a label
+- `{field_alias, dynamic}` → adds a computed value (a condition built in code)
 
 **Files:**
 - `Select`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/select.ex`
@@ -331,15 +397,17 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Eager Loading
 
+This loads linked records (associations) up front so you do not fetch them one at a time later.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:preload` | `Preload` | Atom assoc / list of atoms / `{assoc, nested}` / map / keyword | `PRELOAD` clause | Normalized via `normalize(value)` recursively |
 
-**Preload normalization (file: `preload.ex:64-87`):**
-- Map → to_list → recursive
-- Keyword list → each value recursively normalized
-- Atom → wrapped as `[name]`
-- Other → passed through
+**Preload normalization (file: `preload.ex:64-87`), tidying the input into one standard shape:**
+- A map → turn into a list → recurse
+- A keyword list → tidy each value
+- An atom → wrap it as `[name]`
+- Anything else → pass through unchanged
 
 **Files:**
 - `Preload`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/preload.ex`
@@ -350,23 +418,29 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 |-----|--------|---------------|-------|-----------------|
 | `:subquery` | `SubQuery` | Map / keyword of filter params | Subquery wrapping | Invalid shape → warning: "Expected :subquery value to be a keyword list or map of filter params, got: ..." |
 
+This wraps the current query inside another query (a subquery: a query nested inside another query).
+
 **File:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/sub_query.ex:12-26`
 
 ### Locking
 
+Locking tells the database to hold onto rows so other work cannot change them at the same time.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
-| `:lock` | `Lock` | Map/keyword with `:name` key (or function) | `LOCK` clause | Missing `:name` → silent no-op; invalid shape → warning: "Expected :lock value to be a map or keyword list with a :name key, got: ..." |
+| `:lock` | `Lock` | Map/keyword with `:name` key (or function) | `LOCK` clause | Missing `:name` → logs a warning and skips, leaving the query unchanged; invalid shape → warning: "Expected :lock value to be a map or keyword list with a :name key, got: ..." |
 
 **Lock names (file: `lock.ex:39-46`):**
 - `:for_update` → `"FOR UPDATE"`
 - `:for_share` → `"FOR SHARE"`
-- Custom atom → resolved via QueryProvider (if configured), else warning logged
+- A custom atom → looked up through QueryProvider (if one is configured); otherwise a warning is logged
 
 **Files:**
 - `Lock`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/lock.ex`
 
 ### Clause Removal
+
+This removes a part you (or an earlier filter) already added.
 
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
@@ -376,6 +450,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Bulk Updates
 
+This sets new values on many rows at once.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:update` | `Update` | Map / keyword of field → value pairs | `UPDATE` set clause | Keyword form → `UpdateExpr.build_update_expr(source, term)` |
@@ -384,6 +460,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Query Prefixing
 
+A prefix usually points the query at a particular database schema (namespace).
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:put_query_prefix` | `PutQueryPrefix` | Any (prefix value) | Query prefix | N/A |
@@ -391,6 +469,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 **File:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/put_query_prefix.ex`
 
 ### Common Table Expressions
+
+A CTE (common table expression) is a named, temporary result you can reuse inside one query.
 
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
@@ -406,6 +486,7 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 #   :materialized (optional) → boolean
 #   :operation (optional) → :all | :update_all | :delete_all
 ```
+This shows that each CTE has a name and a definition, and that the definition must include `:as` (the query it stands for) plus two optional settings.
 
 **Warning conditions (file: `with_cte.ex`):**
 - Line 100-105: Missing `:as` → "Expected :with_cte params for #{inspect(cte_name)} to include an :as key"
@@ -418,6 +499,8 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 - `WithCte`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/with_cte.ex`
 
 ### Windowing
+
+A window lets you run calculations across a group of related rows while still returning each row.
 
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
@@ -432,11 +515,12 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 # :order_by → field or {direction, field}
 # :frame → Ecto.Query.DynamicExpr or atom
 ```
+This shows a window's name and its settings: which other window it builds on, how to split the rows, how to sort them, and the range it covers.
 
 **WithTies behavior (file: `with_ties.ex:19-92`):**
-- Boolean `true` → applies WITH TIES with default limit 1000
-- `{:limit, N}` → applies limit N then WITH TIES
-- No order/limit exists → ensures both before applying WITH TIES
+- Boolean `true` → turns on WITH TIES with a default limit of 1000
+- `{:limit, N}` → sets the limit to N, then turns on WITH TIES
+- If there is no order or limit yet → adds both before turning on WITH TIES
 
 **Warning conditions:**
 - Windows: line 42-46 cyclic reference, line 92-98 invalid frame type, line 32-39 invalid params
@@ -448,21 +532,25 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ### Named Bindings
 
+This applies filters and makes sure a named table (named binding) ends up in the query.
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
 | `:with_named_binding` | `WithNamedBinding` | Map / keyword with binding_name → filter_params pairs | Applies filters and ensures named binding is created | Binding not created after filters → warning; invalid key type → warning |
 
 **Warning conditions (file: `with_named_binding.ex`):**
-- Line 45-51: Filters did not create named binding → "Filters provided for :with_named_binding key #{inspect(key)} did not create a named binding"
-- Line 55-61: Invalid key (not atom) → "Expected :with_named_binding key to be an atom, got: #{inspect(key)}"
+- Line 45-51: Filters did not create the named binding → "Filters provided for :with_named_binding key #{inspect(key)} did not create a named binding"
+- Line 55-61: Invalid key (not an atom) → "Expected :with_named_binding key to be an atom, got: #{inspect(key)}"
 
 **File:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/with_named_binding.ex`
 
 ### Set Operations
 
+These combine the results of two queries (for example, glue them together or keep only the overlap).
+
 | Key | Module | Accept Shapes | Emits | Warn/Nil Cases |
 |-----|--------|---------------|-------|-----------------|
-| `:union` | `Union` | Ecto.Query or map/keyword of filter params | `UNION` composition | `nil` param → no-op |
+| `:union` | `Union` | Ecto.Query or map/keyword of filter params | `UNION` composition | `nil` param → logs nothing and changes nothing (no-op) |
 | `:union_all` | `UnionAll` | Same as `:union` | `UNION ALL` composition | `nil` param → no-op |
 | `:except` | `Except` | Same as `:union` | `EXCEPT` composition | `nil` param → no-op |
 | `:except_all` | `ExceptAll` | Same as `:union` | `EXCEPT ALL` composition | `nil` param → no-op |
@@ -470,9 +558,9 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 | `:intersect_all` | `IntersectAll` | Same as `:union` | `INTERSECT ALL` composition | `nil` param → no-op |
 
 **Behavior (all set operations, file examples: `union.ex:12-25`, `except.ex:12-25`):**
-- If param is Ecto.Query → use as-is
-- Else if param is map/keyword → recursively call `convert_params_to_filter(source, param, opts)`
-- Emit set operation combining result with current query
+- If the param is already an `Ecto.Query` → use it as is
+- Otherwise, if it is a map or keyword list → recurse with `convert_params_to_filter(source, param, opts)`
+- Combine that result with the current query using the set operation
 
 **Files:**
 - `Union`: `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/filters/union.ex`
@@ -486,46 +574,50 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ## 8. Builder & Parser Modules
 
+These are the two internal helpers behind everything above.
+
 ### `EctoShorts.CommonFilters.Builder`
 
 **Location:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/builder.ex`
 
-**Role:** Implements `EctoShorts.QueryBuilder` behavior; dispatcher for all filter keys via `build_query/6`
+**Role:** Implements the `EctoShorts.QueryBuilder` behavior; it is the single place that routes every filter key, through `build_query/6`
 
 **Public functions:**
-- `build_query(filter, source, query, selected_binding, term, opts)` → applies filter and returns updated query
+- `build_query(filter, source, query, selected_binding, term, opts)` → applies the filter and returns the updated query
 
-**Implementation:** Pattern matches on `filter` atom and delegates to module-specific `build_query/6` for each filter type.
+**Implementation:** Matches on the `filter` atom and hands off to that filter's own `build_query/6`.
 
 **Special cases:**
-- `:where` and `:or_where` → routes to `DynamicBuilders.build_dynamic(...)` and wraps in `Query.where/3` or `Query.or_where/3`
-- `:exclude` → inline implementation wraps param in list, reduces via `Query.exclude/2`
-- `:first` → aliases to `:limit` (file: line 159-161)
+- `:where` and `:or_where` → build the condition with `DynamicBuilders.build_dynamic(...)` and wrap it in `Query.where/3` or `Query.or_where/3`
+- `:exclude` → handled right here: wrap the param in a list and remove it via `Query.exclude/2`
+- `:first` → just another name for `:limit` (file: line 159-161)
 
 ### `EctoShorts.CommonFilters.Parser`
 
 **Location:** `/Users/kurthogarth/Documents/GitHub/ecto_shorts/lib/ecto_shorts/common_filters/parser.ex`
 
-**Role:** Utility for flattening and extracting nested map/keyword structures
+**Role:** A helper for flattening and pulling apart nested maps and keyword lists
 
 **Public functions:**
 
 | Function | Arity | Purpose | Example |
 |----------|-------|---------|---------|
-| `extract_entries(entries)` | 1 | Extracts `[key, value]` pairs from nested map | `Parser.extract_entries(%{"a" => 1, "b" => %{"c" => 2}})` → `[{"a", 1}, {"b", %{"c" => 2}}]` |
-| `normalize(entries, predicate, acc)` | 1-3 | Flattens nested structure with predicate control; `true` → recurse, `false` → stop | `Parser.normalize(%{"a" => 1, "b" => %{"c" => 2}})` → `[{"a", 1}, {"b", {"c", 2}}]` |
-| `default_predicate(key, value)` | 2 | Predicate that always returns `true` | Used as default in `normalize` |
+| `extract_entries(entries)` | 1 | Pulls `[key, value]` pairs out of a nested map | `Parser.extract_entries(%{"a" => 1, "b" => %{"c" => 2}})` → `[{"a", 1}, {"b", %{"c" => 2}}]` |
+| `normalize(entries, predicate, acc)` | 1-3 | Flattens a nested structure, with a condition (a true/false test) controlling how deep to go; `true` → keep going deeper, `false` → stop | `Parser.normalize(%{"a" => 1, "b" => %{"c" => 2}})` → `[{"a", 1}, {"b", {"c", 2}}]` |
+| `default_predicate(key, value)` | 2 | A condition that always returns `true` | Used as the default in `normalize` |
 
-**Normalization rules (file: `parser.ex:137-149`):**
-- Map not struct → convert to list, recurse
-- Keyword list → recurse over each entry
-- Non-keyword list → stop, treat as value
-- Tuple `{key, value}` where value is map/keyword → expand value, prepend key to results
-- Other value → return as-is
+**Normalization rules (file: `parser.ex:137-149`), the rules for tidying input into one standard shape:**
+- A map that is not a struct → turn into a list, then recurse
+- A keyword list → recurse over each entry
+- A plain list (not a keyword list) → stop and treat it as a value
+- A tuple `{key, value}` where the value is a map or keyword list → open up the value and put the key in front of the results
+- Anything else → return it unchanged
 
 ---
 
 ## 9. All Warning & Logging Conditions
+
+Every place the library logs a warning instead of doing what you asked. "Returned" tells you what happens to the query in each case.
 
 | Warning ID | File:Line | Message Template | Condition | Returned |
 |------------|-----------|------------------|-----------|----------|
@@ -567,7 +659,7 @@ All filter keys below are recognized by the main dispatcher and routed via `Buil
 
 ## 10. Filter Key Complete List
 
-All keys recognized by `@filters` list (line 269-304 of `common_filters.ex`):
+All keys the `@filters` list recognizes (line 269-304 of `common_filters.ex`):
 
 ```
 :and
@@ -607,60 +699,63 @@ All keys recognized by `@filters` list (line 269-304 of `common_filters.ex`):
 :with_ties
 ```
 
-**Plus:**
+**Plus, handled separately from the list above:**
 - `:as` (binding selector, special dispatch)
 - `:at` (binding selector, special dispatch)
-- **Any schema association name** (implicit join + recurse)
-- **Any schema field name** (treated as `:where` filter)
+- **Any schema association name** (adds an automatic join and recurses)
+- **Any schema field name** (treated as a `:where` filter)
 
 ---
 
 ## 11. Default Dispatch Behavior
 
-**Unknown keys (not in @filters, not associations, not fields):**
-- Passed to `:where` filter routing
-- Treated as field equality: `{key, value}` → `DynamicBuilders.build_dynamic(source, binding, {key, value}, opts)`
-- If field doesn't exist, may generate warning during field coercion
+What happens to a key that is not in `@filters`, is not an association, and is not a field:
+- It is sent to the `:where` filter
+- It is treated as "this field equals this value": `{key, value}` → `DynamicBuilders.build_dynamic(source, binding, {key, value}, opts)`
+- If that field does not actually exist, a warning may be logged while the value is being prepared
 
 ---
 
 ## 12. Example Usage Patterns
 
+Each example below shows a call and a one-line note on what it does.
+
 ### Basic field filtering
 ```elixir
 CommonFilters.convert_params_to_filter(Post, %{published: true, author_id: 5}, [])
 ```
-Routes `published` and `author_id` to `:where` dynamic builder.
+Sends `published` and `author_id` to the `:where` condition builder.
 
 ### Boolean grouping
 ```elixir
 CommonFilters.convert_params_to_filter(Post, %{and: %{published: true, views: [5, 10]}}, [])
 ```
-Both entries expand as separate WHERE clauses (AND semantics).
+Both entries become separate WHERE conditions joined with AND.
 
 ### Association shorthand
 ```elixir
 CommonFilters.convert_params_to_filter(Post, %{author: %{name: "Alice"}}, [])
 ```
-Implicit `:join` with association, recurse on author filters.
+Adds an automatic join to the linked `author` table and applies the author filters there.
 
 ### Binding selectors
 ```elixir
 CommonFilters.convert_params_to_filter(Post, %{as: %{author: %{select: :first_name}}}, [])
 CommonFilters.convert_params_to_filter(Post, %{at: %{1 => %{order_by: :name}}}, [])
 ```
+The first aims filters at the table named `author`; the second aims them at the table in position 1.
 
 ### Keyword list with duplicate keys
 ```elixir
 CommonFilters.convert_params_to_filter(Post, [where: %{a: 1}, where: %{b: 2}, order_by: :id], [])
 ```
-Multiple `:where` entries applied in order.
+Several `:where` entries are applied in order.
 
 ### Page-based pagination
 ```elixir
 CommonFilters.convert_params_to_filter(Post, %{page: %{index: 2, size: 10}}, [])
 ```
-Offset-based: offset = 10, limit = 10.
+By page number: offset = 10, limit = 10.
 
 ### Recursive CTE with union
 ```elixir
@@ -670,4 +765,4 @@ CommonFilters.convert_params_to_filter(Post, %{
   union_all: %{from: Root}
 }, [])
 ```
-
+Defines a reusable named result (a CTE) called `root` and combines it with the query using UNION ALL.

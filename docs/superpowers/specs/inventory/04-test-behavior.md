@@ -4,9 +4,44 @@
 
 ---
 
+## What this document is
+
+This document is a list of what the tests check. EctoShorts is a small library built on top of Ecto, the Elixir library for talking to a database. You hand EctoShorts a plain map of options, and it turns that map into a database request (a query). The tests pin down what counts as correct behavior.
+
+Read this document as two things at once:
+
+1. Here is the behavior the existing tests treat as correct.
+2. Here are the spots where that checking is thin or where the behavior looks questionable.
+
+Roughly 456 tests are covered.
+
+### Words used in this document
+
+- **Ecto** — the Elixir library for talking to a database. EctoShorts is built on top of it.
+- **Query** — a database request. EctoShorts builds one for you from a map of options.
+- **Schema** — an Elixir description of a database table. The test schemas describe sample tables like Post and User.
+- **Schema-backed vs schemaless** — *schema-backed:* the query knows the table's columns and their types. *schemaless:* it does not, so the types must be supplied or inferred.
+- **Field** — a column of a table.
+- **Operator** — a comparison word, such as "equals" or "greater than".
+- **Assertion / asserts** — what the test checks is true.
+- **Warn+nil / no-op** — the library logs a warning and skips that filter, leaving the query unchanged.
+- **capture_log** — a test helper that captures the warning messages so the test can check them.
+- **Coverage gap** — behavior in the code that has little or no test checking it.
+- **Audit candidate** — behavior that looks questionable or inconsistent and is worth a second look.
+- **Aggregate** — a function that summarizes many rows into one number, like average or count.
+- **Array field** — a column that holds a list of values.
+- **:elements** — a wrapper that tells the library to treat a column as a list (array).
+- **Enum** — a column whose value is one of a fixed set of named choices, stored as a number.
+
+---
+
 ## 1. Test Files & Operator Coverage
 
+This section lists each test file and the operators (comparison words such as "equals" or "greater than") it mainly exercises.
+
 ### Schema-Backed Tests (common_filters/)
+
+These tests run against the sample schemas (Elixir descriptions of database tables), so the query knows each column's name and type.
 
 | File | Tests | Primary Operators |
 |------|-------|-------------------|
@@ -57,6 +92,8 @@
 
 ### Schemaless Tests
 
+These tests run without a schema, so the query does not know column types on its own. The notes below say how that changes behavior.
+
 | File | Tests | Key Differences |
 |------|-------|-----------------|
 | common_filters_schemaless_test.exs | 57 | • Association keys treated as plain fields (no shorthand)<br>• `:elements` wrapper forces array routing<br>• `field_types:` opt required for map/array semantics<br>• Arbitrary fields always accepted (no invalid-field warn)<br>• Smoke tests for all operators on string sources |
@@ -66,6 +103,10 @@
 ---
 
 ## 2. Operator/Parameter Shape Reference Table
+
+This table is the heart of the document. Each row shows: the operator, the input map you pass in, the database request (query) it produces, whether it works schema-backed and/or schemaless, whether it warns and skips (warn+nil), and where the test lives.
+
+How to read a row: the **Input Params** column is the map you hand to EctoShorts. The **Expected Query/SQL** column is roughly the database request it builds. A plain reading of the example is given after each tricky one. `^1` means a value safely plugged into the query.
 
 | Operator | Input Params | Expected Query/SQL | Schema | Schemaless | Warn+Nil? | Test File:Line |
 |----------|--------------|-------------------|--------|------------|-----------|---|
@@ -82,113 +123,113 @@
 | `==` (list) | `{published: {==: [T,F]}}` | `WHERE published IN ^[T,F]` (rewrite) | ✓ | ✓ | | comparison_operators:76 |
 | `!=` (list) | `{published: {!=: [T,F]}}` | `WHERE is_nil(p) OR p NOT IN ^[T,F]` | ✓ | ✓ | | comparison_operators:83 |
 | `all`/`any` | `{id: {all: {from: Comment, where: ...}}}` | `WHERE id == all(SELECT ...) / any(...)` | ✓ | | | comparison_operators:98 |
-| **Aggregates** |
+| **Aggregates** (functions that summarize many rows into one number) |
 | `avg` | `{views: {avg: {>: 10}}}` | `WHERE avg(views) > ^10` | ✓ | ✓ | | aggregate_operators:14 |
 | `count` | `{views: {count: {>: 0}}}` | `WHERE count(views) > ^0` | ✓ | ✓ | | aggregate_operators:31 |
 | `max` | `{views: {max: {>=: 100}}}` | `WHERE max(views) >= ^100` | ✓ | | | aggregate_operators:38 |
 | `min` | `{views: {min: {<: 5}}}` | `WHERE min(views) < ^5` | ✓ | | | aggregate_operators:45 |
 | `sum` | `{views: {sum: {==: 1000}}}` | `WHERE sum(views) == ^1000` | ✓ | | | aggregate_operators:52 |
 | **String Matching** |
-| `like` | `{title: {like: "hello"}}` | `WHERE like(title, ^"%hello%")` (wrapped) | ✓ | ✓ | | string_matching:13 |
-| `like` (pattern) | `{title: {like: "hello%"}}` | `WHERE like(title, ^"hello%")` (preserved) | ✓ | | | string_matching:23 |
-| `ilike` | `{title: {ilike: "hello"}}` | `WHERE ilike(title, ^"%hello%")` | ✓ | | | string_matching:31 |
-| `like` (list) | `{title: {like: ["h", "w"]}}` | `WHERE fragment("? LIKE ANY(?)", title, ^[...])` | ✓ | | | string_matching:38 |
+| `like` | `{title: {like: "hello"}}` | `WHERE like(title, ^"%hello%")` (wrapped) — bare text gets `%` added on both sides | ✓ | ✓ | | string_matching:13 |
+| `like` (pattern) | `{title: {like: "hello%"}}` | `WHERE like(title, ^"hello%")` (preserved) — your own `%` is left alone | ✓ | | | string_matching:23 |
+| `ilike` | `{title: {ilike: "hello"}}` | `WHERE ilike(title, ^"%hello%")` — like `like` but ignores upper/lower case | ✓ | | | string_matching:31 |
+| `like` (list) | `{title: {like: ["h", "w"]}}` | `WHERE fragment("? LIKE ANY(?)", title, ^[...])` — match any pattern in the list | ✓ | | | string_matching:38 |
 | **String Transform** |
-| `lower` | `{title: {==: {lower: "HELLO"}}}` | `WHERE lower(title) == ^"HELLO"` | ✓ | ✓ | | string_transformations:1 |
+| `lower` | `{title: {==: {lower: "HELLO"}}}` | `WHERE lower(title) == ^"HELLO"` — lowercase the column before comparing | ✓ | ✓ | | string_transformations:1 |
 | `upper` | `{title: {==: {upper: "hello"}}}` | `WHERE upper(title) == ^"hello"` | ✓ | | | string_transformations:? |
-| `trim` | `{title: {==: {trim: " x "}}}` | `WHERE trim(title) == ^" x "` | ✓ | | | string_transformations:? |
+| `trim` | `{title: {==: {trim: " x "}}}` | `WHERE trim(title) == ^" x "` — strip surrounding spaces before comparing | ✓ | | | string_transformations:? |
 | **Date/DateTime Wrappers** |
-| `ago` | `{inserted_at: {==: {ago: {1, :day}}}}` | `WHERE inserted_at == ago(^1, "day")` | ✓ | | | datetime_wrappers:? |
-| `from_now` | `{published_at: {>=: {from_now: {1, :day}}}}` | `WHERE published_at >= from_now(^1, "day")` | ✓ | | | datetime_wrappers:? |
+| `ago` | `{inserted_at: {==: {ago: {1, :day}}}}` | `WHERE inserted_at == ago(^1, "day")` — a time in the past | ✓ | | | datetime_wrappers:? |
+| `from_now` | `{published_at: {>=: {from_now: {1, :day}}}}` | `WHERE published_at >= from_now(^1, "day")` — a time in the future | ✓ | | | datetime_wrappers:? |
 | `add` (datetime) | `{inserted_at: {>=: {datetime: {add: {...}}}}}` | `WHERE inserted_at >= datetime_add(...)` | ✓ | ✓ | | datetime_wrappers:? |
 | `add` (date) | `{inserted_at: {>=: {date: {add: {...}}}}}` | `WHERE date(inserted_at) >= date(...)` | ✓ | | | date_wrappers:? |
-| **Array/Elements (Schemaless-specific)** |
-| `:elements` + `:in` | `{tags: {elements: {in: [..]}}}` | `WHERE fragment("? && ?", tags, ^[...])` array overlap | | ✓ | | schemaless:39 |
-| `:elements` + scalar | `{tags: {elements: "elixir"}}` | `WHERE ^"elixir" IN tags` element membership | | ✓ | | schemaless:65 |
-| `:elements` + list | `{tags: {elements: [...]}}` | `WHERE tags == ^[...]` array equality | | ✓ | | schemaless:104 |
-| `:elements` + `:count` | `{tags: {elements: {count: {>: 3}}}}` | `WHERE array_length(tags, 1) > ^3` | | ✓ | | schemaless:91 |
-| **Field Types Option** |
+| **Array/Elements (Schemaless-specific)** — `:elements` is a wrapper that tells the library to treat the column as a list (array) |
+| `:elements` + `:in` | `{tags: {elements: {in: [..]}}}` | `WHERE fragment("? && ?", tags, ^[...])` array overlap — the list shares at least one value | | ✓ | | schemaless:39 |
+| `:elements` + scalar | `{tags: {elements: "elixir"}}` | `WHERE ^"elixir" IN tags` element membership — the value is one of the list's items | | ✓ | | schemaless:65 |
+| `:elements` + list | `{tags: {elements: [...]}}` | `WHERE tags == ^[...]` array equality — the whole list matches exactly | | ✓ | | schemaless:104 |
+| `:elements` + `:count` | `{tags: {elements: {count: {>: 3}}}}` | `WHERE array_length(tags, 1) > ^3` — the list has more than 3 items | | ✓ | | schemaless:91 |
+| **Field Types Option** (telling the query column types by hand) |
 | `field_types: [tags: {:array, :string}]` | `{tags: "elixir"}` | `WHERE ^"elixir" IN tags` (not scalar IN) | ✓ | ✓ | | field_types_opt:26,52 |
 | `field_types: [tags: {:array, :string}]` + `:in` | `{tags: {in: [..]}}` | `WHERE fragment("? && ?", ...)` array overlap | ✓ | ✓ | | field_types_opt:39 |
-| `field_types: [data: :map]` | `{data: {has_key: "role"}}` | `WHERE fragment("jsonb_exists(...)")` | ✓ | ✓ | | field_types_opt:99 |
-| `field_types: [data: :map]` | `{data: {contains: {role: "admin"}}}` | `WHERE fragment("? @> ?::jsonb", ...)` | ✓ | ✓ | | field_types_opt:67 |
-| **Negation** |
+| `field_types: [data: :map]` | `{data: {has_key: "role"}}` | `WHERE fragment("jsonb_exists(...)")` — the map has that key | ✓ | ✓ | | field_types_opt:99 |
+| `field_types: [data: :map]` | `{data: {contains: {role: "admin"}}}` | `WHERE fragment("? @> ?::jsonb", ...)` — the map contains that key/value | ✓ | ✓ | | field_types_opt:67 |
+| **Negation** (the `:not` wrapper flips a condition) |
 | `:not` wrapper | `{views: {not: {==: 10}}}` | `WHERE NOT (views == ^10)` | ✓ | ✓ | | negation:? |
 | `:not` + `in` (list) | `{published: {not: {in: [..]}}}` | `WHERE is_nil(p) OR p NOT IN ^[..]` | ✓ | ✓ | | comparison:83 |
-| **Enum Casting** |
-| Ecto.Enum atom | `{status: :active}` (enum field) | `WHERE status == ^0` (casts to integer) | ✓ | | | enum_casting:11 |
+| **Enum Casting** (an enum is a column whose value is one of a fixed set of named choices, stored as a number) |
+| Ecto.Enum atom | `{status: :active}` (enum field) | `WHERE status == ^0` (casts the name to its stored number) | ✓ | | | enum_casting:11 |
 | Ecto.Enum in operator | `{status: {in: [:active, :pending]}}` | `WHERE status IN ^[0,1]` | ✓ | | | enum_casting:29 |
-| **Association Filter (Schema-backed)** |
+| **Association Filter (Schema-backed)** — filtering through a related table |
 | Association map | `{author: {age: 25}}` | `JOIN author WHERE author.age == ^25` (shorthand) | ✓ | | | association_filter:12 |
 | Association scalar | `{author: "bad"}` | Query unchanged, WARN logged | ✓ | | **WARN** | association_filter:48 |
-| **Join** |
+| **Join** (combining rows from another table) |
 | Association join | `{join: [assoc: [...]]}` | `JOIN author assoc(p, :author)` | ✓ | | | join_test:? |
 | Schema join | `{join: [schema: [source: User, ...]]}` | `JOIN users ON ...` | ✓ | | | join_test:? |
 | Table join | `{join: [table: [source: "users", ...]]}` | `FROM "posts" JOIN "users" ...` | ✓ | ✓ | | join_test:? |
 | Query join | `{join: [query: [...]]}` | `JOIN subquery ...` | ✓ | | | join_test:? |
 | Fragment join | `{join: [fragment: [...]]}` | Via provider contract | ✓ | | | join_test:? |
-| **Distinct** |
+| **Distinct** (drop duplicate rows) |
 | Root boolean | `{distinct: true}` | `SELECT DISTINCT ...` | ✓ | | | distinct:14 |
 | Root atom | `{distinct: :field}` | `SELECT DISTINCT ON (field) ...` | ✓ | | | distinct:18 |
 | Root keyword list | `{distinct: [asc: :field]}` | `SELECT DISTINCT ON (...) ORDER BY ...` | ✓ | | | distinct:22 |
 | Named binding | `{distinct: [at: :binding, field: :name]}` | With binding alias | ✓ | | | distinct:26 |
 | Schemaless atom | `{distinct: :any_field}` | Accepts any atom (no schema check) | | ✓ | | schemaless:? |
 | Invalid field | `{distinct: :does_not_exist}` | Query unchanged, WARN | ✓ | | **WARN** | invalid_schema_field:85 |
-| **Group By** |
+| **Group By** (collapse rows that share a value) |
 | Root atom | `{group_by: :author_id}` | `GROUP BY author_id` | ✓ | ✓ | | group_by:? |
 | List | `{group_by: [:author_id, :status]}` | `GROUP BY author_id, status` | ✓ | | | group_by:? |
 | Invalid field | `{group_by: :does_not_exist}` | Query unchanged, WARN | ✓ | | **WARN** | invalid_schema_field:73 |
-| **Having** |
+| **Having** (filter on grouped rows) |
 | Aggregate | `{having: {views: {avg: {>: 100}}}}` | `HAVING avg(views) > ^100` (on grouped query) | ✓ | ✓ | | having:? |
 | `:or_having` | `{or_having: {views: {...}}}` | `HAVING ... OR ...` | ✓ | | | having:? |
-| **Order By** |
+| **Order By** (sort the rows) |
 | Root atom | `{order_by: :title}` | `ORDER BY title ASC` | ✓ | ✓ | | order_modifier:? |
 | List | `{order_by: [asc: :title, desc: :id]}` | `ORDER BY title ASC, id DESC` | ✓ | | | order_modifier:? |
 | `:prepend_order_by` | `{prepend_order_by: :created_at}` | Prepends to existing order | ✓ | | | order_modifier:? |
 | `:reverse_order` | `{order_by: :title, reverse_order: true}` | Reverses direction | ✓ | ✓ | | order_modifier:? |
 | `:reverse_order` (invalid) | `{reverse_order: "bad"}` | Query unchanged, WARN | ✓ | | **WARN** | order_modifier:406 |
-| **Pagination** |
+| **Pagination** (returning one page of results at a time) |
 | `:page` offset | `{page: {index: 1, size: 5}}` | `LIMIT 5 OFFSET 0` | ✓ | ✓ | | page_test:? |
 | `:page` keyset forward | `{page: {after: 5, by: :id, size: 10}}` | `WHERE id > ^5 ORDER BY id ASC LIMIT 10` | ✓ | ✓ | | page_test:? |
 | `:page` keyset backward | `{page: {before: 5, by: :id, size: 10}}` | `WHERE id < ^5 ORDER BY id DESC LIMIT 10` | ✓ | | | page_test:? |
-| **Select/Projection** |
+| **Select/Projection** (choosing which columns to return) |
 | Single field | `{select: :title}` | `SELECT title` | ✓ | ✓ | | select_test:? |
 | List | `{select: [:title, :body]}` | `SELECT title, body` | ✓ | | | select_test:? |
 | Map alias | `{select: [title_text: :title, post_id: :id]}` | `SELECT %{title_text: p.title, post_id: p.id}` | ✓ | ✓ | | select_test:? |
 | `:select_merge` | `{select_merge: {new_field: :value}}` | Merges into existing select map | ✓ | ✓ | | select_merge_test:? |
 | Association | `{select: [:title, :author]}` (assoc field) | `SELECT title, author_struct` (preload) | ✓ | | | select_test:? |
-| **Set Operations** |
+| **Set Operations** (combining two queries' results) |
 | `:union` | `{union: {published: true}}` | `UNION (SELECT FROM ... WHERE published = ^true)` | ✓ | ✓ | | set_operation:? |
 | `:union_all` | `{union_all: ...}` | `UNION ALL ...` | ✓ | | | set_operation:? |
 | `:except` | `{except: ...}` | `EXCEPT ...` | ✓ | | | set_operation:? |
 | `:except_all` | `{except_all: ...}` | `EXCEPT ALL ...` | ✓ | | | set_operation:? |
 | `:intersect` | `{intersect: ...}` | `INTERSECT ...` | ✓ | | | set_operation:? |
 | `:intersect_all` | `{intersect_all: ...}` | `INTERSECT ALL ...` | ✓ | | | set_operation:? |
-| **Limit/Offset** |
+| **Limit/Offset** (cap or skip rows) |
 | `:limit` | `{limit: 10}` | `LIMIT 10` | ✓ | ✓ | | limit_test:? |
 | `:offset` | `{offset: 5}` | `OFFSET 5` | ✓ | ✓ | | offset_test:? |
 | `:first` | `{first: 10}` | `LIMIT 10` (alias) | ✓ | ✓ | | first_test:? |
 | `:last` | `{last: 10}` | Subquery with DESC + reverse order | ✓ | ✓ | | last_test:? |
-| **Preload** |
+| **Preload** (loading related records up front) |
 | Association | `{preload: :author}` | `PRELOAD author` | ✓ | | | preload_test:? |
 | List | `{preload: [:author, :comments]}` | Multiple preloads | ✓ | | | preload_test:? |
 | Join-backed | `{preload: [{:author, :join: [...]}]}` | `PRELOAD ... with JOIN` | ✓ | | | preload_test:? |
-| **Lock** |
+| **Lock** (reserving rows so others cannot change them) |
 | Map `:name` | `{lock: {name: :for_update}}` | `FOR UPDATE` | ✓ | ✓ | | lock_test:? |
 | Provider | Via provider callback | Custom lock expression | ✓ | | | lock_test:? |
 | Raw string | `{lock: "FOR SHARE"}` | Query unchanged, WARN | ✓ | ✓ | **WARN** | lock_test:88 |
-| **CTE (Common Table Expression)** |
+| **CTE (Common Table Expression)** — a named, temporary sub-query reused inside a larger one |
 | `:with_cte` | `{with_cte: [{cte_name: [as: {published: true}]}]}` | `WITH cte_name AS (SELECT...)` | ✓ | ✓ | | with_cte:? |
 | `:recursive_ctes` | `{recursive_ctes: true, with_cte: [...]}` | `WITH RECURSIVE ...` | ✓ | | | recursive_ctes:? |
-| **Windows (Analytic Functions)** |
+| **Windows (Analytic Functions)** — calculations across a set of related rows without collapsing them |
 | Partition & order | `{windows: [w: [partition_by: :author_id, order_by: :id]]}` | `OVER (PARTITION BY ... ORDER BY ...)` | ✓ | ✓ | | windows_test:? |
-| **Update** |
+| **Update** (changing values in existing rows) |
 | `:update` set | `{update: [set: [title: "New"]]}` | `UPDATE ... SET title = 'New'` | ✓ | ✓ | | update_test:? |
 | `:update` inc | `{update: [inc: [views: 1]]}` | `UPDATE ... SET views = views + 1` | ✓ | | | update_test:? |
-| **Exclude** |
+| **Exclude** (removing a clause already on the query) |
 | Single key | `{exclude: :where}` | Removes where clauses from query | ✓ | ✓ | | exclude_test:? |
 | List | `{exclude: [:limit, :offset]}` | Multiple exclusions | ✓ | ✓ | | exclude_test:? |
-| **Binding** |
+| **Binding** (pointing a filter at a specific joined table) |
 | `:at` (positional) | `{where: [{at: 1, field: :author_id}]}` | Applies to binding position 1 | ✓ | | | order_modifier:? |
 | Out-of-range `:at` | `{field: {at: 99, ==: 1}}` | Query unchanged, WARN | ✓ | | **WARN** | out_of_range:16 |
 | `:parent_as` | `{post_id: {parent_as: {post: :id}}}` | `WHERE post_id == field(parent_as(:post), :id)` | ✓ | ✓ | | parent_as:? |
@@ -202,7 +243,7 @@
 
 ## 3. Warn + Nil (Query Unchanged) Test Cases
 
-These tests use `capture_log` and assert the query is returned unchanged with a warning message:
+These tests cover the warn+nil behavior: the library logs a warning and skips that filter, leaving the query unchanged. The tests use `capture_log` — a test helper that captures the warning messages — and assert (check) both that the query is unchanged and that the expected warning appeared.
 
 | Trigger | Input | Expected Behavior | File:Line |
 |---------|-------|-------------------|-----------|
@@ -245,11 +286,13 @@ These tests use `capture_log` and assert the query is returned unchanged with a 
 | With_ties: invalid payload | `{with_ties: "invalid", limit: 1, order_by: :id}` | Query unchanged, WARN "Expected :with_ties value to be a boolean or keyword/map payload" | schemaless:773 |
 | Lock (schemaless): raw string | `{lock: "FOR SHARE NOWAIT"}` | Query unchanged, WARN | schemaless:489 |
 
-**Total Warn+Nil Cases:** 37+ (intentional query no-ops with logging)
+**Total Warn+Nil Cases:** 37+ (intentional query no-ops with logging — on purpose, the library logs a warning and leaves the query unchanged)
 
 ---
 
 ## 4. Coverage Gaps (Operators in lib/ with No/Minimal Tests)
+
+A coverage gap is behavior in the code that has little or no test checking it. The rows below point out operators and features where the testing is thin, so a future change could break them without a test noticing.
 
 | Operator | Location | Test Coverage | Notes |
 |----------|----------|---|--------|
@@ -270,6 +313,8 @@ These tests use `capture_log` and assert the query is returned unchanged with a 
 
 ## 5. Audit Candidates (Questionable/Inconsistent Behavior)
 
+An audit candidate is behavior that looks questionable or inconsistent and is worth a second look. The "Severity" column is a rough sense of how much it matters.
+
 | Issue | Evidence | Severity |
 |-------|----------|----------|
 | **Schemaless `:elements` requirement inconsistency** | `:elements` wrapper needed on schemaless for array semantics, but `field_types:` option makes it unnecessary. Behavior feels ad-hoc. | MEDIUM |
@@ -287,6 +332,8 @@ These tests use `capture_log` and assert the query is returned unchanged with a 
 ---
 
 ## 6. Support Schemas (Field Types Reference)
+
+These are the sample schemas (Elixir descriptions of database tables) the tests run against. Each bullet is a field (a column of a table) and its type. `:integer`, `:string`, `:boolean`, and the datetime types are ordinary single-value columns. `{:array, :string}` is an array field — a column holding a list of strings. `:map` is a column holding a key/value structure. "Assoc" lists links to other tables.
 
 ### Post (posts table)
 - `id` `:integer` (primary key)
@@ -338,8 +385,7 @@ These tests use `capture_log` and assert the query is returned unchanged with a 
 
 - **Total Tests:** ~456 (399 schema-backed + 57 schemaless)
 - **Operators Covered:** ~45 (comparison, aggregate, string ops, date/datetime, array, enum, join, select, pagination, CTE, window, etc.)
-- **Warn+Nil Cases:** 37+ (intentional no-ops)
+- **Warn+Nil Cases:** 37+ (intentional no-ops — the library warns and leaves the query unchanged)
 - **Coverage Gaps:** 10+ (mainly edge cases: recursive CTE depth, arithmetic nesting, association through:)
 - **Audit Candidates:** 10 (schemaless semantics, list rewrite consistency, provider contracts, pattern auto-wrap)
 - **Key Difference (Schema vs Schemaless):** Association shorthand, `:elements` requirement, `field_types:` necessity, invalid field tolerance
-
