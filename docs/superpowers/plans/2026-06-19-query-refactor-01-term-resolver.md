@@ -35,35 +35,35 @@ defmodule EctoShorts.QueryBuilder.TermResolverTest do
   use ExUnit.Case, async: true
   import ExUnit.CaptureLog
 
-  alias EctoShorts.QueryBuilder.TermResolver, as: R
+  alias EctoShorts.QueryBuilder.TermResolver
   alias EctoShorts.Schema.Post
 
   describe "canonical_op/1" do
     test "passes canonical atoms through" do
-      assert R.canonical_op(:==) == :==
-      assert R.canonical_op(:in) == :in
+      assert TermResolver.canonical_op(:==) == :==
+      assert TermResolver.canonical_op(:in) == :in
     end
 
     test "maps atom nicknames to canonical operators" do
-      assert R.canonical_op(:eq) == :==
-      assert R.canonical_op(:ne) == :!=
-      assert R.canonical_op(:gt) == :>
-      assert R.canonical_op(:gte) == :>=
-      assert R.canonical_op(:lt) == :<
-      assert R.canonical_op(:lte) == :<=
-      assert R.canonical_op(:downcase) == :lower
-      assert R.canonical_op(:upcase) == :upper
+      assert TermResolver.canonical_op(:eq) == :==
+      assert TermResolver.canonical_op(:ne) == :!=
+      assert TermResolver.canonical_op(:gt) == :>
+      assert TermResolver.canonical_op(:gte) == :>=
+      assert TermResolver.canonical_op(:lt) == :<
+      assert TermResolver.canonical_op(:lte) == :<=
+      assert TermResolver.canonical_op(:downcase) == :lower
+      assert TermResolver.canonical_op(:upcase) == :upper
     end
 
     test "maps operator strings (HTTP) through the closed safe list" do
-      assert R.canonical_op("gt") == :>
-      assert R.canonical_op("eq") == :==
-      assert R.canonical_op("overlaps") == :overlaps
-      assert R.canonical_op("ilike") == :ilike
+      assert TermResolver.canonical_op("gt") == :>
+      assert TermResolver.canonical_op("eq") == :==
+      assert TermResolver.canonical_op("overlaps") == :overlaps
+      assert TermResolver.canonical_op("ilike") == :ilike
     end
 
     test "returns :__unknown__ for an unrecognized operator string (never raises/atomizes)" do
-      assert R.canonical_op("definitely_not_an_op") == :__unknown__
+      assert TermResolver.canonical_op("definitely_not_an_op") == :__unknown__
     end
   end
 end
@@ -151,30 +151,30 @@ git commit -m "feat(resolver): TermResolver skeleton + canonical_op/1"
 ```elixir
   describe "resolve_field/3" do
     test "returns atom field names as-is (trusted)" do
-      assert R.resolve_field(Post, :title, []) == {:ok, :title}
+      assert TermResolver.resolve_field(Post, :title, []) == {:ok, :title}
     end
 
     test "resolves a known string field against the schema" do
-      assert R.resolve_field(Post, "title", []) == {:ok, :title}
+      assert TermResolver.resolve_field(Post, "title", []) == {:ok, :title}
     end
 
     test "warns and skips an unknown string field on a schema-backed source" do
       log =
         capture_log(fn ->
-          assert R.resolve_field(Post, "nope_field", []) == :skip
+          assert TermResolver.resolve_field(Post, "nope_field", []) == :skip
         end)
 
       assert log =~ "does not exist on schema"
     end
 
     test "resolves a string field via :allowed_keys when there is no schema" do
-      assert R.resolve_field({"things", nil}, "name", allowed_keys: ["name"]) == {:ok, :name}
+      assert TermResolver.resolve_field({"things", nil}, "name", allowed_keys: ["name"]) == {:ok, :name}
     end
 
     test "warns and skips a string field not in :allowed_keys" do
       log =
         capture_log(fn ->
-          assert R.resolve_field({"things", nil}, "name", allowed_keys: ["other"]) == :skip
+          assert TermResolver.resolve_field({"things", nil}, "name", allowed_keys: ["other"]) == :skip
         end)
 
       assert log =~ "not in the :allowed_keys"
@@ -258,20 +258,20 @@ git commit -m "feat(resolver): resolve_field/3 (atom trusted, string gated, warn
 ```elixir
   describe "routing_family/3" do
     test "routes a scalar schema column to :scalar" do
-      assert R.routing_family(Post, :title, []) == :scalar
+      assert TermResolver.routing_family(Post, :title, []) == :scalar
     end
 
     test "routes an array schema column to :array" do
-      assert R.routing_family(Post, :tags, []) == :array
+      assert TermResolver.routing_family(Post, :tags, []) == :array
     end
 
     test "uses :field_types over schema reflection" do
-      assert R.routing_family({"t", nil}, :things, field_types: [things: {:array, :string}]) == :array
-      assert R.routing_family({"t", nil}, :doc, field_types: [doc: :map]) == :map
+      assert TermResolver.routing_family({"t", nil}, :things, field_types: [things: {:array, :string}]) == :array
+      assert TermResolver.routing_family({"t", nil}, :doc, field_types: [doc: :map]) == :map
     end
 
     test "defaults an unknown/typeless column to :scalar" do
-      assert R.routing_family({"t", nil}, :whatever, []) == :scalar
+      assert TermResolver.routing_family({"t", nil}, :whatever, []) == :scalar
     end
   end
 ```
@@ -336,19 +336,19 @@ git commit -m "feat(resolver): routing_family/3 (field_types over schema; scalar
 ```elixir
   describe "cast/2" do
     test "passes through when type is nil" do
-      assert R.cast(nil, "anything") == "anything"
+      assert TermResolver.cast(nil, "anything") == "anything"
     end
 
     test "casts a scalar to the column type" do
-      assert R.cast(:integer, "5") == 5
+      assert TermResolver.cast(:integer, "5") == 5
     end
 
     test "casts each element of a list" do
-      assert R.cast(:integer, ["1", "2"]) == [1, 2]
+      assert TermResolver.cast(:integer, ["1", "2"]) == [1, 2]
     end
 
     test "casts list elements using the inner type for an array column" do
-      assert R.cast({:array, :integer}, ["1", "2"]) == [1, 2]
+      assert TermResolver.cast({:array, :integer}, ["1", "2"]) == [1, 2]
     end
   end
 ```
@@ -404,65 +404,65 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
 ```elixir
   describe "canonicalize/4 — comparison family" do
     test "bare scalar becomes equality, cast to the column type" do
-      assert R.canonicalize(Post, :views, "5", []) ==
+      assert TermResolver.canonicalize(Post, :views, "5", []) ==
                {:ok, %{field: :views, routing: :scalar, negated: false, term: {:==, 5}}}
     end
 
     test "operator nickname canonicalizes and casts" do
-      assert R.canonicalize(Post, :views, %{gt: "10"}, []) ==
+      assert TermResolver.canonicalize(Post, :views, %{gt: "10"}, []) ==
                {:ok, %{field: :views, routing: :scalar, negated: false, term: {:>, 10}}}
     end
 
     test "nil becomes a nil-check (no cast)" do
-      assert R.canonicalize(Post, :published_at, %{eq: nil}, []) ==
+      assert TermResolver.canonicalize(Post, :published_at, %{eq: nil}, []) ==
                {:ok, %{field: :published_at, routing: :scalar, negated: false, term: {:==, nil}}}
     end
 
     test "bare list becomes membership" do
-      assert R.canonicalize(Post, :views, ["1", "2"], []) ==
+      assert TermResolver.canonicalize(Post, :views, ["1", "2"], []) ==
                {:ok, %{field: :views, routing: :scalar, negated: false, term: {:in, [1, 2]}}}
     end
 
     test "explicit in/nin keep their operator" do
-      assert {:ok, %{term: {:in, [1, 2]}}} = R.canonicalize(Post, :views, %{in: ["1", "2"]}, [])
-      assert {:ok, %{term: {:nin, [1, 2]}}} = R.canonicalize(Post, :views, %{nin: ["1", "2"]}, [])
+      assert {:ok, %{term: {:in, [1, 2]}}} = TermResolver.canonicalize(Post, :views, %{in: ["1", "2"]}, [])
+      assert {:ok, %{term: {:nin, [1, 2]}}} = TermResolver.canonicalize(Post, :views, %{nin: ["1", "2"]}, [])
     end
 
     test "like auto-wraps a plain pattern but keeps an explicit one" do
-      assert {:ok, %{term: {:like, "%al%"}}} = R.canonicalize(Post, :title, %{like: "al"}, [])
-      assert {:ok, %{term: {:like, "al%"}}} = R.canonicalize(Post, :title, %{like: "al%"}, [])
+      assert {:ok, %{term: {:like, "%al%"}}} = TermResolver.canonicalize(Post, :title, %{like: "al"}, [])
+      assert {:ok, %{term: {:like, "al%"}}} = TermResolver.canonicalize(Post, :title, %{like: "al%"}, [])
     end
 
     test "text transform wraps the value side" do
       assert {:ok, %{term: {:==, {:lower, "AL"}}}} =
-               R.canonicalize(Post, :title, %{eq: %{downcase: "AL"}}, [])
+               TermResolver.canonicalize(Post, :title, %{eq: %{downcase: "AL"}}, [])
     end
 
     test "aggregate nests a comparison" do
       assert {:ok, %{term: {:avg, {:>, 10}}}} =
-               R.canonicalize(Post, :views, %{avg: %{gt: "10"}}, [])
+               TermResolver.canonicalize(Post, :views, %{avg: %{gt: "10"}}, [])
     end
 
     test "not is lifted into the negated slot (nested toggles)" do
       assert {:ok, %{negated: true, term: {:==, 5}}} =
-               R.canonicalize(Post, :views, %{not: %{eq: "5"}}, [])
+               TermResolver.canonicalize(Post, :views, %{not: %{eq: "5"}}, [])
 
       assert {:ok, %{negated: false, term: {:==, 5}}} =
-               R.canonicalize(Post, :views, %{not: %{not: %{eq: "5"}}}, [])
+               TermResolver.canonicalize(Post, :views, %{not: %{not: %{eq: "5"}}}, [])
     end
 
     test "array column routes to :array" do
       assert {:ok, %{routing: :array, term: {:in, ["a", "b"]}}} =
-               R.canonicalize(Post, :tags, ["a", "b"], [])
+               TermResolver.canonicalize(Post, :tags, ["a", "b"], [])
     end
 
     test "unknown operator string warns and skips" do
-      log = capture_log(fn -> assert R.canonicalize(Post, :views, %{"bogus" => 1}, []) == :skip end)
+      log = capture_log(fn -> assert TermResolver.canonicalize(Post, :views, %{"bogus" => 1}, []) == :skip end)
       assert log =~ "operator"
     end
 
     test "unknown field skips before building a term" do
-      capture_log(fn -> assert R.canonicalize(Post, "nope_field", 1, []) == :skip end)
+      capture_log(fn -> assert TermResolver.canonicalize(Post, "nope_field", 1, []) == :skip end)
     end
   end
 ```
