@@ -6,6 +6,50 @@ defmodule EctoShorts.DynamicBuilders do
   This module is responsible for turning filter key-value pairs into
   `Ecto.Query.DynamicExpr` values.
 
+  ## Operator routing
+
+  Once the adapter is resolved, each filter operator is normalised and routed to
+  one of the Postgres expression sub-modules. Drag the adapter hubs apart to see
+  which operators each one owns, and how `Normalizer` rewrites aliases:
+
+  ```cytoscape
+  {
+    "height": 520,
+    "layout": {
+      "name": "concentric",
+      "minNodeSpacing": 40,
+      "concentric": "function(n){ return n.data('tier'); }",
+      "levelWidth": "function(){ return 1; }"
+    },
+    "elements": [
+      {"data": {"id": "norm",   "label": "Normalizer",  "tier": 3}},
+      {"data": {"id": "scalar", "label": "ScalarExpr",  "tier": 2}},
+      {"data": {"id": "array",  "label": "ArrayExpr",   "tier": 2}},
+      {"data": {"id": "common", "label": "CommonExpr",  "tier": 2}},
+      {"data": {"id": "map",    "label": "MapExpr",     "tier": 2}},
+
+      {"data": {"id": "eq",   "label": "==, !=, <, >, in", "tier": 1}},
+      {"data": {"id": "like", "label": "like, ilike",      "tier": 1}},
+      {"data": {"id": "agg",  "label": "avg, sum, max, min", "tier": 1}},
+      {"data": {"id": "arr",  "label": "&&, @> (array)",   "tier": 1}},
+      {"data": {"id": "cur",  "label": "before, after, since, until", "tier": 1}},
+      {"data": {"id": "ex",   "label": "exists",           "tier": 1}},
+      {"data": {"id": "json", "label": "@>, <@, jsonb_exists", "tier": 1}},
+
+      {"data": {"source": "eq",   "target": "scalar"}},
+      {"data": {"source": "like", "target": "scalar"}},
+      {"data": {"source": "agg",  "target": "scalar"}},
+      {"data": {"source": "arr",  "target": "array"}},
+      {"data": {"source": "cur",  "target": "common"}},
+      {"data": {"source": "ex",   "target": "common"}},
+      {"data": {"source": "json", "target": "map"}},
+
+      {"data": {"source": "norm", "target": "eq",   "label": "eq->=="}},
+      {"data": {"source": "norm", "target": "like", "label": "downcase->lower"}}
+    ]
+  }
+  ```
+
   `EctoShorts.DynamicBuilders` delegates the work to a dynamic adapter. The adapter
   may be given explicitly, configured globally, or inferred from the repo
   adapter. This allows callers to build dynamic expressions without depending
