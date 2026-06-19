@@ -5,9 +5,10 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   See the spec §2.2/§2.3.
   """
 
-  require Logger
-  alias EctoShorts.{CommonSchema, Types}
+  alias EctoShorts.{CommonSchema, LogUtils, Types}
   alias EctoShorts.CommonFilters.Predicate
+
+  @logger_prefix "EctoShorts.CommonFilters.PredicateBuilder"
 
   @comparison_ops [:==, :!=, :>, :>=, :<, :<=]
   @aggregate_ops [:avg, :count, :max, :min, :sum]
@@ -112,7 +113,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   end
 
   defp warn_skip(message) do
-    Logger.warning(message)
+    LogUtils.warning(@logger_prefix, message)
     :skip
   end
 

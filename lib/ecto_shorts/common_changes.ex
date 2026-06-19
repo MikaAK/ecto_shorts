@@ -334,8 +334,6 @@ defmodule EctoShorts.CommonChanges do
   alias Ecto.Changeset
   alias EctoShorts.{Actions, Config, SchemaHelpers}
 
-  require Logger
-
   @doc since: "3.0.0"
   @doc group: "Changeset inspection"
   @doc """

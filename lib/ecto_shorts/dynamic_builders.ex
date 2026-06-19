@@ -61,9 +61,9 @@ defmodule EctoShorts.DynamicBuilders do
       )
   """
 
-  require Logger
+  alias EctoShorts.{Config, LogUtils}
 
-  alias EctoShorts.Config
+  @logger_prefix "EctoShorts.DynamicBuilders"
 
   @doc since: "3.0.0"
   @doc """
@@ -106,7 +106,7 @@ defmodule EctoShorts.DynamicBuilders do
             EctoShorts.DynamicBuilders.Postgres
 
           adapter ->
-            Logger.warning("""
+            LogUtils.warning(@logger_prefix, """
             EctoShorts has no built-in dynamic builder for #{inspect(adapter)}; \
             defaulting to EctoShorts.DynamicBuilders.Postgres, which may generate \
             invalid SQL for this database. Configure a dialect-specific builder via \
