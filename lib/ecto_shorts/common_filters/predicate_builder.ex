@@ -97,7 +97,17 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         end
 
       true ->
-        warn_skip("Field #{inspect(field)} cannot be resolved: no schema or :allowed_keys, skipping")
+        # No schema and no :allowed_keys to validate against. Best-effort: only
+        # resolve to an atom that already exists (so untrusted input can never
+        # mint a new atom), and skip if it does not.
+        try do
+          {:ok, String.to_existing_atom(field)}
+        rescue
+          ArgumentError ->
+            warn_skip(
+              "Field #{inspect(field)} cannot be resolved: no schema or :allowed_keys, skipping"
+            )
+        end
     end
   end
 

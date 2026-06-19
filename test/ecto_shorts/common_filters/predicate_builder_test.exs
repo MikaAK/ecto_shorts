@@ -65,6 +65,25 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
 
       assert log =~ "not in the :allowed_keys"
     end
+
+    test "best-effort resolves a string to an existing atom when there is no schema or :allowed_keys" do
+      # :title already exists as an atom (the Post schema defines it), so the
+      # string resolves without minting anything.
+      assert PredicateBuilder.resolve_field({"things", nil}, "title", []) == {:ok, :title}
+    end
+
+    test "warns and skips an unknown string field when there is no schema or :allowed_keys" do
+      log =
+        capture_log(fn ->
+          assert PredicateBuilder.resolve_field(
+                   {"things", nil},
+                   "definitely_not_an_existing_atom_zzz",
+                   []
+                 ) == :skip
+        end)
+
+      assert log =~ "cannot be resolved"
+    end
   end
 
   describe "routing_family/3" do
