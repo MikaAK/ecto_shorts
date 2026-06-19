@@ -47,6 +47,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
 
   alias EctoShorts.{
     CommonFilters,
+    CommonFilters.Predicate,
     CommonSchema,
     CommonFilters.Select,
     DynamicBuilders.Postgres.ArrayExpr,
@@ -63,65 +64,36 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   @quantifier_operators [:all, :any]
   @common_expr_operators CommonExpr.operators()
 
-  @impl true
+  @doc since: "3.0.0"
   @doc """
-  Builds a Postgres dynamic expression for one filter entry and selected
-  binding.
-
-  ## Arguments
-
-    * `source` - the schema module, queryable source, or query used for
-      field reflection and quantified-query construction
-    * `selected_binding` - one of `{:as, nil}`, `{:as, atom()}`, or
-      `{:at, pos_integer()}`
-    * `args` - either `{key, term}` for an ordinary field or operator
-      entry, or a top-level quantified group `{:all, params}` or
-      `{:any, params}`
-    * `opts` - keyword options forwarded through the dynamic-building
-      pipeline. Defaults to `[]`
-
-  When `args` is `{key, params}`, the function normalizes nested map and
-  keyword operator forms and builds the corresponding Postgres expression
-  for that key.
-
-  When `args` is `{:all, params}` or `{:any, params}`, the function
-  normalizes `params`, builds each child predicate, and merges the
-  resulting expressions with the selected quantifier.
-
-  ## Preconditions
-
-  This function documents the valid call contract. Invalid binding
-  selectors and unsupported entry shapes are outside the documented
-  guarantee.
-
-  ## Returns
-
-  A dynamic expression suitable for `Ecto.Query.where/3`,
-  `Ecto.Query.or_where/3`, `Ecto.Query.having/3`, and related macros.
-
-  ## Examples
-
-      iex> EctoShorts.DynamicBuilders.Postgres.build_dynamic(Post, {:as, nil}, {:views, 5})
-      #Ecto.Query.DynamicExpr<...>
-
-      iex> EctoShorts.DynamicBuilders.Postgres.build_dynamic(
-      ...>   Post,
-      ...>   {:as, nil},
-      ...>   {:views, [>: 1, <: 10]}
-      ...> )
-      #Ecto.Query.DynamicExpr<...>
-
-      iex> EctoShorts.DynamicBuilders.Postgres.build_dynamic(
-      ...>   Post,
-      ...>   {:as, nil},
-      ...>   {:all, [published: true, archived: false]}
-      ...> )
-      #Ecto.Query.DynamicExpr<...>
+  Thin adapter entry: turns one resolved `EctoShorts.CommonFilters.Predicate`
+  into a dynamic expression by dispatching on its `:routing` family and applying
+  `:negated`. Field resolution, casting and operator tidying already happened in
+  `EctoShorts.CommonFilters.PredicateBuilder`.
   """
+  @impl true
+  def build_dynamic(%Predicate{routing: routing, field: field, negated: negated, expr: expr}, selected_binding, opts) do
+    neg = if negated, do: :not, else: nil
+
+    expr = build_subqueries(expr, opts)
+
+    case routing do
+      :scalar -> ScalarExpr.dynamic_expr(selected_binding, field, neg, expr, opts)
+      :array -> ArrayExpr.dynamic_expr(selected_binding, field, neg, expr, opts)
+      :map -> MapExpr.dynamic_expr(selected_binding, field, neg, expr, opts)
+      :common -> CommonExpr.dynamic_expr(selected_binding, field, neg, expr, opts)
+    end
+  end
+
+  def build_dynamic(source, selected_binding, args), do: build_dynamic(source, selected_binding, args, [])
+
+  # Replaces any {:subquery, source, where_params} operand carried inside a
+  # tidied predicate expr with a built Ecto.SubQuery. Identity for exprs that
+  # carry no subquery spec. (Filled out in Plan 05 Task 5.)
+  defp build_subqueries(expr, _opts), do: expr
+
   @spec build_dynamic(term(), {:as, nil | atom()} | {:at, pos_integer()}, term(), keyword()) ::
           Ecto.Query.dynamic_expr()
-  def build_dynamic(source, selected_binding, args, opts \\ [])
-
   def build_dynamic(source, selected_binding, {quantifier_op, params}, opts)
       when quantifier_op in @quantifier_operators do
     expr =

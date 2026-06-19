@@ -46,33 +46,44 @@ defmodule EctoShorts.DynamicBuilder do
 
   ## Callback
 
-  The single required callback is `build_dynamic/4`. It receives:
+  > #### v3.0.0 migration note {: .info}
+  >
+  > As of v3.0.0 the callback consumes a resolved
+  > `EctoShorts.CommonFilters.Predicate` struct rather than a raw `{key, term}`
+  > filter pair. All field resolution, type casting, operator canonicalization
+  > and negation lifting now happen upstream in
+  > `EctoShorts.CommonFilters.PredicateBuilder`; the adapter only dispatches the
+  > already-tidied predicate to the dialect's expression builders. Custom-dialect
+  > implementers must update their `build_dynamic/3` accordingly. Only the
+  > Postgres adapter ships in-tree.
 
-    * `source` - the queryable source (schema module or `Ecto.Query.t()`).
+  The single required callback is `build_dynamic/3`. It receives:
+
+    * `predicate` - a resolved `EctoShorts.CommonFilters.Predicate` struct with a
+      `:field` (already a checked atom), a `:routing` family
+      (`:scalar | :array | :map | :common`), a `:negated` boolean, and a tidied
+      `:expr` operator-expression.
 
     * `selected_binding` - the binding selector: `{:as, atom()}` for named
       bindings or `{:at, pos_integer()}` for positional bindings.
 
-    * `{key, term}` - the filter entry to translate. `key` is an atom field name
-      or operator, `term` is the filter value.
-
     * `opts` - keyword options forwarded from the call site.
 
-  It must return an `Ecto.Query.DynamicExpr` (the result of `Ecto.Query.dynamic/2`).
+  It must return an `Ecto.Query.DynamicExpr` (the result of `Ecto.Query.dynamic/2`)
+  or `nil` when the predicate contributes no clause.
   """
 
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
 
-  @type source :: term()
+  @type predicate :: EctoShorts.CommonFilters.Predicate.t()
   @type selected_binding :: {:as, atom()} | {:at, pos_integer()}
-  @type input :: term()
   @type opts :: keyword()
 
   @doc """
-  Builds a dynamic expression for the given filter entry and binding.
+  Builds a dynamic expression for one resolved predicate and binding.
 
-  Receives the source queryable, binding selector, a `{key, term}` filter pair,
-  and options. Must return an `Ecto.Query.DynamicExpr`.
+  Receives a `EctoShorts.CommonFilters.Predicate` struct, a binding selector, and
+  options. Must return an `Ecto.Query.DynamicExpr` or `nil`.
   """
-  @callback build_dynamic(source, selected_binding, input, opts) :: dynamic_expr()
+  @callback build_dynamic(predicate, selected_binding, opts) :: dynamic_expr() | nil
 end

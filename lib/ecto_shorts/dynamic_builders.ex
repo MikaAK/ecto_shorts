@@ -107,6 +107,18 @@ defmodule EctoShorts.DynamicBuilders do
     adapter_for_repo!(opts).build_dynamic(source, selected_binding, term, opts)
   end
 
+  @doc since: "3.0.0"
+  @doc """
+  Builds an `Ecto.Query.DynamicExpr` for one resolved
+  `EctoShorts.CommonFilters.Predicate` using the adapter resolved from `opts`.
+
+  The adapter is selected exactly as for `build_dynamic/4`. Returns the dynamic
+  expression, or `nil` when the predicate contributes no clause.
+  """
+  def build_dynamic(%EctoShorts.CommonFilters.Predicate{} = predicate, selected_binding, opts) do
+    adapter_for_repo!(opts).build_dynamic(predicate, selected_binding, opts)
+  end
+
   defp adapter_for_repo!(opts) do
     case Keyword.get(opts, :dynamic_builder, EctoShorts.Config.dynamic_builder_module()) do
       nil ->
