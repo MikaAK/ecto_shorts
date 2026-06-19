@@ -634,9 +634,9 @@ time.
 | `%{a: %{gt: %{field: :b}}}` | `{"a":{"gt":{"field":"b"}}}` | `:a` · no · `{:>,{:field,:b}}` · scalar | a > column b |
 | `%{level: %{lt: %{field: :level, as: :author}}}` | `{"level":{"lt":{"field":"level","as":"author"}}}` | `:level` · no · `{:<,{:field,{:author,:level}}}` · scalar | this level < the joined `author` binding's level *(sibling binding — D-SIBLING)* |
 | `%{score: %{gt: %{add: [%{field: :base}, %{value: 5}]}}}` | `{"score":{"gt":{"add":[{"field":"base"},{"value":5}]}}}` | `:score` · no · `{:>,{:+,[{:field,:base},{:value,5}]}}` · scalar | score > (base + `^5`) |
-| `%{id: %{eq: %{all: %{from: "comments", where: %{published: true}}}}}` | `{"id":{"eq":{"all":{"from":"comments","where":{"published":true}}}}}` | `:id` · no · `{:==,{:all,«subq»}}` · scalar | id = every value the subquery returns |
-| `%{exists: %{from: "comments", where: %{approved: true}}}` | `{"exists":{"from":"comments","where":{"approved":true}}}` | — · no · `{:exists,«subq»}` · common | rows that have a matching comment |
-| `%{exists: %{from: "comments", as: "c", where: %{post_id: %{eq: %{parent: %{as: "post", field: :id}}}}}}` | *(same, nested)* | … `{:==,{:parent,{:post,:id}}}` … | comment.post_id = the outer post's id *(correlated)* |
+| `%{id: %{eq: %{all: %{from: Comment, where: %{published: true}}}}}` | `{"id":{"eq":{"all":{"from":"comments","where":{"published":true}}}}}` | `:id` · no · `{:==,{:all,«subq»}}` · scalar | id = every value the subquery returns *(Elixir: module; HTTP: alias)* |
+| `%{exists: %{from: Comment, where: %{approved: true}}}` | `{"exists":{"from":"comments","where":{"approved":true}}}` | — · no · `{:exists,«subq»}` · common | rows that have a matching comment |
+| `%{exists: %{from: Comment, as: :post, where: %{post_id: %{eq: %{parent: %{as: :post, field: :id}}}}}}` | `{"exists":{"from":"comments","as":"post","where":{"post_id":{"eq":{"parent":{"as":"post","field":"id"}}}}}}` | … `{:==,{:parent,{:post,:id}}}` … | comment.post_id = the outer post's id *(correlated)* |
 
 **The "not" case — wraps any shape above (the `negated` slot)**
 | Elixir | JSON body | tidied | Condition |
