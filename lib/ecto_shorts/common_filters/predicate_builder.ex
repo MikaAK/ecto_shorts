@@ -105,4 +105,128 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   def cast({:array, inner}, values) when is_list(values), do: Enum.map(values, &Types.cast(inner, &1))
   def cast(type, values) when is_list(values), do: Enum.map(values, &Types.cast(type, &1))
   def cast(type, value), do: Types.cast(type, value)
+
+  @doc """
+  Turn one field's value-test into a LIST of canonical tidied terms (the caller
+  ANDs them), or :skip if the field can't be used.
+
+  A value map may carry several operator entries — `%{gt: 21, lte: 65}` means two
+  conditions — so we **reduce over the entries** (Enum.reduce works directly on a
+  map or keyword list) and never assume a single pair.
+  """
+  @spec build(term(), atom() | binary(), term(), keyword()) ::
+          {:ok, [%Predicate{field: atom(), routing: atom(), negated: boolean(), expr: term()}]} | :skip
+  def build(source, key, raw_term, opts) do
+    case resolve_field(source, key, opts) do
+      :skip ->
+        :skip
+
+      {:ok, field} ->
+        routing = routing_family(source, field, opts)
+        type = field_type(source, field, opts)
+        {negated, inner} = lift_negation(raw_term)
+
+        exprs = build_terms(inner, type)
+        {:ok, Enum.map(exprs, &%Predicate{field: field, routing: routing, negated: negated, expr: &1})}
+    end
+  end
+
+  defp field_type(source, field, opts) do
+    field_types_lookup(opts[:field_types], field) ||
+      CommonSchema.get_schema_reflection(source, :type, field)
+  end
+
+  # --- negation -----------------------------------------------------------
+  # `not` wraps a single inner test. (A `not` over a multi-operator map needs
+  # De Morgan — flagged for §3.11/Plan 04; the common case is one operator.)
+  defp lift_negation(%{not: inner}), do: toggle(lift_negation(inner))
+  defp lift_negation(term), do: {false, term}
+  defp toggle({negated, term}), do: {not negated, term}
+
+  # --- term building: reduce a value into a LIST of tidied terms -----------
+  # Each operator entry contributes one (or more) tidied term; we fold over all
+  # of them. Bare scalar/list/nil are single terms.
+  defp build_terms(nil, _type), do: [{:==, nil}]
+
+  defp build_terms(term, type) do
+    cond do
+      is_map(term) and not is_struct(term) -> reduce_ops(term, type)
+      Keyword.keyword?(term) and term != [] -> reduce_ops(term, type)
+      is_list(term) -> [{:==, cast(type, term)}]   # bare list = eq (D-LIST)
+      true -> [{:==, cast(type, term)}]             # bare scalar = eq
+    end
+  end
+
+  # Enum.reduce works directly on a map or a keyword list — no Map.to_list.
+  defp reduce_ops(entries, type) do
+    Enum.reduce(entries, [], fn {raw_op, val}, acc ->
+      acc ++ build_one(canonical_op(raw_op), val, type)
+    end)
+  end
+
+  # build_one returns a LIST (usually one term, [] to skip).
+  defp build_one(:__unknown__, _val, _type) do
+    warn_skip("Unknown operator, skipping")
+    []
+  end
+
+  # nil checks (no cast)
+  defp build_one(op, nil, _type) when op in [:==, :!=], do: [{op, nil}]
+
+  # aggregates: each inner comparison becomes {agg, {op, value}}
+  defp build_one(agg, inner, type) when agg in @aggregate_ops do
+    Enum.map(compares(inner, type), fn cmp -> {agg, cmp} end)
+  end
+
+  # text transforms on the value side: %{lower: v} (reduced, in case of several)
+  defp build_one(op, %{} = inner, _type) when op in [:==, :!=] do
+    Enum.reduce(inner, [], fn {raw_t, v}, acc ->
+      case canonical_op(raw_t) do
+        t when t in @text_transforms -> acc ++ [{op, {t, v}}]
+        _ -> (warn_skip("Unknown transform, skipping"); acc)
+      end
+    end)
+  end
+
+  # like/ilike with auto-wrap
+  defp build_one(op, pattern, _type) when op in @string_ops and is_binary(pattern),
+    do: [{op, wrap_like(pattern)}]
+
+  defp build_one(op, patterns, _type) when op in @string_ops and is_list(patterns),
+    do: [{op, Enum.map(patterns, &wrap_like/1)}]
+
+  # membership / eq-ne with a list (routing decides meaning downstream)
+  defp build_one(op, list, type) when op in [:in, :nin, :==, :!=] and is_list(list),
+    do: [{op, cast(type, list)}]
+
+  # scalar comparison
+  defp build_one(op, value, type) when op in @comparison_ops,
+    do: [{op, cast(type, value)}]
+
+  defp build_one(_op, _value, _type) do
+    warn_skip("Unsupported operator/value, skipping")
+    []
+  end
+
+  # Reduce a comparison value (map/keyword) into a list of {canonical_op, value}.
+  defp compares(value, type) do
+    cond do
+      (is_map(value) and not is_struct(value)) or Keyword.keyword?(value) ->
+        Enum.reduce(value, [], fn {raw_op, v}, acc ->
+          case canonical_op(raw_op) do
+            op when op in @comparison_ops and is_nil(v) -> acc ++ [{op, nil}]
+            op when op in @comparison_ops -> acc ++ [{op, cast(type, v)}]
+            _ -> (warn_skip("Unknown comparison in aggregate, skipping"); acc)
+          end
+        end)
+
+      true ->
+        warn_skip("Aggregate expects a comparison map, skipping")
+        []
+    end
+  end
+
+  defp wrap_like(pattern) when is_binary(pattern) do
+    if String.contains?(pattern, ["%", "_"]), do: pattern, else: "%#{pattern}%"
+  end
 end
