@@ -5,6 +5,7 @@ defmodule EctoShorts.CommonFilters.Builder do
   alias Ecto.Query
   alias EctoShorts.CommonQuery
   alias EctoShorts.DynamicBuilders
+  alias EctoShorts.CommonFilters.PredicateBuilder
 
   alias EctoShorts.CommonFilters.{
     Distinct,
@@ -180,21 +181,61 @@ defmodule EctoShorts.CommonFilters.Builder do
     WithNamedBinding.build_query(:with_named_binding, source, query, selected_binding, term, opts)
   end
 
-  defp apply_filter(:where, source, query, selected_binding, term, opts) do
+  defp apply_filter(:where, source, query, selected_binding, {key, value}, opts) do
     effective_source = resolve_source(source, query, selected_binding)
 
-    case DynamicBuilders.build_dynamic(effective_source, selected_binding, term, opts) do
+    case PredicateBuilder.build(effective_source, key, value, opts) do
+      :skip ->
+        query
+
+      {:ok, predicates} ->
+        place_predicates(query, predicates, :where, selected_binding, opts)
+    end
+  end
+
+  defp apply_filter(:or_where, source, query, selected_binding, {key, value}, opts) do
+    effective_source = resolve_source(source, query, selected_binding)
+
+    case PredicateBuilder.build(effective_source, key, value, opts) do
+      :skip ->
+        query
+
+      {:ok, predicates} ->
+        case merge_predicates(predicates, selected_binding, opts) do
+          nil -> query
+          dyn -> Query.or_where(query, ^dyn)
+        end
+    end
+  end
+
+  # A pre-built dynamic expression passed directly under :where / :or_where.
+  defp apply_filter(:where, _source, query, _selected_binding, %Ecto.Query.DynamicExpr{} = dyn, _opts) do
+    Query.where(query, ^dyn)
+  end
+
+  defp apply_filter(:or_where, _source, query, _selected_binding, %Ecto.Query.DynamicExpr{} = dyn, _opts) do
+    Query.or_where(query, ^dyn)
+  end
+
+  # Place predicates produced for a :where. Aggregate predicates always land in
+  # HAVING (Task 4); plain predicates go to WHERE.
+  defp place_predicates(query, predicates, :where, selected_binding, opts) do
+    case merge_predicates(predicates, selected_binding, opts) do
       nil -> query
       dyn -> Query.where(query, ^dyn)
     end
   end
 
-  defp apply_filter(:or_where, source, query, selected_binding, term, opts) do
-    effective_source = resolve_source(source, query, selected_binding)
-
-    case DynamicBuilders.build_dynamic(effective_source, selected_binding, term, opts) do
-      nil -> query
-      dyn -> Query.or_where(query, ^dyn)
+  # AND-merge the per-operator predicates for one field into one dynamic. A field
+  # value map may carry several operators (`%{gt: 21, lte: 65}`), so reduce over
+  # the predicate list. Returns nil when every predicate was skipped.
+  defp merge_predicates(predicates, binding, opts) do
+    predicates
+    |> Enum.map(&DynamicBuilders.build_dynamic(&1, binding, opts))
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      dyns -> Enum.reduce(dyns, fn dyn, acc -> Query.dynamic(^acc and ^dyn) end)
     end
   end
 

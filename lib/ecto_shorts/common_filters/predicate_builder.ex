@@ -14,8 +14,21 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   @text_transforms [:lower, :upper, :trim, :ltrim, :rtrim]
   @string_ops [:like, :ilike]
   @list_ops [:in, :nin, :overlaps]
-  @date_math_ops [:ago, :from_now, :shift]
+  @date_math_ops [:ago, :from_now, :shift, :add]
+  @map_ops [:contains, :contained_by, :has_key, :has_any_key, :has_all_keys]
+  @quantifier_ops [:all, :any]
   @arith %{add: :+, subtract: :-, multiply: :*, divide: :/}
+  # Both word forms (:add) and symbol forms (:+) name an arithmetic operand.
+  @arith_keys %{
+    add: :+,
+    subtract: :-,
+    multiply: :*,
+    divide: :/,
+    +: :+,
+    -: :-,
+    *: :*,
+    /: :/
+  }
 
   # Canonical operator atoms recognized from the wire (as strings).
   @operator_atoms @comparison_ops ++
@@ -23,7 +36,8 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
                     @text_transforms ++
                     @string_ops ++
                     @list_ops ++
-                    @date_math_ops
+                    @date_math_ops ++
+                    @map_ops
 
   @op_aliases %{
     eq: :==,
@@ -47,8 +61,20 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   @doc "Resolve a column name to a checked atom, or :skip (with a warning)."
   @spec resolve_field(term(), atom() | binary(), keyword()) :: {:ok, atom()} | :skip
-  def resolve_field(_source, field, _opts) when is_atom(field) and not is_nil(field) do
-    {:ok, field}
+  def resolve_field(source, field, _opts) when is_atom(field) and not is_nil(field) do
+    case CommonSchema.get_schema_reflection(source, :fields) do
+      fields when is_list(fields) ->
+        if field in fields do
+          {:ok, field}
+        else
+          warn_skip(
+            "Field #{inspect(Atom.to_string(field))} does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping"
+          )
+        end
+
+      _ ->
+        {:ok, field}
+    end
   end
 
   def resolve_field(source, field, opts) when is_binary(field) do
@@ -117,8 +143,26 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   conditions — so we **reduce over the entries** (Enum.reduce works directly on a
   map or keyword list) and never assume a single pair.
   """
+  # Shorthand keys are the *operator* (top-level key), not a value-map operator.
+  # They resolve to an implied column and route to the :common family. The
+  # implied-column map lives here so the dialect Expr modules stay pure.
+  @id_shorthands [:ids, :before, :after, :since, :until]
+  @date_shorthands [:start_date, :end_date, :since_date, :until_date]
+
   @spec build(term(), atom() | binary(), term(), keyword()) ::
           {:ok, [%Predicate{field: atom(), routing: atom(), negated: boolean(), expr: term()}]} | :skip
+  def build(_source, key, value, _opts) when key in @id_shorthands do
+    {:ok, [%Predicate{field: :id, routing: :common, negated: false, expr: {key, value}}]}
+  end
+
+  def build(_source, key, value, _opts) when key in @date_shorthands do
+    {:ok, [%Predicate{field: :inserted_at, routing: :common, negated: false, expr: {key, value}}]}
+  end
+
+  def build(_source, :exists, value, _opts) do
+    {:ok, [%Predicate{field: nil, routing: :common, negated: false, expr: {:exists, value}}]}
+  end
+
   def build(source, key, raw_term, opts) do
     case resolve_field(source, key, opts) do
       :skip ->
@@ -130,7 +174,14 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         {negated, inner} = lift_negation(raw_term)
 
         exprs = build_terms(inner, type)
-        {:ok, Enum.map(exprs, &%Predicate{field: field, routing: routing, negated: negated, expr: &1})}
+
+        predicates =
+          exprs
+          |> Enum.map(&resolve_expr_fields(&1, source, opts))
+          |> Enum.reject(&(&1 == :skip))
+          |> Enum.map(&%Predicate{field: field, routing: routing, negated: negated, expr: &1})
+
+        {:ok, predicates}
     end
   end
 
@@ -200,6 +251,64 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     Enum.map(compares(inner, type), fn cmp -> {agg, cmp} end)
   end
 
+  # Top-level text transform: %{lower: "x"} means equality against the
+  # transformed column. Emit {:==, {:lower, "x"}} — ScalarExpr does
+  # `lower(col) == x`; ArrayExpr unnests and lower()-compares each element.
+  defp build_one(t, value, _type) when t in [:lower, :upper] and is_binary(value),
+    do: [{:==, {t, value}}]
+
+  # Array quantifier operators: %{all: %{>: "a"}} / %{all: %{in: [...]}} →
+  # {:all, {op, value}} consumed by ArrayExpr. Reduce the inner comparison map.
+  defp build_one(q, inner, type) when q in @quantifier_ops do
+    cond do
+      (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) ->
+        Enum.reduce(inner, [], fn {raw_op, v}, acc ->
+          op = canonical_op(raw_op)
+          cond do
+            op in @comparison_ops -> acc ++ [{q, {op, cast(type, v)}}]
+            op == :in and is_list(v) -> acc ++ [{q, {:in, cast(type, v)}}]
+            true -> (warn_skip("Unknown quantifier comparison, skipping"); acc)
+          end
+        end)
+
+      true ->
+        [{q, inner}]
+    end
+  end
+
+  # JSONB containment from a single-key map → {:contains, {k, v}}; a multi-key
+  # map / keyword list ANDs into one tuple per pair (consumed by MapExpr).
+  defp build_one(op, %{} = m, _type)
+       when op in [:contains, :contained_by] and not is_struct(m) do
+    Enum.map(m, fn {k, v} -> {op, {k, v}} end)
+  end
+
+  defp build_one(op, kw, _type) when op in [:contains, :contained_by] and is_list(kw) do
+    if Keyword.keyword?(kw) do
+      Enum.map(kw, fn {k, v} -> {op, {k, v}} end)
+    else
+      [{op, kw}]
+    end
+  end
+
+  defp build_one(op, value, _type) when op in [:contains, :contained_by] and is_binary(value),
+    do: [{op, value}]
+
+  # JSONB key-existence operators pass their key(s) straight through.
+  defp build_one(:has_key, value, _type), do: [{:has_key, value}]
+  defp build_one(:has_any_key, values, _type) when is_list(values), do: [{:has_any_key, values}]
+  defp build_one(:has_all_keys, values, _type) when is_list(values), do: [{:has_all_keys, values}]
+
+  # bare parent-binding field reference: %{parent_as: %{binding: field}}
+  defp build_one(:parent_as, %{} = m, _type) when not is_struct(m) do
+    Enum.map(m, fn {b, f} -> {:parent_as, {b, f}} end)
+  end
+
+  # comparison against a parent-binding field: %{>: %{parent_as: %{b: f}}}
+  defp build_one(op, %{parent_as: %{} = pb}, _type) when op in @comparison_ops do
+    Enum.map(pb, fn {b, f} -> {op, {:parent_as, {b, f}}} end)
+  end
+
   # date-math RHS: a wrapper map carrying :date or :datetime. Recognize by key
   # access (not a singleton Map.to_list match) and reduce the inner op map.
   defp build_one(op, %{date: w}, _type) when op in @comparison_ops, do: dt_term(op, :date, w)
@@ -209,16 +318,37 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   # Bare date-math op (no date/datetime wrapper) defaults to :datetime.
   defp build_one(op, %{} = w, _type)
-       when op in @comparison_ops and is_map_key(w, :ago)
-       when op in @comparison_ops and is_map_key(w, :from_now)
-       when op in @comparison_ops and is_map_key(w, :shift),
+       when op in @comparison_ops and not is_struct(w) and is_map_key(w, :ago)
+       when op in @comparison_ops and not is_struct(w) and is_map_key(w, :from_now)
+       when op in @comparison_ops and not is_struct(w) and is_map_key(w, :shift),
        do: dt_term(op, :datetime, w)
 
   # operand maps on the RHS of a comparison (recognized by key, not a singleton
   # match): a literal value, or a field reference (optionally on a sibling
   # binding via `as:`). See spec §1.5a/§3.11.
+  # A `value:` wrapper whose contents is itself an arithmetic operand map
+  # (e.g. `%{value: %{+: [%{field: "views"}, %{value: 10}]}}`) is a computed RHS,
+  # not a literal — recurse so the arithmetic clause builds it.
+  defp build_one(op, %{value: %{} = v}, type)
+       when op in @comparison_ops and not is_struct(v) do
+    if Enum.any?(Map.keys(@arith_keys), &Map.has_key?(v, &1)) do
+      build_one(op, v, type)
+    else
+      [{op, {:value, cast(type, v)}}]
+    end
+  end
+
   defp build_one(op, %{value: v}, type) when op in @comparison_ops do
     [{op, {:value, cast(type, v)}}]
+  end
+
+  # explicit {:value, v} / {:field, name} operand tuples
+  defp build_one(op, {:value, v}, type) when op in @comparison_ops do
+    [{op, {:value, cast(type, v)}}]
+  end
+
+  defp build_one(op, {:field, name}, _type) when op in @comparison_ops do
+    [{op, {:field, name}}]
   end
 
   defp build_one(op, %{field: _} = m, _type) when op in @comparison_ops do
@@ -229,12 +359,14 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # list. Recognized by an explicit Enum.filter over the known arith keys (never
   # a singleton Map.to_list match). Falls through to the transform branch when no
   # arith key is present. Placed after value/field/date-math, before scalar.
-  defp build_one(op, %{} = m, type) when op in @comparison_ops do
-    case Enum.filter(Map.keys(@arith), &Map.has_key?(m, &1)) do
+  defp build_one(op, %{} = m, type) when op in @comparison_ops and not is_struct(m) do
+    case Enum.filter(Map.keys(@arith_keys), &Map.has_key?(m, &1)) do
       [arith] ->
+        sym = Map.fetch!(@arith_keys, arith)
+
         case Map.fetch!(m, arith) do
           [a, b] ->
-            [{op, {Map.fetch!(@arith, arith), [operand(a, type), operand(b, type)]}}]
+            [arith_term(op, sym, operand(a, type), operand(b, type))]
 
           _ ->
             raise EctoShorts.FilterError, "arithmetic takes exactly two operands"
@@ -263,6 +395,10 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # membership / eq-ne with a list (routing decides meaning downstream)
   defp build_one(op, list, type) when op in [:in, :nin, :==, :!=] and is_list(list),
     do: [{op, cast(type, list)}]
+
+  # scalar :in (e.g. element-membership against an array field): keep as
+  # {:in, value}; ArrayExpr turns it into `value in field`.
+  defp build_one(:in, value, type), do: [{:in, cast(type, value)}]
 
   # scalar comparison
   defp build_one(op, value, type) when op in @comparison_ops,
@@ -306,6 +442,14 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     end
   end
 
+  # `field SYM value` uses the value-wrapped arithmetic shape consumed by the
+  # ScalarExpr `arithmetic?` clause (so negation emits NOT(...)); any other
+  # operand combination uses the generic binary-operand list form.
+  defp arith_term(op, sym, {:field, _} = a, {:value, _} = b),
+    do: {op, {:value, {sym, {a, b}}}}
+
+  defp arith_term(op, sym, a, b), do: {op, {sym, [a, b]}}
+
   # A field operand may target the current binding (an atom) or a sibling
   # binding (`as:` — recorded as {binding, field}; validated later, §3.11).
   defp field_ref(%{field: f, as: b}), do: {b, f}
@@ -332,6 +476,8 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     end)
   end
 
+  defp dt_keyword(p) when is_list(p), do: dt_keyword(Map.new(p))
+
   defp dt_keyword(%{} = p) do
     unit = p[:unit] || p["unit"] || p[:interval] || p["interval"]
 
@@ -344,6 +490,43 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     case p[:field] || p["field"] do
       nil -> kw
       f -> kw ++ [field: f]
+    end
+  end
+
+  # Resolve any string field-reference operands inside a tidied expr to checked
+  # atoms (using the source schema / :allowed_keys). Returns :skip if any
+  # referenced field cannot be resolved. Pure walk over the known operand shapes.
+  defp resolve_expr_fields(expr, source, opts) do
+    walk_fields(expr, source, opts)
+  catch
+    :skip -> :skip
+  end
+
+  defp walk_fields({:field, name}, source, opts) when is_binary(name) do
+    {:field, resolve_ref!(source, name, opts)}
+  end
+
+  defp walk_fields({:field, {b, name}}, source, opts) when is_binary(name) do
+    {:field, {b, resolve_ref!(source, name, opts)}}
+  end
+
+  defp walk_fields(list, source, opts) when is_list(list) do
+    Enum.map(list, &walk_fields(&1, source, opts))
+  end
+
+  defp walk_fields(tuple, source, opts) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&walk_fields(&1, source, opts))
+    |> List.to_tuple()
+  end
+
+  defp walk_fields(other, _source, _opts), do: other
+
+  defp resolve_ref!(source, name, opts) do
+    case resolve_field(source, name, opts) do
+      {:ok, atom} -> atom
+      :skip -> throw(:skip)
     end
   end
 

@@ -199,8 +199,8 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
                PredicateBuilder.build(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
     end
 
-    test "binary arithmetic operand tidies to an ordered-array term" do
-      assert {:ok, [%Predicate{expr: {:>, {:+, [{:field, :id}, {:value, 5}]}}}]} =
+    test "binary arithmetic operand (field SYM value) tidies to a value-wrapped term" do
+      assert {:ok, [%Predicate{expr: {:>, {:value, {:+, {{:field, :id}, {:value, 5}}}}}}]} =
                PredicateBuilder.build(Post, :views, %{gt: %{add: [%{field: :id}, %{value: "5"}]}}, [])
     end
 
