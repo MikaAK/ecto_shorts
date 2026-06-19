@@ -93,12 +93,28 @@ Reshape the translation so that:
    small, clearly named pieces.
 
 ### 0.2 What we are NOT doing
-- We are **not** changing the filters callers write. Every map shape that works
-  today keeps working exactly the same way (§1).
 - We are **not** adding support for other databases. We make the translator
   database-agnostic so another could be added later, but only PostgreSQL ships.
-- We are **not** changing how errors are handled, except where §4 explicitly says
-  so. "Log a warning and skip" stays the behavior.
+- We are **not** redesigning the whole error story. The default for a filter that
+  *does not apply* stays "log a warning and skip." (But see the deliberate
+  changes in §0.4 — clear caller mistakes now raise.)
+
+### 0.4 Deliberate breaking changes for v3.0.0
+This branch (`v3.0.0`) is unreleased, so we are taking the chance to fix a few
+behaviors that were confusing or inconsistent. These **do** change what callers
+see, and each is written up in the decisions table (§4) with a migration note:
+
+1. **The `:elements` wrapper is removed.** List (array) behavior now comes only
+   from the column's known type — either from the schema or from `:field_types`.
+   (Decision D-ELEMENTS.)
+2. **The two list forms are unified.** `%{tags: [a, b]}` and
+   `%{tags: %{in: [a, b]}}` now mean the same thing on a list column. (D-ELEMENTS.)
+3. **Clear caller mistakes raise an error** instead of being silently skipped —
+   for example, giving an association a plain value, or naming a binding that does
+   not exist. Filters that simply do not apply still warn-and-skip. (D-RAISE.)
+4. **"Not equal" no longer secretly matches empty rows.** Only `== nil` / `!= nil`
+   consider null rows; every other comparison uses plain SQL. (D-NULL.)
+5. **The `:lock` and `:join` provider hooks get a checked contract.** (D-PROVIDER.)
 
 ### 0.3 The rules we follow (from `RULES.md`)
 - **Depend on promises, not on inner workings.** Each boundary below is described
@@ -112,8 +128,8 @@ Reshape the translation so that:
 
 ## 1. THE PROMISE TO CALLERS — `EctoShorts.CommonFilters.convert_params_to_filter/3`
 
-This is the front door. Other people's code calls it; it must keep behaving
-exactly as it does today.
+This is the front door. Other people's code calls it. Its shape and almost all of
+its behavior stay the same; the few deliberate changes are listed in §0.4.
 
 ### 1.1 How it is called
 ```elixir
@@ -134,9 +150,15 @@ It returns one query with all your filters applied.
 | `opts` | a keyword list | See §1.6. |
 
 ### 1.3 What it returns
-A single query with every recognized filter applied. **It never crashes because of
-an unknown column or an unsupported combination** — it logs a warning and skips
-that filter. (There is one audited exception, noted in §4.)
+A single query with every recognized filter applied. Two kinds of problems are
+handled differently:
+- **A filter that does not apply** — an unknown column, or an operator/column
+  combination that has no meaning — is **logged as a warning and skipped**. The
+  rest of the query is unaffected.
+- **A clear caller mistake** — using the API in a way that cannot be right, such
+  as giving an association a plain value or naming a binding that does not exist —
+  **raises an error** so the mistake is caught early. The exact line between the
+  two is in §3.9 and decision D-RAISE.
 
 ### 1.4 The filters callers may write (the full, frozen list)
 These are the structural filter words the library recognizes:
@@ -173,7 +195,6 @@ A value test can be:
   a compare-to-a-set     %{id: %{eq: %{all: ...}}}  → id equals every value from a subquery
   a computed-field test  %{score: %{arithmetic: ...}}  → compare against a calculation
   an aggregate wrapper    %{score: %{aggregate: ...}}   → another way to write an aggregate test
-  a force-list wrapper    %{tags: %{elements: ...}}     → treat the column as a list
   a right-hand expression %{a: %{gt: %{field: :b}}}      → compare one column to another
   a JSON test            %{data: %{has_key: "role"}}    → for columns that store JSON
   a date-math test       %{at: %{gt: %{ago: {1, :day}}}} → compare against "1 day ago", etc.
@@ -182,6 +203,14 @@ A value test can be:
 The operator nicknames listed in the glossary (`:gt`, `:downcase`, …) are part of
 this public language and stay. Section 2 describes the **tidied** form we turn all
 of this into inside the library.
+
+**Two v3.0.0 changes to this language (see §0.4):**
+- There is **no `:elements` wrapper** anymore. To filter a list column on a
+  schemaless source, declare its type with `:field_types`; on a schema-backed
+  source the type is already known.
+- On a list column, a plain list and an `:in` list mean the **same** thing.
+  `%{tags: ["a", "b"]}` and `%{tags: %{in: ["a", "b"]}}` both mean "tags shares a
+  value with this list."
 
 ### 1.6 The options it accepts
 | Option | Meaning |
@@ -255,11 +284,12 @@ A tidied filter is one of:
 3. The column is an atom; if it came in as text, it has been resolved and checked.
 4. Any "not" has been pulled out into the `negated` slot, exactly once.
 5. The helper to use (scalar / array / map / common) has already been chosen.
-6. The convenience wrappers (`:arithmetic`, `:aggregate`, `:elements`, the date
-   wrappers, and shorthands like `:ids` or `:start_date`) have been expanded into
-   the plain shapes above — **and the column a shorthand implies has been filled
-   in** (for example `:ids` carries `:id`, `:start_date` carries `:inserted_at`),
-   so the helpers never have to assume a column name.
+6. The convenience wrappers (`:arithmetic`, `:aggregate`, the date wrappers, and
+   shorthands like `:ids` or `:start_date`) have been expanded into the plain
+   shapes above — **and the column a shorthand implies has been filled in** (for
+   example `:ids` carries `:id`, `:start_date` carries `:inserted_at`), so the
+   helpers never have to assume a column name. (The `:elements` wrapper no longer
+   exists — list routing comes from the column's known type; see §0.4.)
 
 ### 2.3 The translator (the "resolver") — one place, no SQL, no database brand
 A new piece — working name `EctoShorts.QueryBuilder.TermResolver` (final name
@@ -317,7 +347,7 @@ value that is filled in safely at run time.
 | `%{published_at: %{ne: nil}}` | `:published_at` · no · `{:!=, nil}` | published_at has a value |
 | `%{published: %{in: [true, false]}}` | `:published` · no · `{:in, [true, false]}` | published is one of `^[true, false]` |
 | `%{published: [true, false]}` | `:published` · no · `{:==, [true, false]}` | published is one of `^[true, false]` *(a plain list means "is one of")* |
-| `%{published: %{ne: [true]}}` | `:published` · no · `{:!=, [true]}` | published has no value OR is not one of `^[true]` *(see decision D-NEQ-LIST)* |
+| `%{published: %{ne: [true]}}` | `:published` · no · `{:!=, [true]}` | published is not one of `^[true]` *(null rows are excluded, plain SQL — see D-NULL)* |
 
 **Text matching and upper/lowercasing — helper: scalar**
 | Filter a caller writes | column · negated · tidied | Database condition |
@@ -351,15 +381,15 @@ value that is filled in safely at run time.
 | `%{views: %{arithmetic: %{compare: :>, add: %{field: :id, value: 5}}}}` | `:views` · no · `{:>, {:value, {:+, {{:field, :id}, {:value, 5}}}}}` | views greater than (id + `^5`) |
 | `%{post_id: %{parent_as: %{post: :id}}}` | `:post_id` · no · `{:parent_as, {:post, :id}}` | post_id equals the `id` column of the outer query's `post` table |
 
-**List columns — helper: array** (a real list column like `tags`, or a schemaless
-column forced to a list with `:elements` or declared with `:field_types`)
+**List columns — helper: array** (a list column whose type is known: from the
+schema, like `tags`, or declared on a schemaless source with `:field_types`)
 | Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
-| `%{tags: %{in: ["a", "b"]}}` *(real list column)* | `:tags` · no · `{:in, ["a", "b"]}` | tags shares any value with `^["a","b"]` |
-| `%{tags: %{elements: %{in: ["a", "b"]}}}` *(schemaless)* | `:tags` · no · `{:in, ["a", "b"]}` | same as above |
-| `%{tags: "elixir"}` *(with `field_types: [tags: {:array, :string}]`)* | `:tags` · no · `{:==, "elixir"}` | "elixir" is one of the values in tags |
-| `%{tags: %{elements: %{count: %{gt: 3}}}}` | `:tags` · no · `{:count, {:>, 3}}` | tags has more than `^3` items |
-| `%{tags: %{elements: %{all: %{in: ["a"]}}}}` | `:tags` · no · `{:all, {:in, ["a"]}}` | every value in tags is inside `^["a"]` |
+| `%{tags: ["a", "b"]}` *(plain list)* | `:tags` · no · `{:in, ["a", "b"]}` | tags shares any value with `^["a","b"]` |
+| `%{tags: %{in: ["a", "b"]}}` *(same meaning now)* | `:tags` · no · `{:in, ["a", "b"]}` | tags shares any value with `^["a","b"]` *(unified with the plain-list form, §0.4)* |
+| `%{tags: "elixir"}` *(single value)* | `:tags` · no · `{:==, "elixir"}` | "elixir" is one of the values in tags |
+| `%{tags: %{count: %{gt: 3}}}` | `:tags` · no · `{:count, {:>, 3}}` | tags has more than `^3` items |
+| `%{tags: %{all: %{in: ["a"]}}}` | `:tags` · no · `{:all, {:in, ["a"]}}` | every value in tags is inside `^["a"]` |
 
 **JSON columns — helper: map** (the `data` column, or a column declared with
 `:field_types`)
@@ -385,7 +415,7 @@ the helper no longer assumes a column name; see §3.6 / D-CommonExpr-FIELD)
 | Filter a caller writes | column · negated · tidied | Database condition |
 |---|---|---|
 | `%{views: %{not: %{eq: 10}}}` | `:views` · **yes** · `{:==, 10}` | not (views equals `^10`) |
-| `%{published: %{not: %{in: [true]}}}` | `:published` · **yes** · `{:in, [true]}` | published has no value OR is not one of `^[true]` |
+| `%{published: %{not: %{in: [true]}}}` | `:published` · **yes** · `{:in, [true]}` | not (published is one of `^[true]`) *(null rows excluded — see D-NULL)* |
 | `%{published_at: %{not: %{eq: nil}}}` | `:published_at` · **yes** · `{:==, nil}` | published_at has a value |
 
 > **How to read these tables.** The left column is what a caller actually types
@@ -442,10 +472,14 @@ Same behavior as today, written as one clear set of cases instead of nested chec
 | text, no schema, no `:allowed_keys` given | skip + warn "no schema or allowed_keys" |
 
 ### 3.4 Choosing the right helper (moves into the translator)
-Same as today: first look at `:field_types`, otherwise read the schema. A list
-column → the array helper; a JSON/map column → the map helper; a shorthand word →
-the common helper; everything else → the scalar helper. An unknown column → skip and
-warn.
+First look at `:field_types`, otherwise read the schema. A list column → the array
+helper; a JSON/map column → the map helper; a shorthand word → the common helper;
+everything else → the scalar helper. An unknown column → skip and warn.
+
+Because the `:elements` wrapper is gone (§0.4), the array helper is chosen **only**
+when the column's type is known to be a list. On a schemaless source with no
+`:field_types` entry for the column, a list value is treated as a plain
+"is one of" test, not as a list-overlap test.
 
 ### 3.5 Converting values, kept separate from renaming operators (cleanup item D5)
 Today one function both converts values **and** renames operators, which mixes two
@@ -481,7 +515,42 @@ All the non-column filter words (`:join`, `:order_by`, `:select`, `:with_cte`, t
 set operations, the pagination words, and so on) keep their current modules and
 behavior exactly, including when they warn-and-skip. The loop in §3.1 hands work to
 them just as today. They are touched only so they share the one column-name helper
-(§3.3); what callers see does not change.
+(§3.3). Two of their warn-and-skip cases move to raising an error (§3.9):
+`:reverse_order` with no prior `:order_by`, and an out-of-range or invalid binding
+position. Everything else about them is unchanged.
+
+### 3.9 When we raise an error vs. when we warn-and-skip (decision D-RAISE)
+There are two kinds of problem, and they are treated differently:
+
+- **The filter does not apply → warn and skip.** The caller asked for something
+  that just has no effect here: an unknown column, or an operator/column
+  combination with no meaning (for example, an average on a list column). We log a
+  warning and leave that one filter out. This is the existing behavior and most of
+  the 37+ cases in `inventory/04` section 3 stay this way.
+- **The caller used the API wrong → raise an error.** The input cannot be a
+  correct use of the library, so failing quietly would hide a bug. We raise. The
+  cases that now raise:
+  - an association key given a plain value instead of a map/keyword list
+    (`%{author: "x"}`);
+  - a binding position that is out of range or invalid (zero, negative, or higher
+    than the number of tables), whether or not it is later referenced — handled
+    the same way in every spot;
+  - `:reverse_order` used when there is no `:order_by` to reverse;
+  - a `:lock` or `:join` provider hook that returns the wrong shape or a function
+    of the wrong arity (see §3.10).
+
+  Rule of thumb: *"this filter doesn't apply" is a warning; "you called it wrong"
+  is an error.*
+
+### 3.10 The provider-hook contract (decision D-PROVIDER)
+The `:lock` and `:join` filters can call a caller-supplied function (a "provider")
+to build part of the query. Today those functions can return almost anything and
+mistakes turn into vague warnings. We give them a clear, checked contract:
+- the allowed return shapes are written down (a built query, or a clearly-shaped
+  "use this" / "nothing" / "error" result);
+- the function's arity is checked;
+- a return that does not fit the contract **raises** with a precise message
+  (per §3.9), instead of a vague warning.
 
 ---
 
@@ -493,22 +562,29 @@ not against the current tests. Where a decision says *keep*, today's behavior is
 promise. Where it says *change*, this document wins and we update the code and tests
 to match.
 
+Some changes here are **deliberate breaks** for the unreleased v3.0.0 (§0.4); each
+is marked **Change (breaking)** and needs a line in the v3.0.0 migration notes.
+
 | ID | Today's behavior | Decision | Why |
 |---|---|---|---|
-| D-WARN | Unknown column / unsupported combination → log a warning and skip (37+ such cases in `inventory/04`, section 3). | **Keep** | A pure structural cleanup; the translator returning "skip" reproduces it. |
-| D-API | The filters and options callers write (§1). | **Keep, frozen** | We promised no change to what callers see. |
+| D-WARN | A filter that does not apply (unknown column, meaningless operator/column combo) → log a warning and skip. | **Keep** | Sensible default; the translator returning "skip" reproduces it. Note: some *caller-mistake* cases move to raising — see D-RAISE. |
+| D-API | The filters and options callers write (§1). | **Keep, except the breaks below** | The language is stable apart from the four deliberate v3.0.0 changes (D-ELEMENTS, D-RAISE, D-NULL, D-PROVIDER). |
 | D-INTERNAL | Today's internal function names and shapes (`build_dynamic`, `apply_expr`, `dispatch_expr`, `cast_value`, `field_name_to_atom`, …). | **Free to change** | These are internal; they do not need to survive. |
 | D1 | The 370-line comparison function and dozens of tiny builder clauses. | **Change (break up)** | §3.7. The conditions produced are identical. |
-| D-NEQ-LIST | `%{field: %{ne: [a, b]}}` becomes "has no value OR is not one of [a, b]". | **Keep, and document** | Including "has no value" is deliberate; we will explain it in the code comments rather than change it. |
-| D-LIKE-WRAP | `%{like: "x"}` becomes "contains x" by adding `%` signs, but `"x%"` is left alone. | **Keep, and document** | This is public behavior; we freeze it and describe it in §1.5. |
-| D-ELEMENTS | On schemaless sources, list behavior needs `:elements`, unless `:field_types` is given. | **Keep** | Already a documented quirk; changing it is out of scope here. |
-| D-PROVIDER | The "lock" and "join" provider hooks are loosely checked. | **Keep** | Out of scope; note it for a later, separate effort. |
-| D-CommonExpr-FIELD | The shorthand helper assumes columns `id` and `inserted_at`. | **Change (internal only)** | §3.6 — the column is filled in earlier; the resulting condition is identical (still uses `id` / `inserted_at` for those shorthands). |
+| D-CommonExpr-FIELD | The shorthand helper assumes columns `id` and `inserted_at`. | **Change (internal only)** | §3.6 — the column is filled in earlier; the condition produced is identical. |
+| D-ELEMENTS | List behavior needs the `:elements` wrapper on schemaless sources; and a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4. Remove `:elements` (list routing comes from the column's known type), and make a plain list and an `:in` list mean the same thing on a list column. Cleaner, more predictable model. |
+| D-RAISE | Caller mistakes are silently warned-and-skipped (scalar association, bad binding, `:reverse_order` with no order, bad provider return). | **Change (breaking)** | §3.9. These cannot be a correct use of the API, so they now raise. Filters that merely don't apply still warn-and-skip. |
+| D-NULL | `!=` / not-in against a list also matches null rows (`is_nil OR not in`); behavior differs across scalar/list/quantified forms. | **Change (breaking)** | §3.5 / §3.9. Only `== nil` / `!= nil` consider nulls; every other comparison uses plain SQL (null rows excluded). One consistent rule; removes hidden "defensive" padding. Callers who want nulls add `%{eq: nil}` explicitly. |
+| D-PROVIDER | The `:lock` and `:join` provider hooks are loosely checked. | **Change (breaking)** | §3.10. Give them a checked contract; a bad return raises with a precise message. |
+| D-LIKE-WRAP | `%{like: "x"}` becomes "contains x" by adding `%` signs, but `"x%"` is left alone. | **Keep, and document** | Useful, relied-upon behavior; we freeze it and describe it in §1.5. |
 
-**Still to confirm during the work (not blocking this plan):** the remaining
-questionable behaviors listed in `inventory/04`, section 5 are *keep-and-document* by
-default. If any should actually change, we raise it during the test review (§5) and
-add a row to this table first.
+**`last` subquery shape** — `%{last: 10}` wraps the query in a subquery with a
+reversed order. This is correct, just non-obvious; we **document** it, no behavior
+change.
+
+**Still to confirm during the work (not blocking this plan):** any other behavior
+turned up by the test review (§5) that conflicts with this document gets a new row
+here before the test is changed.
 
 ---
 
@@ -538,19 +614,29 @@ Because the tests are not the source of truth (this document is), the order is:
 
 | Module | Change |
 |---|---|
-| `EctoShorts.CommonFilters` | filter-ordering becomes one pass; the main loop sends column conditions through the translator, then the adapter. What callers see does not change. |
-| `EctoShorts.QueryBuilder.TermResolver` *(new, no database brand)* | the translator. Holds all the tidying that today is scattered across the PostgreSQL builder. |
+| `EctoShorts.CommonFilters` | filter-ordering becomes one pass; the main loop sends column conditions through the translator, then the adapter. Caller-mistake cases now raise (D-RAISE); the filter language is unchanged apart from the v3.0.0 breaks in §0.4. |
+| `EctoShorts.QueryBuilder.TermResolver` *(new, no database brand)* | the translator. Holds all the tidying that today is scattered across the PostgreSQL builder, plus the new null rule (D-NULL) and list-routing-from-type-only (D-ELEMENTS). |
 | `EctoShorts.DynamicBuilders.Postgres` | shrinks to a thin adapter: take a tidied filter, pick the helper by `routing`, apply the "not." No tidying. |
-| `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` | becomes pure; the giant function is broken up (§3.7); the tiny builders collapse into one table. |
-| `…ArrayExpr`, `…MapExpr` | already pure; now receive tidied filters only. |
+| `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` | becomes pure; the giant function is broken up (§3.7); the tiny builders collapse into one table; the null padding on list `!=` is removed (D-NULL). |
+| `…ArrayExpr`, `…MapExpr` | already pure; now receive tidied filters only. The `:elements` entry path is gone (D-ELEMENTS); the plain-list and `:in` forms converge here. |
 | `…CommonExpr` | becomes pure; the column is passed in instead of assumed. |
-| the structural filter modules | unchanged, except they share the one column-name helper. |
+| the structural filter modules | share the one column-name helper. The `:lock`/`:join` provider hooks gain a checked contract (D-PROVIDER); `:reverse_order`-without-order and bad bindings now raise (D-RAISE). |
 
 ---
 
-## 7. Things noted for later (not part of this work)
-- Whether to crash loudly instead of warn-and-skip (D-WARN keeps warn-and-skip).
-- Tightening the "lock" and "join" provider hooks (D-PROVIDER).
+## 7. Migration notes for v3.0.0 (caller-visible changes)
+These must be listed in the release/changelog before v3.0.0 ships:
+- **`:elements` is removed.** Declare list columns with `:field_types` on
+  schemaless sources; schema-backed sources already know the type.
+- **Plain list and `:in` list mean the same on a list column.**
+- **Some misuse now raises instead of being skipped** (scalar association,
+  invalid binding, `:reverse_order` with no order, bad provider return).
+- **`!=` / not-in no longer matches null rows.** Use an explicit `%{eq: nil}` (or
+  an `:or` with it) if you want them.
+- **`:lock` / `:join` providers must follow the checked return contract.**
+
+## 8. Things noted for later (not part of this work)
+- Whether to extend "raise on misuse" any further than the cases in §3.9.
 - Filling the thin test spots listed in `inventory/04`, section 4 (limit, recursive
   CTE depth, nested calculations, association links).
 ```
