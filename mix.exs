@@ -314,6 +314,115 @@ defmodule EctoShorts.MixProject do
           return { frame, cy };
         }
 
+        function wireCytoscape(cy, frame, spec, dark) {
+          const { c, bar } = frame._es;
+          const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+          // --- Controls in the title bar ---
+          const controls = document.createElement("span");
+          controls.className = "es-cy-controls";
+
+          const search = document.createElement("input");
+          search.className = "es-cy-search";
+          search.type = "search";
+          search.placeholder = "Search…";
+          search.setAttribute("aria-label", "Search nodes");
+          search.style.borderColor = c.btnBorder;
+          controls.appendChild(search);
+
+          const open = document.createElement("a");
+          open.className = "es-cy-btn es-cy-open";
+          open.textContent = "Open docs ↗";
+          open.style.borderColor = c.btnBorder;
+          open.style.color = c.barText;
+          controls.appendChild(open);
+
+          function mkBtn(label, glyph, fn) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "es-cy-btn";
+            b.textContent = glyph;
+            b.setAttribute("aria-label", label);
+            b.title = label;
+            b.style.borderColor = c.btnBorder;
+            b.style.color = c.barText;
+            b.addEventListener("click", fn);
+            controls.appendChild(b);
+            return b;
+          }
+          const zoomBy = (factor) => {
+            const r = cy.container().getBoundingClientRect();
+            cy.zoom({ level: cy.zoom() * factor,
+                      renderedPosition: { x: r.width / 2, y: r.height / 2 } });
+          };
+          mkBtn("Zoom in", "+", () => zoomBy(1.2));
+          mkBtn("Zoom out", "−", () => zoomBy(1 / 1.2));
+          mkBtn("Fit to view", "⤢", () => { clearFocus(); cy.fit(undefined, 24); });
+          bar.appendChild(controls);
+
+          // --- Scroll-guard: wheel-zoom only after the graph is activated ---
+          cy.userZoomingEnabled(false);
+          function activate() { frame.classList.add("is-active"); cy.userZoomingEnabled(true); }
+          function deactivate() { frame.classList.remove("is-active"); cy.userZoomingEnabled(false); }
+          cy.on("tap", activate);
+          frame.addEventListener("focusin", activate);
+          frame.addEventListener("mouseleave", deactivate);
+          frame.addEventListener("focusout", (e) => {
+            if (!frame.contains(e.relatedTarget)) deactivate();
+          });
+
+          // --- Search filter ---
+          search.addEventListener("input", () => {
+            const q = search.value.trim().toLowerCase();
+            if (!q) { cy.elements().removeClass("es-dim"); return; }
+            cy.nodes().forEach((n) => {
+              const match = String(n.data("label") || "").toLowerCase().includes(q);
+              n.toggleClass("es-dim", !match);
+            });
+            cy.edges().forEach((e) => {
+              const hidden = e.source().hasClass("es-dim") || e.target().hasClass("es-dim");
+              e.toggleClass("es-dim", hidden);
+            });
+          });
+
+          // --- Click-focus highlighting + navigation ---
+          let lastTapId = null, lastTapAt = 0;
+          function clearFocus() {
+            cy.elements().removeClass("es-dim es-emph");
+            open.classList.remove("is-shown");
+            open.removeAttribute("href");
+          }
+          function focusNode(node) {
+            const keep = node.closedNeighborhood();
+            cy.elements().addClass("es-dim");
+            keep.removeClass("es-dim");
+            node.connectedEdges().removeClass("es-dim").addClass("es-emph");
+            const href = node.data("href");
+            if (href) {
+              open.href = href;
+              open.classList.add("is-shown");
+            } else {
+              open.classList.remove("is-shown");
+              open.removeAttribute("href");
+            }
+          }
+          cy.on("tap", "node", (evt) => {
+            const node = evt.target;
+            const href = node.data("href");
+            const now = evt.timeStamp || 0;
+            if (href && node.id() === lastTapId && now - lastTapAt < 300) {
+              window.location.href = href;   // double-tap navigates
+              return;
+            }
+            lastTapId = node.id();
+            lastTapAt = now;
+            focusNode(node);
+          });
+          cy.on("tap", (evt) => { if (evt.target === cy) clearFocus(); });
+
+          if (reduceMotion) { /* cy animations already off; nothing extra needed */ }
+        }
+
         const dark = document.body.className.includes("dark");
         injectCytoscapeStyles();
         for (const codeEl of document.querySelectorAll("pre code.cytoscape")) {
@@ -325,7 +434,8 @@ defmodule EctoShorts.MixProject do
             console.error("Cytoscape JSON parse failed:", err);
             continue;
           }
-          const { frame } = renderCytoscape(spec, dark);
+          const { frame, cy } = renderCytoscape(spec, dark);
+          wireCytoscape(cy, frame, spec, dark);
           replacePre(preEl, frame);
         }
       });
