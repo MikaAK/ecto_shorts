@@ -147,11 +147,15 @@ defmodule EctoShorts.MixProject do
     <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3/lib/viz-standalone.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/cytoscape@3/dist/cytoscape.min.js"></script>
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: document.body.className.includes("dark") ? "dark" : "default"
-        });
+      let mermaidInitialized = false;
+      window.addEventListener("exdoc:loaded", function () {
+        if (!mermaidInitialized) {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: document.body.className.includes("dark") ? "dark" : "default"
+          });
+          mermaidInitialized = true;
+        }
 
         function replacePre(preEl, graphEl) {
           preEl.insertAdjacentElement("afterend", graphEl);
@@ -283,35 +287,45 @@ defmodule EctoShorts.MixProject do
             return isModule ? Object.assign({ classes: "module" }, el) : el;
           });
 
-          const cy = cytoscape({
-            container: canvas,
-            elements: elements,
-            layout: spec.layout || { name: "breadthfirst", directed: true, padding: 16 },
-            minZoom: 0.3,
-            maxZoom: 3,
-            style: spec.style || [
-              { selector: "node", style: {
-                  "shape": "round-rectangle", "label": "data(label)", "width": "label",
-                  "height": "label", "padding": "8px", "text-valign": "center",
-                  "text-halign": "center", "text-wrap": "none", "font-size": "13px",
-                  "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
-                  "background-color": c.chipBg, "color": c.chipText,
-                  "border-width": 1, "border-color": c.chipBorder } },
-              { selector: "node.module", style: {
-                  "background-color": c.cardBg, "color": c.cardText, "border-color": c.cardBorder,
-                  "font-family": "inherit", "font-weight": "bold" } },
-              { selector: "edge", style: {
-                  "width": 1.5, "line-color": c.edge, "target-arrow-color": c.edge,
-                  "target-arrow-shape": "triangle", "curve-style": "bezier" } },
-              { selector: ".es-dim", style: { "opacity": 0.15 } },
-              { selector: ".es-emph", style: {
-                  "width": 2.5, "line-color": c.edgeEmph, "target-arrow-color": c.edgeEmph } }
-            ]
-          });
-
-          cy.ready(() => cy.fit(undefined, 24));
           frame._es = { c, bar, hint, canvas };
-          return { frame, cy };
+
+          // The container must be attached to the DOM with a non-zero size
+          // before cytoscape() runs, or its viewport math throws (reading
+          // 'x1' of undefined). So defer construction: the caller attaches
+          // the frame via replacePre(), THEN calls init().
+          function init() {
+            const cy = cytoscape({
+              container: canvas,
+              elements: elements,
+              layout: spec.layout || { name: "breadthfirst", directed: true, padding: 16 },
+              minZoom: 0.3,
+              maxZoom: 3,
+              style: spec.style || [
+                { selector: "node", style: {
+                    "shape": "round-rectangle", "label": "data(label)", "width": "label",
+                    "height": "label", "padding": "8px", "text-valign": "center",
+                    "text-halign": "center", "text-wrap": "none", "font-size": "13px",
+                    "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    "background-color": c.chipBg, "color": c.chipText,
+                    "border-width": 1, "border-color": c.chipBorder } },
+                { selector: "node.module", style: {
+                    "background-color": c.cardBg, "color": c.cardText, "border-color": c.cardBorder,
+                    "font-family": "inherit", "font-weight": "bold" } },
+                { selector: "edge", style: {
+                    "width": 1.5, "line-color": c.edge, "target-arrow-color": c.edge,
+                    "target-arrow-shape": "triangle", "curve-style": "bezier" } },
+                { selector: ".es-dim", style: { "opacity": 0.15 } },
+                { selector: ".es-emph", style: {
+                    "width": 2.5, "line-color": c.edgeEmph, "target-arrow-color": c.edgeEmph } }
+              ]
+            });
+            // Fit once the layout has settled and the container has a size.
+            cy.one("layoutstop", () => { cy.resize(); cy.fit(undefined, 24); });
+            requestAnimationFrame(() => { cy.resize(); cy.fit(undefined, 24); });
+            return cy;
+          }
+
+          return { frame, init };
         }
 
         function wireCytoscape(cy, frame, spec, dark) {
@@ -434,9 +448,10 @@ defmodule EctoShorts.MixProject do
             console.error("Cytoscape JSON parse failed:", err);
             continue;
           }
-          const { frame, cy } = renderCytoscape(spec, dark);
+          const { frame, init } = renderCytoscape(spec, dark);
+          replacePre(preEl, frame);   // attach to the DOM first (non-zero size)
+          const cy = init();          // now safe to build the graph
           wireCytoscape(cy, frame, spec, dark);
-          replacePre(preEl, frame);
         }
       });
     </script>
