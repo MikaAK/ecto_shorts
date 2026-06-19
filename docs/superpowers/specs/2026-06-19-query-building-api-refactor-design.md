@@ -249,6 +249,98 @@ The Postgres adapter dispatches on `routing` to the matching **pure** Expr modul
 and applies `negated` once. Adapters receive only canonical input — they perform
 no casting, aliasing, field resolution, or schema reflection.
 
+### 2.5 Worked examples — every distinct shape
+
+Each row shows the **public param** a caller writes (left), the **resolved
+`ExprInput`** the resolver hands to the adapter (middle: `field` · `negated` ·
+`term` · `routing`), and the **emitted SQL** (right). Examples use the `Post`
+schema (`inventory/04` §6): `views :integer`, `title :string`,
+`published :boolean`, `tags {:array,:string}`, `inserted_at/published_at
+:utc_datetime`; `UserData.data :map`. SQL is shown in Ecto-fragment shorthand;
+`^x` marks a bound parameter.
+
+#### Scalar / nil / membership — `routing: :scalar`
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{id: 1}` | `:id` · `nil` · `{:==, 1}` | `id == ^1` |
+| `%{views: %{gt: 10}}` | `:views` · `nil` · `{:>, 10}` | `views > ^10` |
+| `%{published_at: %{eq: nil}}` | `:published_at` · `nil` · `{:==, nil}` | `is_nil(published_at)` |
+| `%{published_at: %{ne: nil}}` | `:published_at` · `nil` · `{:!=, nil}` | `not is_nil(published_at)` |
+| `%{published: %{in: [true, false]}}` | `:published` · `nil` · `{:in, [true, false]}` | `published in ^[true, false]` |
+| `%{published: [true, false]}` | `:published` · `nil` · `{:==, [true, false]}` | `published in ^[true, false]` *(list rewrite)* |
+| `%{published: %{ne: [true]}}` | `:published` · `nil` · `{:!=, [true]}` | `is_nil(published) or published not in ^[true]` *(D-NEQ-LIST)* |
+
+#### String match & transform — `routing: :scalar`
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{title: %{like: "hello"}}` | `:title` · `nil` · `{:like, "%hello%"}` | `like(title, ^"%hello%")` *(auto-wrap, D-LIKE-WRAP)* |
+| `%{title: %{like: "hello%"}}` | `:title` · `nil` · `{:like, "hello%"}` | `like(title, ^"hello%")` *(preserved)* |
+| `%{title: %{ilike: ["a", "b"]}}` | `:title` · `nil` · `{:ilike, ["%a%", "%b%"]}` | `fragment("? ILIKE ANY(?)", title, ^[...])` |
+| `%{title: %{eq: %{downcase: "HELLO"}}}` | `:title` · `nil` · `{:==, {:lower, "HELLO"}}` | `lower(title) == ^"HELLO"` *(`:downcase`→`:lower`)* |
+
+#### Aggregate — `routing: :scalar`
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{views: %{avg: %{gt: 10}}}` | `:views` · `nil` · `{:avg, {:>, 10}}` | `avg(views) > ^10` |
+| `%{views: %{aggregate: %{fn: :sum, compare: :==, value: 1000}}}` | `:views` · `nil` · `{:sum, {:==, 1000}}` | `sum(views) == ^1000` |
+
+#### Quantified subquery — `routing: :scalar`
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{id: %{eq: %{all: %{from: Comment, where: %{published: true}}}}}` | `:id` · `nil` · `{:==, {:all, «subquery»}}` | `id == all(SELECT ... FROM comments WHERE published = ^true)` |
+
+#### Datetime / date wrappers — `routing: :scalar`
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{inserted_at: %{eq: %{ago: {1, :day}}}}` | `:inserted_at` · `nil` · `{:==, {:datetime, {:ago, [count: 1, interval: "day"]}}}` | `inserted_at == ago(^1, "day")` |
+| `%{published_at: %{gte: %{from_now: {1, :day}}}}` | `:published_at` · `nil` · `{:>=, {:datetime, {:from_now, [count: 1, interval: "day"]}}}` | `published_at >= from_now(^1, "day")` |
+| `%{inserted_at: %{gte: %{date: %{add: %{count: 7, interval: "day"}}}}}` | `:inserted_at` · `nil` · `{:>=, {:date, {:add, [count: 7, interval: "day"]}}}` | `date(inserted_at) >= date(...)` |
+
+#### Arithmetic (computed field) & parent_as — `routing: :scalar`
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{views: %{arithmetic: %{compare: :>, add: %{field: :id, value: 5}}}}` | `:views` · `nil` · `{:>, {:value, {:+, {{:field, :id}, {:value, 5}}}}}` | `views > (id + ^5)` |
+| `%{post_id: %{parent_as: %{post: :id}}}` | `:post_id` · `nil` · `{:parent_as, {:post, :id}}` | `post_id == field(parent_as(:post), :id)` |
+
+#### Array — `routing: :array` (schema-backed `tags`, or schemaless via `:elements`/`:field_types`)
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{tags: %{in: ["a", "b"]}}` *(schema array field)* | `:tags` · `nil` · `{:in, ["a", "b"]}` | `fragment("? && ?", tags, ^["a","b"])` *(overlap)* |
+| `%{tags: %{elements: %{in: ["a", "b"]}}}` *(schemaless)* | `:tags` · `nil` · `{:in, ["a", "b"]}` | `fragment("? && ?", tags, ^["a","b"])` |
+| `%{tags: "elixir"}` *(with `field_types: [tags: {:array, :string}]`)* | `:tags` · `nil` · `{:==, "elixir"}` | `^"elixir" in tags` *(membership)* |
+| `%{tags: %{elements: %{count: %{gt: 3}}}}` | `:tags` · `nil` · `{:count, {:>, 3}}` | `array_length(tags, 1) > ^3` |
+| `%{tags: %{elements: %{all: %{in: ["a"]}}}}` | `:tags` · `nil` · `{:all, {:in, ["a"]}}` | `fragment("? <@ ?", tags, ^["a"])` *(subset)* |
+
+#### Map / JSONB — `routing: :map` (`data :map`, or `:field_types`)
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{data: %{contains: %{role: "admin"}}}` | `:data` · `nil` · `{:contains, {:role, "admin"}}` | `fragment("? @> ?::jsonb", data, ^%{role: "admin"})` |
+| `%{data: %{contained_by: %{role: "admin"}}}` | `:data` · `nil` · `{:contained_by, {:role, "admin"}}` | `fragment("? <@ ?::jsonb", data, ^%{role: "admin"})` |
+| `%{data: %{has_key: "role"}}` | `:data` · `nil` · `{:has_key, "role"}` | `fragment("jsonb_exists(?, ?)", data, ^"role")` |
+| `%{data: %{has_any_key: ["a", "b"]}}` | `:data` · `nil` · `{:has_any_key, ["a", "b"]}` | `fragment("jsonb_exists_any(?, ?)", data, ^["a","b"])` |
+
+#### Common shorthand — `routing: :common` (field resolved by resolver, §3.6 / D-CommonExpr-FIELD)
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{ids: [1, 2, 3]}` | `:id` · `nil` · `{:ids, [1, 2, 3]}` | `id in ^[1, 2, 3]` |
+| `%{before: 100}` | `:id` · `nil` · `{:before, 100}` | `id < ^100` |
+| `%{after: 100}` | `:id` · `nil` · `{:after, 100}` | `id > ^100` |
+| `%{start_date: ts}` | `:inserted_at` · `nil` · `{:start_date, ts}` | `inserted_at >= ^ts` |
+| `%{end_date: ts}` | `:inserted_at` · `nil` · `{:end_date, ts}` | `inserted_at <= ^ts` |
+| `%{exists: «subquery»}` | *(no field)* · `nil` · `{:exists, «subquery»}` | `exists(subquery)` |
+
+#### Negation — applies to any shape above (`negated` slot)
+| Public param | `field` · `negated` · `term` | Emitted SQL |
+|---|---|---|
+| `%{views: %{not: %{eq: 10}}}` | `:views` · `:not` · `{:==, 10}` | `not (views == ^10)` |
+| `%{published: %{not: %{in: [true]}}}` | `:published` · `:not` · `{:in, [true]}` | `is_nil(published) or published not in ^[true]` |
+| `%{published_at: %{not: %{eq: nil}}}` | `:published_at` · `:not` · `{:==, nil}` | `not is_nil(published_at)` |
+
+> **Reading note:** the middle column is the post-resolution shape — operators
+> canonical, values cast, field an atom, `:not` lifted out. The left column is
+> what callers actually write (with aliases like `eq`/`gt`/`downcase` still
+> present). The resolver (§2.3) is the only thing that turns left into middle.
+
 ---
 
 ## 3. BEHAVIOR ACROSS BOUNDARIES
