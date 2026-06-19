@@ -9,9 +9,9 @@ data structure that crosses each boundary, and the behavior at each boundary is
 defined here. Where current behavior is contested, the **Behavior Decisions**
 (§4) record the ruling — the spec overrides both code and tests.
 
-Grounded in the behavior inventory at
-`autoresearch/probe-260619-0650/inventory/` (4 files) and the probe constraints
-at `autoresearch/probe-260619-0650/constraints.md`.
+Grounded in the behavior inventory at `./inventory/` (4 files, alongside this
+spec) and the probe constraints at
+`autoresearch/probe-260619-0650/constraints.md`.
 
 ---
 
