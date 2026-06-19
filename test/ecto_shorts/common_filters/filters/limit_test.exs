@@ -9,7 +9,6 @@ defmodule EctoShorts.CommonFilters.LimitTest do
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
-  import ExUnit.CaptureLog
 
   describe "fallthrough binding" do
     test "applies limit with no binding when selector is unrecognized" do
@@ -38,24 +37,18 @@ defmodule EctoShorts.CommonFilters.LimitTest do
     end
   end
 
-  describe ":first is no longer a limit alias" do
-    test "treats :first as an unknown filter key (emits warning, does not apply limit)" do
-      q = from(p in Post)
+  describe ":first as a limit alias" do
+    test "produces the same query as :limit" do
+      expected = limit(Post, ^10)
 
-      log =
-        capture_log(fn ->
-          result =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{first: 10},
-              []
-            )
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{first: 10},
+          []
+        )
 
-          assert_query(q, result)
-        end)
-
-      assert log =~ "first"
-      assert log =~ "does not exist on schema"
+      assert_query(expected, actual)
     end
   end
 

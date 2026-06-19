@@ -134,8 +134,8 @@ defmodule EctoShorts.CommonFilters do
     maximum number of results.
   - `:offset` is used to skip a number of rows before returning results. Use it when
     implementing pagination or moving through a result set.
-  - `:last` is used to retrieve the last result or set of results. Use it when
-    you need boundary results based on the current ordering.
+  - `:first` and `:last` are used to retrieve the first or last result or set of
+    results. Use them when you need boundary results based on the current ordering.
 
   ### Projection
 
@@ -233,6 +233,7 @@ defmodule EctoShorts.CommonFilters do
           | :except
           | :except_all
           | :exclude
+          | :first
           | :group_by
           | :having
           | :intersect
@@ -268,6 +269,7 @@ defmodule EctoShorts.CommonFilters do
     :except,
     :except_all,
     :exclude,
+    :first,
     :group_by,
     :having,
     :intersect,

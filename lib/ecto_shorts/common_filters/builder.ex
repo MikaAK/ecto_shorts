@@ -158,6 +158,10 @@ defmodule EctoShorts.CommonFilters.Builder do
     Lock.build_query(:lock, source, query, selected_binding, term, opts)
   end
 
+  defp apply_filter(:first, source, query, selected_binding, term, opts) do
+    Limit.build_query(:limit, source, query, selected_binding, term, opts)
+  end
+
   defp apply_filter(:limit, source, query, selected_binding, term, opts) do
     Limit.build_query(:limit, source, query, selected_binding, term, opts)
   end
