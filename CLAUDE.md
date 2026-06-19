@@ -80,7 +80,6 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 | Wrapper | Example | Effect |
 |---|---|---|
 | `:arithmetic` | `%{score: %{arithmetic: %{compare: :>, add: %{field: :base, value: 5}}}}` | Computed field comparison using `+`, `-`, `*`, `/` or datetime ops |
-| `:aggregate` | `%{score: %{aggregate: %{fn: :avg, compare: :>, value: 5}}}` | SQL aggregate function comparison |
 | `:elements` | `%{tags: %{elements: %{in: ["a", "b"]}}}` | Forces `ArrayExpr` routing regardless of schema |
 
 `:downcase` and `:upcase` are aliases for `:lower` and `:upper`.
