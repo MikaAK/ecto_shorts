@@ -111,7 +111,7 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 
 - `test/support/data_case.ex` — `EctoShorts.DataCase`, wraps each test in a sandbox transaction.
 - `test/support/schema/` — lightweight Ecto schemas used across all tests (`Post`, `User`, `Comment`, `Book`, etc.).
-- Tests are split between `test/ecto_shorts/common_filters/` (schema-backed) and `test/ecto_shorts/common_filters_schemaless/` (schemaless `{source, schema}` tuple queries) — new filter tests usually need entries in both directories.
+- Filter tests are organized by feature family under `test/ecto_shorts/filters/{predicates,structural,clauses}/` (schema-backed) and mirrored under `test/ecto_shorts/filters_schemaless/{predicates,structural,clauses}/` (schemaless `{source, schema}` tuple queries) — new filter tests usually need entries in both trees. Files carry `@moduletag` for `adapter:`, `feature:`, and (schemaless only) `schema_mode:`, so `mix test --only feature:<name>` / `--only schema_mode:schemaless` selects across the trees. The adapter-agnostic contract every `DynamicBuilder` must satisfy lives in `test/support/filter_contract.ex`, walked per-adapter from `test/ecto_shorts/dynamic_builders/<adapter>/contract_test.exs`.
 
 ## Gotchas
 
@@ -159,4 +159,4 @@ Without schema type information, `%{tags: %{in: ["a", "b"]}}` on a schemaless so
    end
    ```
    Place it before the final `@predicate_filters` clause.
-5. Add tests in both `test/ecto_shorts/common_filters/` and `test/ecto_shorts/common_filters_schemaless/`.
+5. Add tests under the right feature family in both `test/ecto_shorts/filters/{predicates,structural,clauses}/` and `test/ecto_shorts/filters_schemaless/{predicates,structural,clauses}/`, tagged with `@moduletag adapter:`, `@moduletag feature:`, and (schemaless) `@moduletag schema_mode: :schemaless`. If the new key is an adapter-agnostic behaviour, add a row to `EctoShorts.FilterContract.cases/0`.
