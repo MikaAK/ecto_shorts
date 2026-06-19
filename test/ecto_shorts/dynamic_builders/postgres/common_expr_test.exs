@@ -102,6 +102,27 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExprTest do
 
       assert_dynamic(expected, actual)
     end
+
+    test ":start_date builds `>=` over the given column (alias of :since_date)" do
+      dyn =
+        CommonExpr.dynamic_expr(
+          {:as, nil},
+          :published_at,
+          nil,
+          {:start_date, ~U[2026-01-01 00:00:00Z]},
+          []
+        )
+
+      assert %Ecto.Query.DynamicExpr{} = dyn
+    end
+
+    test ":end_date operator produces <= comparison on the given column (alias of :until_date)" do
+      date = ~U[2026-03-09 02:04:01.573399Z]
+      expected = dynamic([q], field(q, :inserted_at) <= ^date)
+      actual = CommonExpr.dynamic_expr({:as, nil}, :inserted_at, nil, {:end_date, date}, [])
+
+      assert_dynamic(expected, actual)
+    end
   end
 
   describe "negation" do
