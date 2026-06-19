@@ -72,4 +72,37 @@ defmodule EctoShorts.CommonParams.TimestampsTest do
       assert Map.has_key?(result, :changed_on)
     end
   end
+
+  describe "put_set_updated_at/4 gating" do
+    test "schema lacking :updated_at leaves :set untouched by default" do
+      result = Timestamps.put_set_updated_at([set: [title: "x"]], @dt, TimestampFree, [])
+
+      refute Keyword.has_key?(result[:set], :updated_at)
+    end
+
+    test "schema defining :updated_at adds it to :set (regression)" do
+      result = Timestamps.put_set_updated_at([set: [title: "x"]], @dt, Post, [])
+
+      assert Keyword.has_key?(result[:set], :updated_at)
+    end
+
+    test "schemaless source adds :updated_at to :set (regression)" do
+      result = Timestamps.put_set_updated_at([set: [title: "x"]], @dt, nil, [])
+
+      assert Keyword.has_key?(result[:set], :updated_at)
+    end
+
+    test "explicit :updated_at value forces it onto a schema lacking the field" do
+      result = Timestamps.put_set_updated_at([set: [title: "x"]], @dt, TimestampFree, updated_at: @dt)
+
+      assert result[:set][:updated_at] === @dt
+    end
+
+    test "explicit :updated_at_source forces the custom key onto a schema lacking it" do
+      result =
+        Timestamps.put_set_updated_at([set: [title: "x"]], @dt, TimestampFree, updated_at_source: :changed_on)
+
+      assert Keyword.has_key?(result[:set], :changed_on)
+    end
+  end
 end
