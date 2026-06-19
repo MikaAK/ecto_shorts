@@ -9,28 +9,8 @@ defmodule EctoShorts.DynamicBuilders do
   ## Operator routing
 
   Once the adapter is resolved, each filter operator is normalised and routed to
-  one of the Postgres expression sub-modules. The diagram below shows that
-  routing — **click an adapter to open its documentation** — and the table that
-  follows lists every operator's destination.
-
-  ```mermaid
-  flowchart LR
-    eq["== != #60; #62; in"] --> scalar["ScalarExpr"]
-    like["like ilike"] --> scalar
-    agg["avg sum max min"] --> scalar
-    arr["#38;#38; @#62; (array)"] --> array["ArrayExpr"]
-    cur["before after since until"] --> common["CommonExpr"]
-    ex["exists"] --> common
-    json["@#62; #60;@ jsonb_exists"] --> map["MapExpr"]
-
-    norm["Normalizer"] -. "eq → ==" .-> eq
-    norm -. "downcase → lower" .-> like
-
-    click scalar href "EctoShorts.DynamicBuilders.Postgres.html" "Scalar comparisons, in, like/ilike, aggregates"
-    click array href "EctoShorts.DynamicBuilders.Postgres.html" "Postgres array operators"
-    click common href "EctoShorts.DynamicBuilders.Postgres.html" "Cursor, timestamp, and exists filters"
-    click map href "EctoShorts.DynamicBuilders.Postgres.html" "JSONB operators"
-  ```
+  one of the Postgres expression sub-modules. The table below lists every
+  operator's destination:
 
   | Operator(s) | Routes to | What it does |
   | --- | --- | --- |
