@@ -234,7 +234,7 @@ defmodule EctoShorts.CommonFilters.SchemalessTest do
   describe "negation (schemaless)" do
     test "excludes records where the field is not in the given list" do
       expected =
-        from(p in "posts", where: is_nil(p.published) or p.published not in ^[true, false])
+        from(p in "posts", where: p.published not in ^[true, false])
 
       q2 =
         CommonFilters.convert_params_to_filter(

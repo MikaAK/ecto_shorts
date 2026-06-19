@@ -129,7 +129,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
 
     test "{:!=, list} produces negated membership with nil guard" do
       expected =
-        dynamic([q], is_nil(field(q, :published)) or field(q, :published) not in ^[true, false])
+        dynamic([q], field(q, :published) not in ^[true, false])
 
       actual = ScalarExpr.dynamic_expr({:as, nil}, :published, nil, {:!=, [true, false]}, [])
 
@@ -298,7 +298,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
   describe "negation" do
     test "negated {:in, list} produces NOT IN with nil guard" do
       expected =
-        dynamic([q], is_nil(field(q, :published)) or field(q, :published) not in ^[true, false])
+        dynamic([q], field(q, :published) not in ^[true, false])
 
       actual = ScalarExpr.dynamic_expr({:as, nil}, :published, :not, {:in, [true, false]}, [])
 

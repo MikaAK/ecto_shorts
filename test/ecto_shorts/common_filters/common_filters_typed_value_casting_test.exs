@@ -159,7 +159,7 @@ defmodule EctoShorts.CommonFilters.TypedValueCastingTest do
     end
 
     test "casts a list of string integers for != operator" do
-      expected = from(p in Post, where: is_nil(p.views) or p.views not in ^[10, 20])
+      expected = from(p in Post, where: p.views not in ^[10, 20])
 
       actual = CommonFilters.convert_params_to_filter(Post, %{views: %{!=: ["10", "20"]}}, [])
 

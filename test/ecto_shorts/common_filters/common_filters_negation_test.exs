@@ -10,7 +10,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
 
   describe "negation" do
     test "excludes records where the field is in the given list" do
-      expected = from(p in Post, where: is_nil(p.published) or p.published not in ^[true, false])
+      expected = from(p in Post, where: p.published not in ^[true, false])
 
       q2 =
         CommonFilters.convert_params_to_filter(
@@ -23,7 +23,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
 
     test "excludes records when == with a list is wrapped in not" do
-      expected = from(p in Post, where: is_nil(p.published) or p.published not in ^[true, false])
+      expected = from(p in Post, where: p.published not in ^[true, false])
 
       q2 =
         CommonFilters.convert_params_to_filter(
@@ -36,7 +36,7 @@ defmodule EctoShorts.CommonFilters.NegationTest do
     end
 
     test "includes records when != with a list is wrapped in not" do
-      expected = from(p in Post, where: not is_nil(p.published) and p.published in ^[true, false])
+      expected = from(p in Post, where: p.published in ^[true, false])
 
       q2 =
         CommonFilters.convert_params_to_filter(

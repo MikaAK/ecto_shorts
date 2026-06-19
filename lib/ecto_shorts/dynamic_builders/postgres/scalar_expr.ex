@@ -135,16 +135,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     defp membership_not_in_dyn(unquote(quoted_binding_head), unquote(key_var), values) do
       dynamic(
         [unquote_splicing(quoted_binding_body)],
-        is_nil(field(unquote(target_binding_var), ^unquote(key_var))) or
-          field(unquote(target_binding_var), ^unquote(key_var)) not in ^values
-      )
-    end
-
-    defp membership_nil_aware_in_dyn(unquote(quoted_binding_head), unquote(key_var), values) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        not is_nil(field(unquote(target_binding_var), ^unquote(key_var))) and
-          field(unquote(target_binding_var), ^unquote(key_var)) in ^values
+        field(unquote(target_binding_var), ^unquote(key_var)) not in ^values
       )
     end
   end
@@ -177,7 +168,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
         membership_in_dyn(binding, key, values)
 
       {:not, {:!=, values}} when is_list(values) ->
-        membership_nil_aware_in_dyn(binding, key, values)
+        membership_in_dyn(binding, key, values)
 
       {:!=, values} when is_list(values) ->
         membership_not_in_dyn(binding, key, values)

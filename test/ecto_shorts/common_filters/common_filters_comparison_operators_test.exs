@@ -81,7 +81,7 @@ defmodule EctoShorts.CommonFilters.ComparisonOperatorsTest do
     end
 
     test "treats a list value with != as a NOT IN check" do
-      expected = from(p in Post, where: is_nil(p.published) or p.published not in ^[true, false])
+      expected = from(p in Post, where: p.published not in ^[true, false])
       q2 = CommonFilters.convert_params_to_filter(Post, %{published: %{!=: [true, false]}}, [])
 
       assert_sql(expected, q2)
