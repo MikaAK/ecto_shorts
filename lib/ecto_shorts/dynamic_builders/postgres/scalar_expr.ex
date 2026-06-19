@@ -254,9 +254,14 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
 
     cond do
       nil_or_scalar?(term) -> scalar_comparison(binding, key, term)
+      quantified?(term) -> quantified_comparison(binding, key, term)
       true -> comparison_impl_rest(binding, key, term)
     end
   end
+
+  defp quantified?({_op, {q, _}}) when q in [:all, :any], do: true
+  defp quantified?({:not, {_op, {q, _}}}) when q in [:all, :any], do: true
+  defp quantified?(_), do: false
 
   # Family predicate: nil checks and scalar (non-tuple value) comparisons.
   defp nil_or_scalar?({op, v}) when op in [:==, :!=] and (is_nil(v) or not is_tuple(v)), do: true
@@ -347,106 +352,130 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     dynamic([], not (^f <= ^v))
   end
 
+  # Quantified comparisons (all / any)
+  defp quantified_comparison(binding, key, {:==, {:all, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f == all(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:==, {:all, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f == all(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:==, {:any, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f == any(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:==, {:any, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f == any(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:!=, {:all, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f != all(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:!=, {:all, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f != all(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:!=, {:any, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f != any(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:!=, {:any, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f != any(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:>, {:all, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f > all(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:>, {:all, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f > all(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:>, {:any, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f > any(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:>, {:any, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f > any(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:>=, {:all, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f >= all(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:>=, {:all, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f >= all(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:>=, {:any, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f >= any(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:>=, {:any, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f >= any(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:<, {:all, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f < all(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:<, {:all, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f < all(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:<, {:any, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f < any(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:<, {:any, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f < any(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:<=, {:all, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f <= all(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:<=, {:all, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f <= all(qv)))
+  end
+
+  defp quantified_comparison(binding, key, {:<=, {:any, qv}}) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f <= any(qv))
+  end
+
+  defp quantified_comparison(binding, key, {:not, {:<=, {:any, qv}}}) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f <= any(qv)))
+  end
+
   # comparison_impl_rest holds the families not yet extracted; later tasks carve them out.
   defp comparison_impl_rest(binding, key, term) do
     case term do
-      # Quantified comparisons (all / any)
-      {:==, {:all, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f == all(qv))
-
-      {:not, {:==, {:all, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f == all(qv)))
-
-      {:==, {:any, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f == any(qv))
-
-      {:not, {:==, {:any, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f == any(qv)))
-
-      {:!=, {:all, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f != all(qv))
-
-      {:not, {:!=, {:all, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f != all(qv)))
-
-      {:!=, {:any, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f != any(qv))
-
-      {:not, {:!=, {:any, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f != any(qv)))
-
-      {:>, {:all, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f > all(qv))
-
-      {:not, {:>, {:all, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f > all(qv)))
-
-      {:>, {:any, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f > any(qv))
-
-      {:not, {:>, {:any, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f > any(qv)))
-
-      {:>=, {:all, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f >= all(qv))
-
-      {:not, {:>=, {:all, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f >= all(qv)))
-
-      {:>=, {:any, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f >= any(qv))
-
-      {:not, {:>=, {:any, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f >= any(qv)))
-
-      {:<, {:all, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f < all(qv))
-
-      {:not, {:<, {:all, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f < all(qv)))
-
-      {:<, {:any, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f < any(qv))
-
-      {:not, {:<, {:any, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f < any(qv)))
-
-      {:<=, {:all, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f <= all(qv))
-
-      {:not, {:<=, {:all, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f <= all(qv)))
-
-      {:<=, {:any, qv}} ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f <= any(qv))
-
-      {:not, {:<=, {:any, qv}}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f <= any(qv)))
-
       # Aggregate: nil checks
       {helper, {:==, nil}} when helper in @aggregate_helpers ->
         f = agg_field_dyn(binding, key, helper)
