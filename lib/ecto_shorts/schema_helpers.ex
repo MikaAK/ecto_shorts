@@ -33,10 +33,10 @@ defmodule EctoShorts.SchemaHelpers do
 
   Check if a record has been persisted:
 
-      iex> EctoShorts.SchemaHelpers.any_created?(%EctoShorts.Schema.Post{id: 1})
+      iex> EctoShorts.SchemaHelpers.any_persisted?(%EctoShorts.Schema.Post{id: 1})
       true
 
-      iex> EctoShorts.SchemaHelpers.any_created?(%EctoShorts.Schema.Post{id: nil})
+      iex> EctoShorts.SchemaHelpers.any_persisted?(%EctoShorts.Schema.Post{id: nil})
       false
 
   ## When to use schema helpers
@@ -111,10 +111,10 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Persistence checks
 
-  Use `any_created?/1` to check if a record has been persisted:
+  Use `any_persisted?/1` to check if a record has been persisted:
 
       def update_record(record, params) do
-        if EctoShorts.SchemaHelpers.any_created?(record) do
+        if EctoShorts.SchemaHelpers.any_persisted?(record) do
           # Record exists, perform update
           Repo.update(changeset(record, params))
         else
@@ -125,13 +125,13 @@ defmodule EctoShorts.SchemaHelpers do
 
   This works with both schema structs and plain maps:
 
-      EctoShorts.SchemaHelpers.any_created?(%Post{id: 1})
+      EctoShorts.SchemaHelpers.any_persisted?(%Post{id: 1})
       # true
 
-      EctoShorts.SchemaHelpers.any_created?(%{id: 42})
+      EctoShorts.SchemaHelpers.any_persisted?(%{id: 42})
       # true
 
-      EctoShorts.SchemaHelpers.any_created?(%{"id" => 99})
+      EctoShorts.SchemaHelpers.any_persisted?(%{"id" => 99})
       # true
 
   ## Field type inspection
@@ -430,20 +430,20 @@ defmodule EctoShorts.SchemaHelpers do
 
   ## Examples
 
-      iex> EctoShorts.SchemaHelpers.any_created?(%EctoShorts.Schema.Post{id: 1})
+      iex> EctoShorts.SchemaHelpers.any_persisted?(%EctoShorts.Schema.Post{id: 1})
       true
 
-      iex> EctoShorts.SchemaHelpers.any_created?(%EctoShorts.Schema.Post{id: nil})
+      iex> EctoShorts.SchemaHelpers.any_persisted?(%EctoShorts.Schema.Post{id: nil})
       false
 
-      iex> EctoShorts.SchemaHelpers.any_created?(%{id: 42})
+      iex> EctoShorts.SchemaHelpers.any_persisted?(%{id: 42})
       true
 
   See also `schema_struct?/1`.
   """
-  @spec any_created?(list() | map() | struct()) :: boolean()
-  def any_created?(list) when is_list(list), do: Enum.any?(list, &any_created?/1)
-  def any_created?(%{id: id}), do: id !== nil
-  def any_created?(%{"id" => id}), do: id !== nil
-  def any_created?(_), do: false
+  @spec any_persisted?(list() | map() | struct()) :: boolean()
+  def any_persisted?(list) when is_list(list), do: Enum.any?(list, &any_persisted?/1)
+  def any_persisted?(%{id: id}), do: id !== nil
+  def any_persisted?(%{"id" => id}), do: id !== nil
+  def any_persisted?(_), do: false
 end

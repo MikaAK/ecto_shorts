@@ -4,6 +4,7 @@
 
 ##### Breaking changes
 
+- **`EctoShorts.SchemaHelpers.any_created?/1` renamed to `any_persisted?/1`** — better aligns with the `*_schema_struct?/1` family and Ecto's persisted-record idiom
 - **`EctoShorts.CommonChanges` predicate renames** — four predicate functions have been renamed for value-vs-change clarity: `changeset_field_nil?/2` → `field_nil?/2`, `changeset_field_empty?/2` → `field_empty?/2`, `has_nil_change?/2` → `change_nil?/2`, `has_empty_change?/2` → `change_empty?/2`
 - **Minimum Elixir version** raised from `~> 1.13` to `~> 1.15`
 - **`EctoShorts.CommonFilters` re-architected** — `EctoShorts.QueryBuilder`, `EctoShorts.QueryBuilder.Common`, and `EctoShorts.QueryBuilder.Schema` have been removed and replaced by a new dispatch system built on `EctoShorts.QueryBuilder` and dedicated per-filter builder modules under `EctoShorts.CommonFilters.*`

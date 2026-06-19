@@ -838,7 +838,7 @@ defmodule EctoShorts.CommonChanges do
         data = Actions.all(schema, %{ids: data_ids(params_data)})
         Changeset.put_assoc(changeset, key, data, opts)
 
-      SchemaHelpers.any_created?(params_data) ->
+      SchemaHelpers.any_persisted?(params_data) ->
         ids = params_data |> data_ids() |> Enum.reject(&is_nil/1)
 
         changeset

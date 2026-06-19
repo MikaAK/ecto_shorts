@@ -79,21 +79,21 @@ defmodule EctoShorts.SchemaHelpersTest do
     end
   end
 
-  describe "any_created?/1" do
+  describe "any_persisted?/1" do
     test "returns true when the map has a non-nil :id" do
-      assert SchemaHelpers.any_created?(%{id: 42}) === true
+      assert SchemaHelpers.any_persisted?(%{id: 42}) === true
     end
 
     test "returns false when the map has a nil :id" do
-      assert SchemaHelpers.any_created?(%{id: nil}) === false
+      assert SchemaHelpers.any_persisted?(%{id: nil}) === false
     end
 
     test "returns true when the map has a non-nil string id" do
-      assert SchemaHelpers.any_created?(%{"id" => 99}) === true
+      assert SchemaHelpers.any_persisted?(%{"id" => 99}) === true
     end
 
     test "returns false when the map has a nil string id" do
-      assert SchemaHelpers.any_created?(%{"id" => nil}) === false
+      assert SchemaHelpers.any_persisted?(%{"id" => nil}) === false
     end
   end
 end
