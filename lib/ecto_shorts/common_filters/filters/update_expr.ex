@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonFilters.UpdateExpr do
   @moduledoc false
 
   alias EctoShorts.CommonSchema
+  alias EctoShorts.LogUtils
   alias EctoShorts.Types
 
   @logger_prefix "EctoShorts.CommonFilters.UpdateExpr"
@@ -26,7 +27,7 @@ defmodule EctoShorts.CommonFilters.UpdateExpr do
   end
 
   def build_update_operations(_source, params, _opts) do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       "Expected params to be a map or list, got #{inspect(params)}"
     )
@@ -52,7 +53,7 @@ defmodule EctoShorts.CommonFilters.UpdateExpr do
   end
 
   def build_update_expr(_source, params) do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       "Expected params to be a map or list, got #{inspect(params)}"
     )

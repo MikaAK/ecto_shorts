@@ -4,6 +4,7 @@ defmodule EctoShorts.CommonFilters.PrependOrderBy do
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema
+  alias EctoShorts.LogUtils
   alias EctoShorts.QueryBinding
 
   alias Ecto.Query
@@ -62,7 +63,7 @@ defmodule EctoShorts.CommonFilters.PrependOrderBy do
     if schema_field?(effective_source, field_name) do
       {:ok, field_name}
     else
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(effective_source))}, skipping field reference"
       )

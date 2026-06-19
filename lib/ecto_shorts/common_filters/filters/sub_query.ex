@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonFilters.SubQuery do
   @moduledoc false
 
   alias EctoShorts.CommonFilters
+  alias EctoShorts.LogUtils
 
   alias Ecto.Query
   require Ecto.Query
@@ -15,7 +16,7 @@ defmodule EctoShorts.CommonFilters.SubQuery do
       |> CommonFilters.convert_params_to_filter(params, opts)
       |> Query.subquery()
     else
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "Expected :subquery value to be a keyword list or map of filter params, got: #{inspect(params)}"
       )

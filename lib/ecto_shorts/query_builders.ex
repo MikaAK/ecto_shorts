@@ -32,6 +32,7 @@ defmodule EctoShorts.QueryBuilders do
   """
 
   alias EctoShorts.Config
+  alias EctoShorts.LogUtils
 
   @default_adapter EctoShorts.CommonFilters.Builder
 
@@ -56,7 +57,7 @@ defmodule EctoShorts.QueryBuilders do
         if function_exported?(module, :build_query, 6) do
           module.build_query(filter, source, query, selected_binding, term, opts)
         else
-          EctoShorts.LogUtils.warning(
+          LogUtils.warning(
             "EctoShorts.QueryBuilders",
             "Module does not export the required function build_query/6: #{inspect(module)}"
           )

@@ -97,7 +97,7 @@ defmodule EctoShorts.DynamicBuilders do
   end
 
   defp adapter_for_repo!(opts) do
-    case Keyword.get(opts, :dynamic_builder, EctoShorts.Config.dynamic_builder_module()) do
+    case Keyword.get(opts, :dynamic_builder, Config.dynamic_builder_module()) do
       nil ->
         repo = opts[:repo] || opts[:replica] || Config.repo!(opts)
 

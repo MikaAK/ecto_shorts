@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonFilters.Lock do
   @moduledoc false
 
   alias EctoShorts.Config
+  alias EctoShorts.{FilterError, LogUtils}
   alias EctoShorts.QueryBinding
   alias EctoShorts.QueryProvider
 
@@ -18,7 +19,7 @@ defmodule EctoShorts.CommonFilters.Lock do
         name -> lock_expr(query, selected_binding, name, params, opts)
       end
     else
-      raise EctoShorts.FilterError,
+      raise FilterError,
             "lock filter expects a map or keyword list with a :name key (e.g. %{name: :for_update}), got: #{inspect(params)}"
     end
   end
@@ -46,7 +47,7 @@ defmodule EctoShorts.CommonFilters.Lock do
     query_provider_module = query_provider(opts)
 
     if is_nil(query_provider_module) do
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "No query provider module configured for lock filter"
       )
@@ -70,16 +71,16 @@ defmodule EctoShorts.CommonFilters.Lock do
                 next_query
 
               other ->
-                raise EctoShorts.FilterError,
+                raise FilterError,
                       "lock expression callback must return an Ecto.Query, got: #{inspect(other)}"
             end
           else
-            raise EctoShorts.FilterError,
+            raise FilterError,
                   "lock expression resolved from QueryProvider must be a 1-arity function, got: #{inspect(callback)}"
           end
 
         {:error, reason} ->
-          EctoShorts.LogUtils.warning(
+          LogUtils.warning(
             @logger_prefix,
             "Lock expression callback returned error for #{inspect(custom_name)}: #{inspect(reason)}"
           )
@@ -87,7 +88,7 @@ defmodule EctoShorts.CommonFilters.Lock do
           query
 
         other ->
-          raise EctoShorts.FilterError,
+          raise FilterError,
                 "lock expression resolved from QueryProvider must return {:ok, function} | {:error, reason} | nil, got: #{inspect(other)}"
       end
     end

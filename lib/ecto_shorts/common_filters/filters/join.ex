@@ -21,8 +21,10 @@ defmodule EctoShorts.CommonFilters.Join do
 
   alias EctoShorts.DynamicBuilders
   alias EctoShorts.CommonFilters
+  alias EctoShorts.CommonFilters.PredicateBuilder
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema
+  alias EctoShorts.{FilterError, LogUtils}
   alias EctoShorts.QueryBinding
   alias EctoShorts.Config
   alias EctoShorts.QueryProvider
@@ -57,7 +59,7 @@ defmodule EctoShorts.CommonFilters.Join do
 
         reduce_join(schema_source, query, selected_binding, join_expr, opts)
       else
-        EctoShorts.LogUtils.warning(
+        LogUtils.warning(
           @logger_prefix,
           "Expected join type to be one of #{inspect(@join_types)}, got: #{inspect(key)}"
         )
@@ -78,7 +80,7 @@ defmodule EctoShorts.CommonFilters.Join do
         end)
       end
     else
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "Expected :join params to be a map or keyword list, got: #{inspect(nested)}"
       )
@@ -99,7 +101,7 @@ defmodule EctoShorts.CommonFilters.Join do
         opts
       )
     else
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "Expected join options to have a :source key, got: #{inspect(join_options)}"
       )
@@ -112,7 +114,7 @@ defmodule EctoShorts.CommonFilters.Join do
     provider = query_provider(opts)
 
     if is_nil(provider) do
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "No query provider module configured for fragment join source #{inspect(source_key)}"
       )
@@ -133,7 +135,7 @@ defmodule EctoShorts.CommonFilters.Join do
           {:ok, source}
 
         {:error, reason} ->
-          EctoShorts.LogUtils.warning(
+          LogUtils.warning(
             @logger_prefix,
             "Join source callback returned error for key #{inspect(source_key)}: #{inspect(reason)}"
           )
@@ -141,7 +143,7 @@ defmodule EctoShorts.CommonFilters.Join do
           :error
 
         other ->
-          raise EctoShorts.FilterError,
+          raise FilterError,
                 "join source callback must return {:ok, source} | {:error, reason} | nil, got: #{inspect(other)}"
       end
     end
@@ -258,7 +260,7 @@ defmodule EctoShorts.CommonFilters.Join do
             dyn -> {:ok, dyn}
           end
         else
-          EctoShorts.LogUtils.warning(
+          LogUtils.warning(
             @logger_prefix,
             "Expected :on to be a keyword list, map, or true, got: #{inspect(list)}"
           )
@@ -270,7 +272,7 @@ defmodule EctoShorts.CommonFilters.Join do
         {:ok, dyn}
 
       term ->
-        EctoShorts.LogUtils.warning(
+        LogUtils.warning(
           @logger_prefix,
           "Expected :on to be a keyword list, map, or true, got: #{inspect(term)}"
         )
@@ -284,7 +286,7 @@ defmodule EctoShorts.CommonFilters.Join do
 
     Enum.reduce(entries, nil, fn {key, value}, acc ->
       dyn =
-        case EctoShorts.CommonFilters.PredicateBuilder.build(effective_source, key, value, opts) do
+        case PredicateBuilder.build(effective_source, key, value, opts) do
           :skip ->
             nil
 

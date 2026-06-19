@@ -4,6 +4,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   alias Ecto.Query
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
+  alias EctoShorts.LogUtils
 
   require Ecto.Query
 
@@ -63,7 +64,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
 
   defp dispatch_expr(_binding, key, {op, {:value, {arith_op, _}}})
        when op in [:==, :!=, :>, :>=, :<, :<=] and arith_op in [:+, :-, :*, :/] do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       "arithmetic comparison (#{arith_op}) is not supported on array field #{inspect(key)}, skipping"
     )
@@ -289,7 +290,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp dispatch_expr(_binding, key, {op, _}) when op in [:avg, :sum, :max, :min] do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       "#{op} aggregate is not supported on array field #{inspect(key)}, skipping"
     )
@@ -298,7 +299,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp dispatch_expr(_binding, key, {:any, _}) do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       ":any subquery quantifier is not supported on array field #{inspect(key)}, skipping"
     )
@@ -307,7 +308,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp dispatch_expr(_binding, key, {wrapper, _}) when wrapper in [:datetime, :date] do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       "#{wrapper} comparison is not supported on array field #{inspect(key)}, skipping"
     )
@@ -316,7 +317,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp dispatch_expr(_binding, key, {:parent_as, _}) do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       ":parent_as requires a {binding, field} payload, got unexpected form for field #{inspect(key)}, skipping"
     )

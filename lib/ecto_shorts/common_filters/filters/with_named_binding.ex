@@ -3,6 +3,7 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
   @moduledoc false
 
   alias EctoShorts.CommonFilters
+  alias EctoShorts.LogUtils
 
   alias Ecto.Query
   require Ecto.Query
@@ -18,7 +19,7 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
     if Keyword.keyword?(params) do
       reduce_params(query, params, opts)
     else
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "Expected :with_named_binding params to be a map or keyword list, got: #{inspect(params)}"
       )
@@ -42,7 +43,7 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
       if Query.has_named_binding?(query_acc, key) do
         query_acc
       else
-        EctoShorts.LogUtils.warning(
+        LogUtils.warning(
           @logger_prefix,
           "Filters provided for :with_named_binding key #{inspect(key)} did not create a named binding"
         )
@@ -53,7 +54,7 @@ defmodule EctoShorts.CommonFilters.WithNamedBinding do
   end
 
   defp apply_params(query, key, _params, _opts) do
-    EctoShorts.LogUtils.warning(
+    LogUtils.warning(
       @logger_prefix,
       "Expected :with_named_binding key to be an atom, got: #{inspect(key)}"
     )

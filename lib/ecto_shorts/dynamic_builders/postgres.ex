@@ -52,7 +52,8 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     DynamicBuilders.Postgres.ArrayExpr,
     DynamicBuilders.Postgres.CommonExpr,
     DynamicBuilders.Postgres.MapExpr,
-    DynamicBuilders.Postgres.ScalarExpr
+    DynamicBuilders.Postgres.ScalarExpr,
+    LogUtils
   }
 
   @behaviour EctoShorts.DynamicBuilder
@@ -131,7 +132,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     if field in Enum.map(fields, &Atom.to_string/1) do
       String.to_existing_atom(field)
     else
-      EctoShorts.LogUtils.warning(
+      LogUtils.warning(
         @logger_prefix,
         "Field \"#{field}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
       )

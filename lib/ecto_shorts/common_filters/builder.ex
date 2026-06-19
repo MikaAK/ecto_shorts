@@ -258,8 +258,8 @@ defmodule EctoShorts.CommonFilters.Builder do
 
   defp ensure_group_by(%Ecto.Query{} = query) do
     case CommonSchema.get_schema_reflection(query, :primary_key) do
-      [pk | _] -> Ecto.Query.group_by(query, [q], field(q, ^pk))
-      pk when is_atom(pk) and not is_nil(pk) -> Ecto.Query.group_by(query, [q], field(q, ^pk))
+      [pk | _] -> Query.group_by(query, [q], field(q, ^pk))
+      pk when is_atom(pk) and not is_nil(pk) -> Query.group_by(query, [q], field(q, ^pk))
       _ -> query
     end
   end
