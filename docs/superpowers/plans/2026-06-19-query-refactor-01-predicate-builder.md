@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `EctoShorts.QueryBuilder.PredicateBuilder`, a pure, dialect-agnostic module that turns one caller value-test into a canonical, tidied form the SQL helpers can later consume — with no SQL and no database calls beyond schema reflection.
+**Goal:** Build `EctoShorts.CommonFilters.PredicateBuilder`, a pure, dialect-agnostic module that turns one caller value-test into a canonical, tidied form the SQL helpers can later consume — with no SQL and no database calls beyond schema reflection.
 
 **Architecture:** A single module exposing four small helpers (`canonical_op/1`, `resolve_field/3`, `routing_family/3`, `cast/2`) and one orchestrator (`build/4`). It is pure: same input → same output, no query building. Spec §2.2/§2.3 define the contract. Later plans wire it into `CommonFilters` (Plan 05) and consume its output in the Postgres adapter (Plan 02).
 
@@ -22,8 +22,9 @@
 ### Task 1: Module skeleton + `canonical_op/1`
 
 **Files:**
-- Create: `lib/ecto_shorts/query_builder/predicate_builder.ex`
-- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
+- Create: `lib/ecto_shorts/common_filters/predicate.ex` (the `%Predicate{}` struct)
+- Create: `lib/ecto_shorts/common_filters/predicate_builder.ex`
+- Test: `test/ecto_shorts/common_filters/predicate_builder_test.exs`
 
 **Interfaces:**
 - Produces: `canonical_op(op :: atom() | binary()) :: atom()` — returns the canonical operator atom, or `:__unknown__` for an unrecognized string. Atom nicknames map via a closed table; canonical atoms pass through; unknown atoms pass through unchanged (an Elixir caller is trusted), unknown strings become `:__unknown__`.
@@ -31,11 +32,12 @@
 - [ ] **Step 1: Write the failing test**
 
 ```elixir
-defmodule EctoShorts.QueryBuilder.PredicateBuilderTest do
+defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
   use ExUnit.Case, async: true
   import ExUnit.CaptureLog
 
-  alias EctoShorts.QueryBuilder.PredicateBuilder
+  alias EctoShorts.CommonFilters.PredicateBuilder
+  alias EctoShorts.CommonFilters.Predicate
   alias EctoShorts.Schema.Post
 
   describe "canonical_op/1" do
@@ -71,20 +73,47 @@ end
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
-Expected: FAIL — `EctoShorts.QueryBuilder.PredicateBuilder` is undefined.
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
+Expected: FAIL — `EctoShorts.CommonFilters.PredicateBuilder` is undefined.
 
 - [ ] **Step 3: Write minimal implementation**
 
+First the struct that represents one resolved predicate (the explicit shape that
+`build/4` produces; see §2.1):
+
 ```elixir
-defmodule EctoShorts.QueryBuilder.PredicateBuilder do
+defmodule EctoShorts.CommonFilters.Predicate do
   @moduledoc """
-  Dialect-agnostic translator: turns one caller value-test into a canonical,
-  tidied form. Pure — no SQL, no query building. See the spec §2.2/§2.3.
+  One resolved filter predicate: a column, its routing family, whether it is
+  negated, and the tidied operator-expression. Produced by `PredicateBuilder`,
+  consumed by the dialect adapter. See spec §2.1.
+  """
+  @enforce_keys [:field, :routing, :negated, :expr]
+  defstruct [:field, :routing, :negated, :expr]
+
+  @type routing :: :scalar | :array | :map | :common
+  @type t :: %__MODULE__{
+          field: atom(),
+          routing: routing(),
+          negated: boolean(),
+          expr: term()
+        }
+end
+```
+
+Then the builder:
+
+```elixir
+defmodule EctoShorts.CommonFilters.PredicateBuilder do
+  @moduledoc """
+  Dialect-agnostic translator: turns one caller value-test into one or more
+  `%EctoShorts.CommonFilters.Predicate{}`. Pure — no SQL, no query building.
+  See the spec §2.2/§2.3.
   """
 
   require Logger
   alias EctoShorts.{CommonSchema, Types}
+  alias EctoShorts.CommonFilters.Predicate
 
   @comparison_ops [:==, :!=, :>, :>=, :<, :<=]
   @ordering_ops [:>, :>=, :<, :<=]
@@ -124,13 +153,13 @@ end
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
 Expected: PASS (4 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
+git add lib/ecto_shorts/common_filters/predicate_builder.ex test/ecto_shorts/common_filters/predicate_builder_test.exs
 git commit -m "feat(resolver): PredicateBuilder skeleton + canonical_op/1"
 ```
 
@@ -139,8 +168,8 @@ git commit -m "feat(resolver): PredicateBuilder skeleton + canonical_op/1"
 ### Task 2: `resolve_field/3`
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex`
-- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex`
+- Test: `test/ecto_shorts/common_filters/predicate_builder_test.exs`
 
 **Interfaces:**
 - Consumes: `EctoShorts.CommonSchema.get_schema/1`, `get_schema_reflection(source, :fields)`.
@@ -184,7 +213,7 @@ git commit -m "feat(resolver): PredicateBuilder skeleton + canonical_op/1"
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs -k resolve_field`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs -k resolve_field`
 Expected: FAIL — `resolve_field/3` undefined.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -231,13 +260,13 @@ Add to the module:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
 Expected: PASS (9 tests total).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
+git add lib/ecto_shorts/common_filters/predicate_builder.ex test/ecto_shorts/common_filters/predicate_builder_test.exs
 git commit -m "feat(resolver): resolve_field/3 (atom trusted, string gated, warn+skip)"
 ```
 
@@ -246,8 +275,8 @@ git commit -m "feat(resolver): resolve_field/3 (atom trusted, string gated, warn
 ### Task 3: `routing_family/3`
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex`
-- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex`
+- Test: `test/ecto_shorts/common_filters/predicate_builder_test.exs`
 
 **Interfaces:**
 - Consumes: `opts[:field_types]` (a keyword/map of `field => Ecto type`), `CommonSchema.get_schema_reflection(source, :type, field)`.
@@ -278,7 +307,7 @@ git commit -m "feat(resolver): resolve_field/3 (atom trusted, string gated, warn
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs -k routing_family`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs -k routing_family`
 Expected: FAIL — `routing_family/3` undefined.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -309,13 +338,13 @@ Expected: FAIL — `routing_family/3` undefined.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
 Expected: PASS (13 tests total).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
+git add lib/ecto_shorts/common_filters/predicate_builder.ex test/ecto_shorts/common_filters/predicate_builder_test.exs
 git commit -m "feat(resolver): routing_family/3 (field_types over schema; scalar/array/map)"
 ```
 
@@ -324,8 +353,8 @@ git commit -m "feat(resolver): routing_family/3 (field_types over schema; scalar
 ### Task 4: `cast/2`
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex`
-- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex`
+- Test: `test/ecto_shorts/common_filters/predicate_builder_test.exs`
 
 **Interfaces:**
 - Consumes: `EctoShorts.Types.cast/2`.
@@ -355,7 +384,7 @@ git commit -m "feat(resolver): routing_family/3 (field_types over schema; scalar
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs -k "cast/2"`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs -k "cast/2"`
 Expected: FAIL — `cast/2` undefined.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -372,13 +401,13 @@ Expected: FAIL — `cast/2` undefined.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
 Expected: PASS (17 tests total).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
+git add lib/ecto_shorts/common_filters/predicate_builder.ex test/ecto_shorts/common_filters/predicate_builder_test.exs
 git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.cast)"
 ```
 
@@ -387,13 +416,13 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
 ### Task 5: `build/4` — comparison family
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex`
-- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex`
+- Test: `test/ecto_shorts/common_filters/predicate_builder_test.exs`
 
 **Interfaces:**
 - Consumes: `resolve_field/3`, `routing_family/3`, `canonical_op/1`, `cast/2` (above), and `CommonSchema.get_schema_reflection(source, :type, field)` for the field type used in casting.
 - Produces:
-  `canonicalize(source, key, raw_term, opts) :: {:ok, [%{field: atom(), routing: :scalar | :array | :map, negated: boolean(), term: tidied}]} | :skip`
+  `build(source, key, raw_term, opts) :: {:ok, [%Predicate{field: atom(), routing: :scalar | :array | :map, negated: boolean(), expr: tidied}]} | :skip`
   It returns a **list** of canonical maps (the caller ANDs them), because a value
   map may carry several operator entries — `%{gt: 21, lte: 65}` → two terms. The
   resolver **reduces over the entries** (`Enum.reduce` works directly on maps and
@@ -408,67 +437,67 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
   describe "build/4 — comparison family (returns a list of terms)" do
     test "bare scalar becomes equality, cast to the column type" do
       assert PredicateBuilder.build(Post, :views, "5", []) ==
-               {:ok, [%{field: :views, routing: :scalar, negated: false, term: {:==, 5}}]}
+               {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:==, 5}}]}
     end
 
     test "operator nickname canonicalizes and casts" do
       assert PredicateBuilder.build(Post, :views, %{gt: "10"}, []) ==
-               {:ok, [%{field: :views, routing: :scalar, negated: false, term: {:>, 10}}]}
+               {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:>, 10}}]}
     end
 
     test "a multi-operator value map yields one term per operator (reduce; AND)" do
       assert {:ok, terms} = PredicateBuilder.build(Post, :views, %{gt: "10", lte: "100"}, [])
-      assert Enum.map(terms, & &1.term) |> Enum.sort() == Enum.sort([{:>, 10}, {:<=, 100}])
+      assert Enum.map(terms, & &1.expr) |> Enum.sort() == Enum.sort([{:>, 10}, {:<=, 100}])
       assert Enum.all?(terms, &(&1.field == :views and &1.negated == false))
     end
 
     test "nil becomes a nil-check (no cast)" do
       assert PredicateBuilder.build(Post, :published_at, %{eq: nil}, []) ==
-               {:ok, [%{field: :published_at, routing: :scalar, negated: false, term: {:==, nil}}]}
+               {:ok, [%Predicate{field: :published_at, routing: :scalar, negated: false, expr: {:==, nil}}]}
     end
 
     test "bare list is sugar for eq (routing decides membership vs equality)" do
       assert PredicateBuilder.build(Post, :views, ["1", "2"], []) ==
-               {:ok, [%{field: :views, routing: :scalar, negated: false, term: {:==, [1, 2]}}]}
+               {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:==, [1, 2]}}]}
     end
 
     test "explicit in/nin keep their operator" do
-      assert {:ok, [%{term: {:in, [1, 2]}}]} = PredicateBuilder.build(Post, :views, %{in: ["1", "2"]}, [])
-      assert {:ok, [%{term: {:nin, [1, 2]}}]} = PredicateBuilder.build(Post, :views, %{nin: ["1", "2"]}, [])
+      assert {:ok, [%Predicate{expr: {:in, [1, 2]}}]} = PredicateBuilder.build(Post, :views, %{in: ["1", "2"]}, [])
+      assert {:ok, [%Predicate{expr: {:nin, [1, 2]}}]} = PredicateBuilder.build(Post, :views, %{nin: ["1", "2"]}, [])
     end
 
     test "like auto-wraps a plain pattern but keeps an explicit one" do
-      assert {:ok, [%{term: {:like, "%al%"}}]} = PredicateBuilder.build(Post, :title, %{like: "al"}, [])
-      assert {:ok, [%{term: {:like, "al%"}}]} = PredicateBuilder.build(Post, :title, %{like: "al%"}, [])
+      assert {:ok, [%Predicate{expr: {:like, "%al%"}}]} = PredicateBuilder.build(Post, :title, %{like: "al"}, [])
+      assert {:ok, [%Predicate{expr: {:like, "al%"}}]} = PredicateBuilder.build(Post, :title, %{like: "al%"}, [])
     end
 
     test "text transform wraps the value side" do
-      assert {:ok, [%{term: {:==, {:lower, "AL"}}}]} =
+      assert {:ok, [%Predicate{expr: {:==, {:lower, "AL"}}}]} =
                PredicateBuilder.build(Post, :title, %{eq: %{downcase: "AL"}}, [])
     end
 
     test "aggregate nests a comparison" do
-      assert {:ok, [%{term: {:avg, {:>, 10}}}]} =
+      assert {:ok, [%Predicate{expr: {:avg, {:>, 10}}}]} =
                PredicateBuilder.build(Post, :views, %{avg: %{gt: "10"}}, [])
     end
 
     test "not is lifted into the negated slot (nested toggles)" do
-      assert {:ok, [%{negated: true, term: {:==, 5}}]} =
+      assert {:ok, [%Predicate{negated: true, expr: {:==, 5}}]} =
                PredicateBuilder.build(Post, :views, %{not: %{eq: "5"}}, [])
 
-      assert {:ok, [%{negated: false, term: {:==, 5}}]} =
+      assert {:ok, [%Predicate{negated: false, expr: {:==, 5}}]} =
                PredicateBuilder.build(Post, :views, %{not: %{not: %{eq: "5"}}}, [])
     end
 
     test "array column: bare list is eq (routing :array → exact equality downstream)" do
-      assert {:ok, [%{routing: :array, term: {:==, ["a", "b"]}}]} =
+      assert {:ok, [%Predicate{routing: :array, expr: {:==, ["a", "b"]}}]} =
                PredicateBuilder.build(Post, :tags, ["a", "b"], [])
     end
 
     test "an unknown operator entry is dropped (warn); other entries survive" do
       log =
         capture_log(fn ->
-          assert {:ok, [%{term: {:>, 1}}]} =
+          assert {:ok, [%Predicate{expr: {:>, 1}}]} =
                    PredicateBuilder.build(Post, :views, %{"bogus" => 1, gt: 1}, [])
         end)
 
@@ -483,7 +512,7 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs -k "build/4"`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs -k "build/4"`
 Expected: FAIL — `build/4` undefined.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -497,8 +526,8 @@ Expected: FAIL — `build/4` undefined.
   conditions — so we **reduce over the entries** (Enum.reduce works directly on a
   map or keyword list) and never assume a single pair.
   """
-  @spec canonicalize(term(), atom() | binary(), term(), keyword()) ::
-          {:ok, [%{field: atom(), routing: atom(), negated: boolean(), term: term()}]} | :skip
+  @spec build(term(), atom() | binary(), term(), keyword()) ::
+          {:ok, [%Predicate{field: atom(), routing: atom(), negated: boolean(), expr: term()}]} | :skip
   def build(source, key, raw_term, opts) do
     case resolve_field(source, key, opts) do
       :skip ->
@@ -509,8 +538,8 @@ Expected: FAIL — `build/4` undefined.
         type = field_type(source, field, opts)
         {negated, inner} = lift_negation(raw_term)
 
-        terms = build_terms(inner, type)
-        {:ok, Enum.map(terms, &%{field: field, routing: routing, negated: negated, term: &1})}
+        exprs = build_terms(inner, type)
+        {:ok, Enum.map(exprs, &%Predicate{field: field, routing: routing, negated: negated, expr: &1})}
     end
   end
 
@@ -622,7 +651,7 @@ Expected: FAIL — `build/4` undefined.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
 Expected: PASS (all tasks' tests green).
 
 - [ ] **Step 5: Run the full suite to confirm nothing else broke**
@@ -633,7 +662,7 @@ Expected: PASS — this plan only adds a new module and its tests; no existing m
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
+git add lib/ecto_shorts/common_filters/predicate_builder.ex test/ecto_shorts/common_filters/predicate_builder_test.exs
 git commit -m "feat(resolver): build/4 for the comparison family (pure, tested)"
 ```
 
@@ -643,6 +672,6 @@ git commit -m "feat(resolver): build/4 for the comparison family (pure, tested)"
 
 - **Spec coverage (for this plan's scope):** §2.3 helper contracts → Tasks 1–4; §2.2 core canonical shapes (comparison family) + negation lift → Task 5. Date-math, shorthands, JSON, and the operand convention are explicitly deferred to Plans 03/04 (stated in Global Constraints) — not gaps, scope boundaries.
 - **Placeholders:** none. Every map/keyword is processed with `Enum.reduce` over its entries — no `Map.to_list` singleton match — so multi-key value maps (`%{gt: 21, lte: 65}`) and multi-key aggregate/transform inners are handled correctly, not crashed on.
-- **Type consistency:** `build/4` returns `{:ok, [%{field, routing, negated, term}]}` (a **list**) — the caller (Plan 05 wiring) folds the list with AND; Plan 02's adapter consumes one `%{...}` map at a time. `routing` values (`:scalar`/`:array`/`:map`) match Plan 02's helper dispatch; `canonical_op/1`, `cast/2`, `resolve_field/3`, `routing_family/3` names are reused consistently across tasks.
+- **Type consistency:** `build/4` returns `{:ok, [%EctoShorts.CommonFilters.Predicate{}]}` (a **list**) — the caller (Plan 05 wiring) folds the list with AND; Plan 02's adapter consumes one `%Predicate{}` at a time. Struct fields `field`/`routing`/`negated`/`expr`; `routing` values (`:scalar`/`:array`/`:map`/`:common`) match Plan 02's helper dispatch; `canonical_op/1`, `cast/2`, `resolve_field/3`, `routing_family/3` names are reused consistently across tasks.
 - **Edge noted for Plan 04:** `not` over a *multi-operator* map (`%{not: %{gt: 5, lt: 10}}`) needs De Morgan (it should negate the conjunction, i.e. OR the negations). This plan toggles `negated` on the single inner test; the multi-operator-under-`not` case is flagged for §3.11/Plan 04 (raise or De-Morgan-expand) rather than silently AND-ing the negations.
 - **Open item carried to Plan 02:** the existing `DynamicBuilder` behaviour is `build_dynamic(source, selected_binding, input, opts)`. Plan 02 decides whether the adapter consumes the `PredicateBuilder` map as `input` directly or via a new 2-arity entry — this plan does not touch the behaviour.

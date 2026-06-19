@@ -193,7 +193,7 @@ git commit -m "feat(scalar): add trim/ltrim/rtrim text transforms"
 ### Task 3: `shift` date-math word (rename `add`, no SQL change)
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex` (date-math canonicalization — added here, since Plan 01 deferred date-math)
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex` (date-math canonicalization — added here, since Plan 01 deferred date-math)
 - Modify: `lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex` (`datetime_comparison`/`apply_datetime_comparison` — accept `:shift`)
 - Test: `test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs`, `..._date_wrappers_test.exs`, and `PredicateBuilder` unit test
 
@@ -278,13 +278,13 @@ In `scalar_expr.ex`, the datetime family currently matches `:add`. Add `:shift` 
 
 - [ ] **Step 5: Run to verify pass + full suite**
 
-Run: `mix test test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs test/ecto_shorts/query_builder/predicate_builder_test.exs && mix test`
+Run: `mix test test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs test/ecto_shorts/common_filters/predicate_builder_test.exs && mix test`
 Expected: PASS. (The ~21 date/datetime tests are updated from `interval:`/`add` to `unit:`/`shift` as part of this task — they are the reconciliation the audit flagged for D-WIRE/D-ADD-SHIFT.)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
+git add lib/ecto_shorts/common_filters/predicate_builder.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
 git commit -m "feat(date-math): shift word + unit key; resolver canonicalizes to interval kw"
 ```
 
@@ -293,8 +293,8 @@ git commit -m "feat(date-math): shift word + unit key; resolver canonicalizes to
 ### Task 4: `value` / `field` operands + sibling `as:` (PredicateBuilder, pure)
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex`
-- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex`
+- Test: `test/ecto_shorts/common_filters/predicate_builder_test.exs`
 
 **Interfaces:**
 - Produces: the RHS of a comparison may be an **operand map**:
@@ -324,7 +324,7 @@ end
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs -k operand`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs -k operand`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement operand parsing as `build_one/3` clauses**
@@ -349,13 +349,13 @@ defp field_ref(%{field: f}), do: f
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
+git add lib/ecto_shorts/common_filters/predicate_builder.ex test/ecto_shorts/common_filters/predicate_builder_test.exs
 git commit -m "feat(resolver): value/field operands + sibling-as reference (pure)"
 ```
 
@@ -364,7 +364,7 @@ git commit -m "feat(resolver): value/field operands + sibling-as reference (pure
 ### Task 5: Emit `field`/sibling operands + binary arithmetic (ScalarExpr)
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex` (arithmetic operand)
+- Modify: `lib/ecto_shorts/common_filters/predicate_builder.ex` (arithmetic operand)
 - Modify: `lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex` (emit field/sibling/arithmetic)
 - Test: `test/ecto_shorts/common_filters/common_filters_comparison_operators_test.exs`, `..._parent_as_test.exs` (sibling), `..._arithmetic` cases
 
@@ -407,7 +407,7 @@ end
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs test/ecto_shorts/common_filters/common_filters_comparison_operators_test.exs -k "arithmetic"`
+Run: `mix test test/ecto_shorts/common_filters/predicate_builder_test.exs test/ecto_shorts/common_filters/common_filters_comparison_operators_test.exs -k "arithmetic"`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement arithmetic in the resolver**
@@ -487,7 +487,7 @@ Expected: PASS. The legacy positional arithmetic shape (`{:value, {arith_op, {{:
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/predicate_builder.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
+git add lib/ecto_shorts/common_filters/predicate_builder.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
 git commit -m "feat: binary arithmetic operands + column/sibling field comparisons"
 ```
 

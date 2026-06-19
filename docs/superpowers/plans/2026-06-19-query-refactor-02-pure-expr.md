@@ -4,7 +4,7 @@
 
 **Goal:** Make the leaf Expr modules pure and break the 373-line `comparison_impl` in `ScalarExpr` into small, clearly-named family dispatchers — without changing any generated SQL.
 
-**Architecture:** This is a **behavior-preserving refactor**, not new behavior. The existing `assert_sql` test suite is the safety net: it characterizes the SQL each filter produces today, and every task must keep it green. We (a) split `comparison_impl/4` into one function per operand family, (b) collapse the scalar leaf-generators into a single matrix, and (c) make `CommonExpr` pure by passing the target column in instead of hardcoding `:id`/`:inserted_at`.
+**Architecture:** This is a **behavior-preserving refactor**, not new behavior. The existing `assert_sql` test suite is the safety net: it characterizes the SQL each filter produces today, and every task must keep it green. We (a) split `comparison_impl/4` into one function per operand family, (b) collapse the scalar leaf-generators into a single matrix, and (c) make `ShorthandExpr` pure by passing the target column in instead of hardcoding `:id`/`:inserted_at`.
 
 **Tech Stack:** Elixir, Ecto. Tests via `mix test` (the existing suite); `EctoShorts.Testing.assert_sql/2` is the characterization assertion.
 
@@ -232,33 +232,33 @@ git commit -m "refactor(scalar_expr): comparison_impl is now a family router (no
 
 ---
 
-### Task 5: Make `CommonExpr` pure (pass the column in)
+### Task 5: Make `ShorthandExpr` pure (pass the column in)
 
 **Files:**
-- Modify: `lib/ecto_shorts/dynamic_builders/postgres/common_expr.ex` (remove hardcoded `:id`/`:inserted_at`)
+- Modify: `lib/ecto_shorts/dynamic_builders/postgres/shorthand_expr.ex` (remove hardcoded `:id`/`:inserted_at`)
 - Modify: `lib/ecto_shorts/dynamic_builders/postgres.ex` (the caller that dispatches the common-expr operators — around line 287)
-- Test: add `test/ecto_shorts/dynamic_builders/postgres/common_expr_test.exs` (new — CommonExpr has no isolated test today)
+- Test: add `test/ecto_shorts/dynamic_builders/postgres/shorthand_expr_test.exs` (new — ShorthandExpr has no isolated test today)
 
 **Interfaces:**
 - Consumes: a `field` resolved by the caller.
-- Produces: `CommonExpr.dynamic_expr(selected_binding, operator, field, negated, term, opts)` — the operator's target column arrives as `field` (e.g. `:id` for `:ids`/`:before`/…, `:inserted_at` for `:start_date`/…); `CommonExpr` no longer contains any column literal. `:exists` ignores `field` (passes `nil`).
+- Produces: `ShorthandExpr.dynamic_expr(selected_binding, operator, field, negated, term, opts)` — the operator's target column arrives as `field` (e.g. `:id` for `:ids`/`:before`/…, `:inserted_at` for `:start_date`/…); `ShorthandExpr` no longer contains any column literal. `:exists` ignores `field` (passes `nil`).
 - New caller helper: `EctoShorts.DynamicBuilders.Postgres.common_field_for(operator) :: atom() | nil` — maps the operator to its column (`:id` / `:inserted_at` / `nil` for `:exists`). (In Plan 05 this mapping moves into `PredicateBuilder`; here it lives at the caller so the behavior is unchanged.)
 
-- [ ] **Step 1: Write the failing test (characterization, now isolatable because CommonExpr takes the field)**
+- [ ] **Step 1: Write the failing test (characterization, now isolatable because ShorthandExpr takes the field)**
 
 ```elixir
 defmodule EctoShorts.DynamicBuilders.Postgres.CommonExprTest do
   use ExUnit.Case, async: true
 
-  alias EctoShorts.DynamicBuilders.Postgres.CommonExpr
+  alias EctoShorts.DynamicBuilders.Postgres.ShorthandExpr
 
   test "ids builds an `in` over the given column" do
-    dyn = CommonExpr.dynamic_expr({:as, nil}, :ids, :id, nil, [1, 2, 3], [])
+    dyn = ShorthandExpr.dynamic_expr({:as, nil}, :ids, :id, nil, [1, 2, 3], [])
     assert %Ecto.Query.DynamicExpr{} = dyn
   end
 
   test "start_date builds `>=` over the given column (no hardcoded inserted_at)" do
-    dyn = CommonExpr.dynamic_expr({:as, nil}, :start_date, :published_at, nil, ~U[2026-01-01 00:00:00Z], [])
+    dyn = ShorthandExpr.dynamic_expr({:as, nil}, :start_date, :published_at, nil, ~U[2026-01-01 00:00:00Z], [])
     assert %Ecto.Query.DynamicExpr{} = dyn
   end
 end
@@ -266,12 +266,12 @@ end
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `mix test test/ecto_shorts/dynamic_builders/postgres/common_expr_test.exs`
+Run: `mix test test/ecto_shorts/dynamic_builders/postgres/shorthand_expr_test.exs`
 Expected: FAIL — `dynamic_expr/6` undefined (current arity is 5, and the column is hardcoded).
 
-- [ ] **Step 3: Make `CommonExpr` take the field**
+- [ ] **Step 3: Make `ShorthandExpr` take the field**
 
-Rewrite `common_expr.ex` so the generated entry is `dynamic_expr/6` and `dispatch_expr` uses the passed `field`:
+Rewrite `shorthand_expr.ex` so the generated entry is `dynamic_expr/6` and `dispatch_expr` uses the passed `field`:
 
 ```elixir
 for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
@@ -340,23 +340,23 @@ defp common_field_for(op) when op in [:start_date, :end_date, :since_date, :unti
 defp common_field_for(:exists), do: nil
 
 # at the common-expr dispatch site:
-CommonExpr.dynamic_expr(selected_binding, key, common_field_for(key), negated, term, opts)
+ShorthandExpr.dynamic_expr(selected_binding, key, common_field_for(key), negated, term, opts)
 ```
 
 - [ ] **Step 5: Run the new test + the suite**
 
-Run: `mix test test/ecto_shorts/dynamic_builders/postgres/common_expr_test.exs && mix test`
-Expected: PASS — `CommonExpr` is now pure (no column literals); the `:ids`/`:before`/`:start_date`/etc. behavior is unchanged (same `:id`/`:inserted_at` targets, supplied by the caller).
+Run: `mix test test/ecto_shorts/dynamic_builders/postgres/shorthand_expr_test.exs && mix test`
+Expected: PASS — `ShorthandExpr` is now pure (no column literals); the `:ids`/`:before`/`:start_date`/etc. behavior is unchanged (same `:id`/`:inserted_at` targets, supplied by the caller).
 
 - [ ] **Step 6: Verify purity mechanically**
 
-Run: `grep -nE ":id\b|:inserted_at" lib/ecto_shorts/dynamic_builders/postgres/common_expr.ex`
+Run: `grep -nE ":id\b|:inserted_at" lib/ecto_shorts/dynamic_builders/postgres/shorthand_expr.ex`
 Expected: no matches (no hardcoded column names remain).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add lib/ecto_shorts/dynamic_builders/postgres/common_expr.ex lib/ecto_shorts/dynamic_builders/postgres.ex test/ecto_shorts/dynamic_builders/postgres/common_expr_test.exs
+git add lib/ecto_shorts/dynamic_builders/postgres/shorthand_expr.ex lib/ecto_shorts/dynamic_builders/postgres.ex test/ecto_shorts/dynamic_builders/postgres/shorthand_expr_test.exs
 git commit -m "refactor(common_expr): pass the column in; remove hardcoded :id/:inserted_at"
 ```
 
@@ -364,8 +364,8 @@ git commit -m "refactor(common_expr): pass the column in; remove hardcoded :id/:
 
 ## Self-Review (done while writing)
 
-- **Spec coverage:** D1 (decompose `comparison_impl` + family functions) → Tasks 1–4; D-CommonExpr-FIELD / B1–B2 (pure `CommonExpr`) → Task 5. The scalar leaf-matrix stays as the existing `apply_scalar_comparison/4` (already a clean 12-clause matrix); the larger `apply_arith_comparison` (48) collapse rides with Plan 03, where arithmetic is reshaped to the operand convention — collapsing it here would risk an SQL change with no behavioral payoff.
+- **Spec coverage:** D1 (decompose `comparison_impl` + family functions) → Tasks 1–4; D-ShorthandExpr-FIELD / B1–B2 (pure `ShorthandExpr`) → Task 5. The scalar leaf-matrix stays as the existing `apply_scalar_comparison/4` (already a clean 12-clause matrix); the larger `apply_arith_comparison` (48) collapse rides with Plan 03, where arithmetic is reshaped to the operand convention — collapsing it here would risk an SQL change with no behavioral payoff.
 - **Placeholders:** none. Bulk verbatim clause relocations are given as exact line ranges + the destination function and the routing predicate, which is a precise mechanical instruction (not "similar to Task N").
-- **Type consistency:** `CommonExpr.dynamic_expr/6` (added `field` arg) is matched by the single caller change in `postgres.ex`; `common_field_for/1` returns the column the old hardcoded clauses used. The family-function names (`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`, `datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`, `scalar_value_fallback`) are introduced once and reused by the `comparison_impl` router.
+- **Type consistency:** `ShorthandExpr.dynamic_expr/6` (added `field` arg) is matched by the single caller change in `postgres.ex`; `common_field_for/1` returns the column the old hardcoded clauses used. The family-function names (`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`, `datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`, `scalar_value_fallback`) are introduced once and reused by the `comparison_impl` router.
 - **Carried to Plan 03:** the datetime/arithmetic/parent_as families still hold the `Keyword.fetch!`/`Keyword.get(:field)` impurities; Plan 03 removes them when `PredicateBuilder` supplies pre-resolved operands (`shift`, sibling `as:`, ordered-array arithmetic).
-- **Carried to Plan 05:** `common_field_for/1` moves into `PredicateBuilder` (the field is filled in upstream per D-CommonExpr-FIELD); `CommonExpr` stays pure.
+- **Carried to Plan 05:** `common_field_for/1` moves into `PredicateBuilder` (the field is filled in upstream per D-ShorthandExpr-FIELD); `ShorthandExpr` stays pure.

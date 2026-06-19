@@ -93,7 +93,7 @@ Reshape the translation so that:
    anything. We are removing that. Instead, each filter is tidied *at the moment
    it is handled*, inside one simple loop.
 2. **The small SQL-building helpers become pure helpers.** Four helper modules
-   (`ScalarExpr`, `ArrayExpr`, `MapExpr`, `CommonExpr`) should each do exactly one
+   (`ScalarExpr`, `ArrayExpr`, `MapExpr`, `ShorthandExpr`) should each do exactly one
    thing: take an already-tidied filter and produce a database condition. They
    should never rename operators, convert values, look up column names, read the
    schema, or assume a column is called `id`.
@@ -508,15 +508,20 @@ There is never a fully-rewritten copy of your input sitting in memory. (This is 
 distinction the team cares about most; it is what "no separate tidy-everything
 step" means in practice.)
 
-### 2.1 What a fully-tidied filter looks like
-When a filter is ready to be turned into SQL, it is described by five things:
+### 2.1 What a fully-tidied filter looks like — the `Predicate` struct
+A resolved filter is an explicit **struct**, `%EctoShorts.CommonFilters.Predicate{}`
+(not a loose map — the shape is enforced and self-documenting):
+```elixir
+%EctoShorts.CommonFilters.Predicate{
+  field:   atom,                 # the column, always an atom (never text, never missing)
+  routing: :scalar | :array | :map | :common,  # which helper handles it
+  negated: boolean,              # the "not" case, pulled out exactly once
+  expr:    tidied_operator_and_value   # see §2.2
+}
 ```
-- binding:  which table the condition points at (main table, or a named/numbered one)
-- field:    the column, always as an atom (never text, never missing)
-- negated:  whether this is the "not" case (yes or no)
-- term:     the tidied operator-and-value (see 2.2)
-- routing:  which helper handles it — scalar, array (list), map (JSON), or common
-```
+The binding (which table the condition points at) is **not** part of the struct —
+it comes from the query context and is supplied to the dialect adapter at emit
+time, alongside the predicate.
 
 ### 2.2 The complete list of tidied filter shapes (the core)
 After tidying, every operator is a real symbol (no nicknames left), every value is
@@ -585,15 +590,16 @@ A few naming notes about the tidied form:
   `multiply`→`:*`, `divide`→`:/`.
 
 ### 2.3 The translator (the "resolver") — one place, no SQL, no database brand
-A new piece — `EctoShorts.QueryBuilder.PredicateBuilder` — does all the tidying. It
+A new piece — `EctoShorts.CommonFilters.PredicateBuilder` — does all the tidying. It
 contains no SQL and knows nothing about any specific database. It only knows how to
 convert values and read the schema.
 
 ```elixir
 # The one entry point the main loop calls for each filter:
-canonicalize(source, key, raw_term, opts)
-  → {:ok, %{field: atom, routing: which_helper, term: tidied_term, negated: yes/no}}
-  → :skip      # column or operator could not be used; a warning was already logged
+build(source, key, raw_term, opts)
+  → {:ok, [%EctoShorts.CommonFilters.Predicate{}, ...]}   # a LIST (a value map may
+  #        hold several operators → several predicates; the caller ANDs them)
+  → :skip      # the column could not be resolved; a warning was already logged
 
 # Small pure helpers it uses:
 canonical_op(raw_op)            # turns a nickname OR a string into the real operator,
@@ -729,7 +735,7 @@ one loop over the filters                          ── EctoShorts.CommonFilte
   └─ a column condition (:where, :or_where, a column key, :having, :or_having)
         │  for each one:
         ▼
-     translator: canonicalize(...)        ── no SQL, no database brand (§2.3)
+     translator: build(...)        ── no SQL, no database brand (§2.3)
         │   gives back a tidied filter, or "skip" (after logging a warning)
         ▼
      database-brand adapter: build_dynamic(...)     (§2.4)
@@ -812,7 +818,7 @@ values, and so on) stays exactly the same as today.
 ### 3.6 Making the helpers pure (the main cleanup) — what gets removed
 | Helper | What it does wrong today | After |
 |---|---|---|
-| `CommonExpr` | assumes the columns are called `id` and `inserted_at` | the translator fills in the real column and passes it in |
+| `ShorthandExpr` | assumes the columns are called `id` and `inserted_at` | the translator fills in the real column and passes it in |
 | `ScalarExpr` | digs the column name and the count/interval out of its input itself | the translator pulls those out first; `ScalarExpr` just reads them from a fixed spot |
 | `ArrayExpr`, `MapExpr` | nothing wrong | unchanged |
 
@@ -963,7 +969,7 @@ is marked **Change (breaking)** and needs a line in the v3.0.0 migration notes.
 | D-API | The filters and options callers write (§1). | **Keep, except the breaks below** | Stable apart from the deliberate v3.0.0 changes in §0.4. |
 | D-INTERNAL | Today's internal function names and shapes (`build_dynamic`, `apply_expr`, `dispatch_expr`, `cast_value`, `field_name_to_atom`, …). | **Free to change** | Internal; they need not survive. |
 | D1 | The 370-line comparison function and dozens of tiny builder clauses. | **Change (break up)** | §3.7. The conditions produced are identical. |
-| D-CommonExpr-FIELD | The shorthand helper assumes columns `id` and `inserted_at`. | **Change (internal only)** | §3.6 — the column is filled in earlier; the condition produced is identical. |
+| D-ShorthandExpr-FIELD | The shorthand helper assumes columns `id` and `inserted_at`. | **Change (internal only)** | §3.6 — the column is filled in earlier; the condition produced is identical. |
 | D-CORE | One big flat surface; advanced and everyday filters mixed together. | **Change (organize)** | §1.4/§1.5. Split into a wire-safe core tier and an advanced tier. No capability removed; the minimal everyday set becomes visible. |
 | D-OPERAND | Ad-hoc shapes: `:arithmetic`/`compare` wrapper, `:parent_as`, positional operands. | **Change (breaking)** | §1.5a. One operand convention (`value`/`field`/`from`/`parent`); arithmetic as ordered arrays; `parent` only inside a subquery. Unifies the language and makes the advanced tier HTTP-encodable. |
 | D-SIBLING | No way to reference a sibling binding's column within one query. | **Change (new capability)** | §1.5a/§3.4. A `field` operand gains an optional `as: :binding` qualifier (peer binding in the same query), usable on the right-hand side, left-hand side, `:select`, and `:order_by`. Distinct from `parent` (outer query). |
@@ -1017,11 +1023,12 @@ Because the tests are not the source of truth (this document is), the order is:
 |---|---|
 | `EctoShorts.CommonFilters` | filter-ordering becomes one pass; the main loop sends column conditions through the translator, then the adapter. Caller-mistake cases raise from Elixir (D-RAISE). |
 | validate step (HTTP entry, §1.7) | checks request params against allowed columns/operators, casts values, and returns errors as data so a bad request is a 4xx (D-WIRE, D-RAISE). Where field/operator allow-listing and request limits live. |
-| `EctoShorts.QueryBuilder.PredicateBuilder` *(new, no database brand)* | the translator. Holds the tidying scattered across the PostgreSQL builder today, plus: the operand convention (D-OPERAND), string-operator decoding via a closed safe list and date-math maps (D-WIRE), the null rule (D-NULL), list-routing-from-type-only (D-LIST), and the operator-vs-column rule (D-COLLISION). |
+| `EctoShorts.CommonFilters.Predicate` *(new struct)* | the explicit resolved-filter struct (`field` / `routing` / `negated` / `expr`) that `PredicateBuilder` produces and the adapter consumes (§2.1). |
+| `EctoShorts.CommonFilters.PredicateBuilder` *(new, no database brand)* | the translator. Holds the tidying scattered across the PostgreSQL builder today, plus: the operand convention (D-OPERAND), string-operator decoding via a closed safe list and date-math maps (D-WIRE), the null rule (D-NULL), list-routing-from-type-only (D-LIST), and the operator-vs-column rule (D-COLLISION). |
 | `EctoShorts.DynamicBuilders.Postgres` | shrinks to a thin adapter: take a tidied filter, pick the helper by `routing`, apply the "not." No tidying. |
 | `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` | becomes pure; the giant function is broken up (§3.7); the tiny builders collapse into one table; arithmetic operands become ordered lists (D-OPERAND); the null padding on list `!=` is removed (D-NULL). |
 | `…ArrayExpr`, `…MapExpr` | already pure; now receive tidied filters only. `:elements` entry path is gone (D-LIST); list overlap is the explicit `overlaps` operator. |
-| `…CommonExpr` | becomes pure; the column is passed in instead of assumed. |
+| `…ShorthandExpr` | becomes pure; the column is passed in instead of assumed. |
 | the structural filter modules | share the one column-name helper. The `:lock`/`:join` provider hooks gain a checked contract (D-PROVIDER); `:reverse_order`-without-order and bad bindings raise from Elixir (D-RAISE). |
 
 ---
