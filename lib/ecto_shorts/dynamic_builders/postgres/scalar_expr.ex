@@ -161,6 +161,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
       {:in, values} when is_list(values) ->
         membership_in_dyn(binding, key, values)
 
+      # :nin is the explicit not-in operator (D-NULL: plain NOT IN, no null guard).
+      {:not, {:nin, values}} when is_list(values) ->
+        membership_in_dyn(binding, key, values)
+
+      {:nin, values} when is_list(values) ->
+        membership_not_in_dyn(binding, key, values)
+
       {:not, {:==, values}} when is_list(values) ->
         membership_not_in_dyn(binding, key, values)
 
@@ -1049,6 +1056,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   def dynamic_expr(_selected_binding, _key, _negated, _term, _opts), do: nil
 
   defp family_for(:in, _term), do: :membership
+  defp family_for(:nin, _term), do: :membership
 
   defp family_for(op, value) when op in @equality_operators and is_list(value) do
     :membership
