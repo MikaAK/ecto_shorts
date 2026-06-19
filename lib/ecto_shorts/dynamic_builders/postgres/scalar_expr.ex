@@ -2,7 +2,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @moduledoc since: "3.0.0"
   @moduledoc false
 
-  alias EctoShorts.QueryBinding
+  alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
 
   import Ecto.Query
 
@@ -13,132 +13,32 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @string_operators [:like, :ilike]
   @string_transforms [:lower, :upper, :trim, :ltrim, :rtrim]
 
-  context = __MODULE__
-  key_var = Macro.var(:key, context)
-
   def operators, do: @operators
 
-  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
-
-  for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
-    # Thin entry shim - delegates entirely to non-generated dispatch_expr
-    def dynamic_expr(unquote(quoted_binding_head) = selected_binding, key, negated, term, _opts) do
+  def dynamic_expr(selected_binding, key, negated, term, _opts) do
+    if FieldAccessors.known_binding?(selected_binding) do
       dispatch_expr(selected_binding, key, negated, term)
-    end
-
-    # Binding-specific field accessor functions (one dynamic/2 call each, no logic)
-    defp field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        field(unquote(target_binding_var), ^unquote(key_var))
-      )
-    end
-
-    defp nil_field_dyn?(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        is_nil(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp not_nil_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        not is_nil(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp date_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment("date(?)", field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp lower_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment("lower(?)", field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp upper_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment("upper(?)", field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp trim_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment("trim(?)", field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp ltrim_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment("ltrim(?)", field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp rtrim_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment("rtrim(?)", field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp avg_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        avg(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp count_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        count(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp max_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        max(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp min_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        min(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp sum_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        sum(field(unquote(target_binding_var), ^unquote(key_var)))
-      )
-    end
-
-    defp membership_in_dyn(unquote(quoted_binding_head), unquote(key_var), values) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        field(unquote(target_binding_var), ^unquote(key_var)) in ^values
-      )
-    end
-
-    defp membership_not_in_dyn(unquote(quoted_binding_head), unquote(key_var), values) do
-      dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        field(unquote(target_binding_var), ^unquote(key_var)) not in ^values
-      )
+    else
+      nil
     end
   end
+
+  defp field_dyn(binding, key), do: FieldAccessors.field_dyn(binding, key)
+  defp nil_field_dyn?(binding, key), do: dynamic([], is_nil(^field_dyn(binding, key)))
+  defp not_nil_dyn(binding, key), do: dynamic([], not is_nil(^field_dyn(binding, key)))
+  defp date_field_dyn(binding, key), do: dynamic([], fragment("date(?)", ^field_dyn(binding, key)))
+  defp lower_field_dyn(binding, key), do: dynamic([], fragment("lower(?)", ^field_dyn(binding, key)))
+  defp upper_field_dyn(binding, key), do: dynamic([], fragment("upper(?)", ^field_dyn(binding, key)))
+  defp trim_field_dyn(binding, key), do: dynamic([], fragment("trim(?)", ^field_dyn(binding, key)))
+  defp ltrim_field_dyn(binding, key), do: dynamic([], fragment("ltrim(?)", ^field_dyn(binding, key)))
+  defp rtrim_field_dyn(binding, key), do: dynamic([], fragment("rtrim(?)", ^field_dyn(binding, key)))
+  defp avg_field_dyn(binding, key), do: dynamic([], avg(^field_dyn(binding, key)))
+  defp count_field_dyn(binding, key), do: dynamic([], count(^field_dyn(binding, key)))
+  defp max_field_dyn(binding, key), do: dynamic([], max(^field_dyn(binding, key)))
+  defp min_field_dyn(binding, key), do: dynamic([], min(^field_dyn(binding, key)))
+  defp sum_field_dyn(binding, key), do: dynamic([], sum(^field_dyn(binding, key)))
+  defp membership_in_dyn(binding, key, values), do: dynamic([], ^field_dyn(binding, key) in ^values)
+  defp membership_not_in_dyn(binding, key, values), do: dynamic([], ^field_dyn(binding, key) not in ^values)
 
   # ── Non-generated dispatch: compiled once regardless of binding count ──────
 
@@ -1052,8 +952,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp apply_dyn_comparison(:<, lhs, rhs, :negated), do: dynamic([], not (^lhs < ^rhs))
   defp apply_dyn_comparison(:<=, lhs, rhs, :plain), do: dynamic([], ^lhs <= ^rhs)
   defp apply_dyn_comparison(:<=, lhs, rhs, :negated), do: dynamic([], not (^lhs <= ^rhs))
-
-  def dynamic_expr(_selected_binding, _key, _negated, _term, _opts), do: nil
 
   defp family_for(:in, _term), do: :membership
   defp family_for(:nin, _term), do: :membership
