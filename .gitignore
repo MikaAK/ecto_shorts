@@ -30,3 +30,13 @@ dialyzer/*.plt*
 
 # Autoresearch files
 learn/
+
+# Claude Code
+.claude/
+.claude
+
+# Local working files
+PLAN.md
+notes.txt
+Archive.zip
+plans/
