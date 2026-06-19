@@ -14,6 +14,7 @@ defmodule EctoShorts.DynamicBuilders do
 
   ```cytoscape
   {
+    "title": "Operator routing",
     "height": 520,
     "layout": {
       "name": "concentric",
@@ -22,11 +23,11 @@ defmodule EctoShorts.DynamicBuilders do
       "levelWidth": "function(){ return 1; }"
     },
     "elements": [
-      {"data": {"id": "norm",   "label": "Normalizer",  "tier": 3}},
-      {"data": {"id": "scalar", "label": "ScalarExpr",  "tier": 2}},
-      {"data": {"id": "array",  "label": "ArrayExpr",   "tier": 2}},
-      {"data": {"id": "common", "label": "CommonExpr",  "tier": 2}},
-      {"data": {"id": "map",    "label": "MapExpr",     "tier": 2}},
+      {"data": {"id": "norm",   "label": "Normalizer",  "tier": 3, "kind": "module"}},
+      {"data": {"id": "scalar", "label": "ScalarExpr",  "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
+      {"data": {"id": "array",  "label": "ArrayExpr",   "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
+      {"data": {"id": "common", "label": "CommonExpr",  "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
+      {"data": {"id": "map",    "label": "MapExpr",     "tier": 2, "href": "EctoShorts.DynamicBuilders.Postgres.html"}},
 
       {"data": {"id": "eq",   "label": "==, !=, <, >, in", "tier": 1}},
       {"data": {"id": "like", "label": "like, ilike",      "tier": 1}},
