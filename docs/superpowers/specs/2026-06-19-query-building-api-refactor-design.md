@@ -381,7 +381,10 @@ genuinely Elixir-only path; the structured shapes above all travel over HTTP.
   column *overlaps* a list (shares any element), use the explicit **`overlaps`**
   operator (`%{tags: %{overlaps: ["a","b"]}}` → `tags && [...]`). `:in` is a
   scalar-membership operator; used on a **list** column it warns-and-skips (use
-  `overlaps` or `eq`). The `:elements` wrapper is gone.
+  `overlaps` or `eq`). The `:elements` wrapper is gone; instead the array operators
+  (`overlaps`, list `count`, array quantifiers) **force array routing on their own**,
+  so they work on a schemaless column with no `:field_types` (operator-driven
+  routing — §3.4).
 - **Date-math is a map, not a tuple, and "add" is "shift" (D-WIRE).** Write
   `%{ago: %{count: 1, unit: "day"}}`. To move a timestamp by an interval the word
   is `shift` (`%{date: %{shift: %{count: 7, unit: "day"}}}`) — distinct from the
@@ -769,17 +772,23 @@ First look at `:field_types`, otherwise read the schema. A list column → the a
 helper; a JSON/map column → the map helper; a shorthand word → the common helper;
 everything else → the scalar helper. An unknown column → skip and warn.
 
-Because the `:elements` wrapper is gone (§0.4), the array helper is chosen **only**
-when the column's type is known to be a list. On a schemaless source with no
-`:field_types` entry for the column, the column is treated as scalar — a bare list
-is `eq`+list → membership (`IN`), and the list-only operators (`overlaps`, list
-`count`) warn-and-skip naming `:field_types` (§3.11).
+Routing is chosen by **type first, then by operator** (D-LIST):
+- If the column's type is known to be a list (schema or `:field_types`) → array
+  helper.
+- **Otherwise, an inherently-array operator forces array routing anyway**
+  (operator-driven routing): `overlaps`, list `count`, and the array quantifiers
+  route to the array helper *even on a schemaless, typeless column* — the operator
+  itself is the wire-side signal that this is a list. So
+  `%{tags: %{overlaps: ["a","b"]}}` works with no `:field_types`. (This replaces
+  the removed `:elements` wrapper as the wire-side array signal.)
+- A typeless column with no array operator is treated as scalar — a bare list is
+  `eq`+list → membership (`IN`). *Array equality* on a typeless column stays
+  ambiguous and needs `:field_types` (rare).
 
-On a column the array helper does handle (a known list type): a bare list is
-`eq`+list → **exact array equality**; `overlaps` → `&&`; a scalar value →
-element membership (`value IN array`); and `:in` (a scalar-membership operator)
-**warns-and-skips** — list overlap is spelled `overlaps`, exact equality `eq`
-(D-LIST).
+On any array-routed column: a bare list is `eq`+list → **exact array equality**;
+`overlaps` → `&&`; a scalar value → element membership (`value IN array`); and
+`:in` (a scalar-membership operator) **warns-and-skips** — list overlap is spelled
+`overlaps`, exact equality `eq` (D-LIST).
 
 **Names that look like operators (D-COLLISION).** A column may legitimately be
 named `count`, `before`, `data`, or `all`. The rule that removes the ambiguity:
@@ -935,11 +944,16 @@ instead — §3.4).
 The name resolves against the nearest enclosing block that declares it; on a name
 collision across nesting levels, the innermost wins.
 
-**Schemaless sources without `:field_types`.** With no known column type, a bare
-list is treated as membership (§3.4). An **explicit list/JSON operator**
-(`overlaps`, `contains`, `has_key`, `has_any_key`, `has_all_keys`, list `count`) on
-a column of unknown type **warns and skips**, with a message naming `:field_types`
-as the fix. (Schema-backed columns are unaffected — their type is known.)
+**Schemaless sources without `:field_types` — operator-driven routing.** With no
+known column type, a bare list is treated as membership (§3.4). But an **inherently
+typed operator forces its routing regardless of type**: the array operators
+(`overlaps`, list `count`, the array quantifiers) force the **array** helper, and
+the JSON operators (`contains`, `contained_by`, `has_key`, `has_any_key`,
+`has_all_keys`) force the **map** helper — even on a typeless column. The operator
+*is* the wire-side signal (this replaces the removed `:elements` wrapper). The only
+case still needing `:field_types` is *array equality* on a typeless column (there's
+no array-only operator for it; `eq`+list defaults to scalar membership). Schema-
+backed columns are unaffected — their type is already known.
 
 **Date-math units.** `ago`, `from_now`, and `shift` all take `%{count: integer,
 unit: u}`. `unit` is a **closed set** — `:second :minute :hour :day :week :month
@@ -977,7 +991,7 @@ is marked **Change (breaking)** and needs a line in the v3.0.0 migration notes.
 | D-ADD-SHIFT | Date-math and arithmetic both used `add`. | **Change (breaking)** | §1.5/§1.5a. Date shifting is `shift` (inside a `:date`/`:datetime` wrapper); `add` is arithmetic only. No clash. |
 | D-TRIM | `trim`/`ltrim`/`rtrim` absent. | **Change (add)** | §1.5. Added to the text transforms alongside `lower`/`upper`. |
 | D-WIRE | The language assumed Elixir atoms/tuples; HTTP decoding was unspecified. | **Change (breaking)** | §1.7. Operator keys may be strings (closed safe list, never `String.to_atom`); date-math is a map not a tuple; subquery sources are registered names not modules; times are ISO 8601. |
-| D-LIST | List behavior needs `:elements`; a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4/§3.4/§3.11. Remove `:elements`. A bare list is sugar for `eq`; `eq`+list routes by column type — scalar → membership (`IN`), list column → exact array equality. Overlap is the explicit `overlaps` operator; `:in` on a list column warns-and-skips. |
+| D-LIST | List behavior needs `:elements`; a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4/§3.4/§3.11. Remove `:elements`. A bare list is sugar for `eq`; `eq`+list routes by type — scalar → membership (`IN`), list column → exact array equality. Overlap is the explicit `overlaps` operator; `:in` on a list column warns-and-skips. **Operator-driven routing** replaces `:elements` as the wire-side array signal: `overlaps`/list `count`/array quantifiers force array routing (and the JSON operators force map routing) even on a typeless schemaless column. |
 | D-RAISE | Caller mistakes are silently warned-and-skipped (scalar association, bad binding, `:reverse_order` with no order, malformed value shapes, ordering-operator-vs-nil, out-of-contract provider return). | **Change (breaking)** | §3.9. From Elixir these raise (a bug). Untrusted HTTP input is validated first and returns errors as data, so a bad request is a 4xx, not a crash. An in-contract provider `{:error, reason}` still warns-and-skips. |
 | D-NULL | `!=` / not-in against a list also matches null rows (`is_nil OR not in`); inconsistent across forms. | **Change (breaking)** | §3.5/§3.9. Only `== nil` / `!= nil` consider nulls; everything else is plain SQL. Callers who want nulls add `%{eq: nil}` explicitly. |
 | D-ONE-WAY | Two spellings for aggregates (`%{avg: …}` and `%{aggregate: %{fn: :avg, …}}`). | **Change (breaking)** | §1.5. Keep one: `%{views: %{avg: %{gt: 5}}}`. Remove the wrapper. |

@@ -27,6 +27,7 @@
 
 **Interfaces:**
 - Produces: ArrayExpr handles `{:overlaps, [values]}` → `fragment("? && ?", field, ^values)`; `{:in, _}` on an array column → warn-and-skip (returns `nil`). `{:==, list}` keeps emitting array equality; `{:==, scalar}` keeps element membership.
+- **Operator-driven routing:** `overlaps` (and list `count`, the array quantifiers) force `PredicateBuilder` to route the predicate to `:array` **regardless of known type** — so `%{tags: %{overlaps: [..]}}` works on a schemaless source with no `:field_types` (§3.4). Implement as the operator-override in routing (Plan 01 note): an array operator in the tidied term sets `routing: :array`. (Add a schemaless test: `overlaps` with no `:field_types` still emits `&&`.)
 
 - [ ] **Step 1: Write the failing test**
 

@@ -281,6 +281,7 @@ git commit -m "feat(resolver): resolve_field/3 (atom trusted, string gated, warn
 **Interfaces:**
 - Consumes: `opts[:field_types]` (a keyword/map of `field => Ecto type`), `CommonSchema.get_schema_reflection(source, :type, field)`.
 - Produces: `routing_family(source, field :: atom(), opts) :: :scalar | :array | :map`. `:field_types` wins over schema reflection. `{:array, _}` → `:array`; `:map`/`{:map, _}` → `:map`; everything else → `:scalar`. (The `:common` routing for shorthands is added in Plan 03.)
+- **Operator-driven override (§3.4, decided in Plan 05's prep):** routing is type-first, but an *inherently-typed operator* overrides it — `overlaps`/list `count`/array quantifiers force `:array`, and the JSON operators (`contains`/`contained_by`/`has_key`/`has_any_key`/`has_all_keys`) force `:map`, **even on a typeless column**. Because routing can thus depend on the operator, it is decided **per produced predicate** (each `%Predicate{}` in the returned list carries its own `routing`), not once per field. (The array/map operators arrive in Plan 03; this note records the rule so routing is computed per-term from the start.)
 
 - [ ] **Step 1: Write the failing test**
 
