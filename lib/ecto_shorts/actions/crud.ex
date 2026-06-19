@@ -202,10 +202,6 @@ defmodule EctoShorts.Actions.CRUD do
     delete(data, [])
   end
 
-  def delete(queryable, id) when is_binary(id) or is_integer(id) do
-    delete(queryable, id, [])
-  end
-
   def delete(%{data: %{__meta__: %{schema: schema}}} = changeset, opts) do
     do_delete(changeset, schema, opts)
   end

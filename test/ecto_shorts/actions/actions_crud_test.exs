@@ -1982,13 +1982,13 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Post.changeset(%{title: "ToDelete"})
         |> Repo.insert!()
 
-      assert {:ok, %Post{}} = Actions.delete(Post, post.id)
+      assert {:ok, %Post{}} = Actions.delete(Post, post.id, [])
       assert Repo.get(Post, post.id) === nil
     end
 
     test "returns a not_found error when the id does not exist for delete" do
       assert {:error, %{code: :not_found, message: "record not found.", details: details}} =
-               Actions.delete(Post, -1)
+               Actions.delete(Post, -1, [])
 
       assert details.params === %{id: -1}
     end

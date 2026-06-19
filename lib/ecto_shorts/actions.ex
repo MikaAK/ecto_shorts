@@ -380,8 +380,8 @@ defmodule EctoShorts.Actions do
   `find_and_delete/3`.
   """
   @spec delete(
-          queryable | struct() | Ecto.Changeset.t() | [struct() | Ecto.Changeset.t()],
-          id | opts
+          struct() | Ecto.Changeset.t() | [struct() | Ecto.Changeset.t()],
+          opts
         ) ::
           {:ok, struct() | list(term())} | {:error, term()}
   def delete(data, opts) do
