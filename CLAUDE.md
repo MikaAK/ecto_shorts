@@ -111,7 +111,10 @@ Three wrapper keys provide unambiguous namespacing for operations that could con
 
 - `test/support/data_case.ex` — `EctoShorts.DataCase`, wraps each test in a sandbox transaction.
 - `test/support/schema/` — lightweight Ecto schemas used across all tests (`Post`, `User`, `Comment`, `Book`, etc.).
-- Filter tests are organized by feature family under `test/ecto_shorts/filters/{predicates,structural,clauses}/` (schema-backed) and mirrored under `test/ecto_shorts/filters_schemaless/{predicates,structural,clauses}/` (schemaless `{source, schema}` tuple queries) — new filter tests usually need entries in both trees. Files carry `@moduletag` for `adapter:`, `feature:`, and (schemaless only) `schema_mode:`, so `mix test --only feature:<name>` / `--only schema_mode:schemaless` selects across the trees. The adapter-agnostic contract every `DynamicBuilder` must satisfy lives in `test/support/filter_contract.ex`, walked per-adapter from `test/ecto_shorts/dynamic_builders/<adapter>/contract_test.exs`.
+- **Tests mirror `lib/` path-for-path.** To find a module's test, take its lib path, swap `lib/`→`test/`, append `_test`: `lib/ecto_shorts/common_filters/filters/join.ex` → `test/ecto_shorts/common_filters/filters/join_test.exs`. Each structural filter under `common_filters/filters/` has a matching test file there.
+- Operator/predicate behavior has **no 1:1 lib module** (it is produced by the dynamic-builder adapter + `predicate_builder.ex`, exercised through the public `common_filters.ex` entry). Those tests live **in the test file of the module that implements them**, as `describe` blocks tagged `@describetag feature: :<name>`: scalar comparisons / string ops / negation / aggregates → `dynamic_builders/postgres/scalar_expr_test.exs`; array ops → `array_expr_test.exs`; JSONB → `map_expr_test.exs`; cursor/date ops → `common_expr_test.exs`; casting / boolean groups / field resolution → `common_filters/predicate_builder_test.exs`; association shorthand & param sorting → `common_filters_test.exs`.
+- **Schemaless `{source, schema}` variants are not a separate tree** — each module's test file holds both schema-backed and schemaless cases; the latter are `describe` blocks tagged `@describetag schema_mode: :schemaless`. Select with `mix test --only feature:<name>` or `--only schema_mode:schemaless`.
+- The adapter-agnostic contract every `DynamicBuilder` must satisfy lives in `test/support/filter_contract.ex`, walked per-adapter from `test/ecto_shorts/dynamic_builders/<adapter>/contract_test.exs`.
 
 ## Gotchas
 
@@ -159,4 +162,4 @@ Without schema type information, `%{tags: %{in: ["a", "b"]}}` on a schemaless so
    end
    ```
    Place it before the final `@predicate_filters` clause.
-5. Add tests under the right feature family in both `test/ecto_shorts/filters/{predicates,structural,clauses}/` and `test/ecto_shorts/filters_schemaless/{predicates,structural,clauses}/`, tagged with `@moduletag adapter:`, `@moduletag feature:`, and (schemaless) `@moduletag schema_mode: :schemaless`. If the new key is an adapter-agnostic behaviour, add a row to `EctoShorts.FilterContract.cases/0`.
+5. Add tests in `test/ecto_shorts/common_filters/filters/my_filter_test.exs` (mirroring `lib/ecto_shorts/common_filters/filters/my_filter.ex`). Put schema-backed and schemaless cases in the same file; tag the schemaless ones with `@describetag schema_mode: :schemaless`. If the new key is an adapter-agnostic behaviour, also add a row to `EctoShorts.FilterContract.cases/0`.

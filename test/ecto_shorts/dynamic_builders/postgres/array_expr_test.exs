@@ -7,6 +7,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
 
   import Ecto.Query
 
+
   describe "equality and membership" do
     test "list value produces array equality" do
       expected = dynamic([q], field(q, :tags) == ^["elixir", "erlang"])
@@ -718,6 +719,89 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
       # and then finds no matching dispatch_expr clause
       actual = ArrayExpr.dynamic_expr({:as, nil}, :tags, nil, {:all, :bare_atom}, [])
       assert is_nil(actual)
+    end
+  end
+
+  # ---- merged from elements (schemaless) ----
+  describe ":elements wrapper (schemaless)" do
+    @describetag feature: :elements
+    @describetag schema_mode: :schemaless
+    test ":in with :elements produces array overlap (&&)" do
+      expected = from(p in "posts", where: fragment("? && ?", p.tags, ^["elixir", "ecto"]))
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{tags: %{elements: %{in: ["elixir", "ecto"]}}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test ":in without :elements on schemaless source produces scalar IN" do
+      expected = from(p in "posts", where: p.tags in ^["elixir", "ecto"])
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{tags: %{in: ["elixir", "ecto"]}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "scalar value with :elements produces element membership" do
+      expected = from(p in "posts", where: ^"elixir" in p.tags)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{tags: %{elements: "elixir"}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "nil with :elements produces IS NULL" do
+      expected = from(p in "posts", where: is_nil(p.tags))
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{tags: %{elements: nil}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "count with :elements produces array_length comparison" do
+      expected = from(p in "posts", where: fragment("array_length(?, 1)", p.tags) > ^3)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{tags: %{elements: %{count: %{>: 3}}}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "list value with :elements produces array equality" do
+      expected = from(p in "posts", where: p.tags == ^["elixir", "erlang"])
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{tags: %{elements: ["elixir", "erlang"]}},
+          []
+        )
+
+      assert_query(expected, actual)
     end
   end
 end

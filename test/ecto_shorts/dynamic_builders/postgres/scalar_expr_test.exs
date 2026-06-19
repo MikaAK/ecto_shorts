@@ -7,6 +7,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
+  alias EctoShorts.CommonFilters
+  import ExUnit.CaptureLog
+  alias Ecto.Adapters.SQL
+  alias EctoShorts.Config
+
+
 
   describe "root binding equality" do
     test "plain scalar value produces equality" do
@@ -1802,6 +1808,1373 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
         )
 
       assert_dynamic(expected, actual)
+    end
+  end
+
+  # ---- merged from comparison_operators (via CommonFilters pipeline) ----
+  describe "ordering operator vs nil (D-RAISE)" do
+  @describetag feature: :comparison_operators
+    test "an ordering operator given nil raises" do
+      for op <- [:gt, :gte, :lt, :lte] do
+        assert_raise EctoShorts.FilterError, ~r/cannot be compared to nil/, fn ->
+          CommonFilters.convert_params_to_filter(Post, %{views: %{op => nil}}, [])
+        end
+      end
+    end
+  end
+
+  describe "comparison operators" do
+  @describetag feature: :comparison_operators
+    test "matches records where the field equals the value using ==" do
+      expected = from(p in Post, where: p.id == ^1)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{id: %{==: 1}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is nil using == nil" do
+      expected = from(p in Post, where: is_nil(p.published_at))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{==: nil}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is not nil using != nil" do
+      expected = from(p in Post, where: not is_nil(p.published_at))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{!=: nil}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is greater than the value" do
+      expected = from(p in Post, where: p.views > ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{>: 10}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is greater than or equal to the value" do
+      expected = from(p in Post, where: p.views >= ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{>=: 10}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is less than the value" do
+      expected = from(p in Post, where: p.views < ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{<: 10}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is less than or equal to the value" do
+      expected = from(p in Post, where: p.views <= ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{<=: 10}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field does not equal the value using !=" do
+      expected = from(p in Post, where: p.views != ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{!=: 10}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field is in the given list" do
+      expected = from(p in Post, where: p.published in ^[true, false])
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published: %{in: [true, false]}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "treats a list value with == as an IN check" do
+      expected = from(p in Post, where: p.published in ^[true, false])
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published: %{==: [true, false]}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "treats a list value with != as a NOT IN check" do
+      expected = from(p in Post, where: p.published not in ^[true, false])
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published: %{!=: [true, false]}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "preserves struct values like DateTime in the comparison" do
+      dt = ~U[2026-01-01 00:00:00Z]
+      expected = from(p in Post, where: p.published_at >= ^dt)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{>=: dt}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records using quantified default equality shorthand" do
+      expected =
+        from(p in Post,
+          where:
+            p.id ==
+              all(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.id
+                )
+              )
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{all: %{from: Comment, where: %{published: true}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records using quantified any default equality shorthand" do
+      expected =
+        from(p in Post,
+          where:
+            p.id ==
+              any(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.id
+                )
+              )
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{any: %{from: Comment, where: %{published: true}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records using quantified select override" do
+      expected =
+        from(p in Post,
+          where:
+            p.id ==
+              all(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.post_id
+                )
+              )
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{all: %{from: Comment, select: %{field: "post_id"}, where: %{published: true}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records using quantified any select override" do
+      expected =
+        from(p in Post,
+          where:
+            p.id ==
+              any(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.post_id
+                )
+              )
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{any: %{from: Comment, select: %{field: "post_id"}, where: %{published: true}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "falls back to the default quantified select field when a string override is invalid" do
+      expected =
+        from(p in Post,
+          where:
+            p.id ==
+              all(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.id
+                )
+              )
+        )
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(
+              Post,
+              %{
+                id: %{
+                  all: %{
+                    from: Comment,
+                    select: %{field: "does_not_exist"},
+                    where: %{published: true}
+                  }
+                }
+              },
+              []
+            )
+
+          assert_sql(expected, actual)
+        end)
+
+      assert log =~
+               "Field \"does_not_exist\" does not exist on schema EctoShorts.Schema.Comment, skipping field reference"
+    end
+
+    test "matches records using quantified greater-than all comparison" do
+      expected =
+        from(p in Post,
+          where:
+            p.id >
+              all(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.id
+                )
+              )
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{>: %{all: %{from: Comment, where: %{published: true}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records using quantified greater-than any comparison" do
+      expected =
+        from(p in Post,
+          where:
+            p.id >
+              any(
+                from(c in Comment,
+                  where: c.published == ^true,
+                  select: c.id
+                )
+              )
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{>: %{any: %{from: Comment, where: %{published: true}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records using the explicit value wrapper for arithmetic expressions" do
+      expected = from(p in Post, where: p.views > p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{>: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "raises for an unsupported nil operator" do
+      assert_raise EctoShorts.FilterError, ~r/cannot be compared to nil/, fn ->
+        CommonFilters.convert_params_to_filter(Post, %{published_at: %{>: nil}}, [])
+      end
+    end
+  end
+
+  describe "arithmetic negation" do
+  @describetag feature: :comparison_operators
+    test "excludes records using negated arithmetic comparison" do
+      expected = from(p in Post, where: not (p.views == p.views + ^10))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{==: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "value wrapper negation" do
+  @describetag feature: :comparison_operators
+    test "excludes records using negated value-wrapped comparison" do
+      expected = from(p in Post, where: p.views != ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{==: %{value: 10}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using negated value-wrapped greater-than" do
+      expected = from(p in Post, where: not (p.views > ^5))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{>: %{value: 5}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "generic scalar fallback" do
+  @describetag feature: :comparison_operators
+    test "matches records using the generic scalar != fallback" do
+      expected = from(p in Post, where: p.views != ^5)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{!=: %{value: 5}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using the negated generic scalar >= fallback" do
+      expected = from(p in Post, where: not (p.views >= ^5))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{>=: %{value: 5}}}}, [])
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "generic datetime comparisons" do
+  @describetag feature: :comparison_operators
+    test "matches records using a datetime ago comparison with date casting" do
+      expected =
+        from(p in Post,
+          where: fragment("date(?)", p.published_at) == fragment("date(?)", ago(^1, "month"))
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{published_at: %{==: %{date: %{ago: [count: 1, interval: "month"]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using a negated datetime ago comparison with date casting" do
+      expected =
+        from(p in Post,
+          where: fragment("date(?)", p.published_at) != fragment("date(?)", ago(^1, "month"))
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{published_at: %{not: %{==: %{date: %{ago: [count: 1, interval: "month"]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "arithmetic + variants" do
+  @describetag feature: :comparison_operators
+    test "views == views + 10 (plain)" do
+      expected = from(p in Post, where: p.views == p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{==: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "views != views + 10 (plain)" do
+      expected = from(p in Post, where: p.views != p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{!=: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "views > views + 10 (plain)" do
+      expected = from(p in Post, where: p.views > p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{>: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "views >= views + 10 (plain)" do
+      expected = from(p in Post, where: p.views >= p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{>=: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "views < views + 10 (plain)" do
+      expected = from(p in Post, where: p.views < p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{<: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "views <= views + 10 (plain)" do
+      expected = from(p in Post, where: p.views <= p.views + ^10)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{<=: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views != views + 10) (negated)" do
+      expected = from(p in Post, where: not (p.views != p.views + ^10))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{!=: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views >= views + 10) (negated)" do
+      expected = from(p in Post, where: not (p.views >= p.views + ^10))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{>=: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views < views + 10) (negated)" do
+      expected = from(p in Post, where: not (p.views < p.views + ^10))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{<: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views <= views + 10) (negated)" do
+      expected = from(p in Post, where: not (p.views <= p.views + ^10))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{<=: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "arithmetic - variants" do
+  @describetag feature: :comparison_operators
+    test "views == views - 5 (plain)" do
+      expected = from(p in Post, where: p.views == p.views - ^5)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{==: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views == views - 5) (negated)" do
+      expected = from(p in Post, where: not (p.views == p.views - ^5))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{==: %{value: %{-: [%{field: "views"}, %{value: 5}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "arithmetic * variants" do
+  @describetag feature: :comparison_operators
+    test "views == views * 2 (plain)" do
+      expected = from(p in Post, where: p.views == p.views * ^2)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{==: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views == views * 2) (negated)" do
+      expected = from(p in Post, where: not (p.views == p.views * ^2))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{==: %{value: %{*: [%{field: "views"}, %{value: 2}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "arithmetic / variants" do
+  @describetag feature: :comparison_operators
+    test "views == views / 2 (plain)" do
+      expected = from(p in Post, where: p.views == p.views / ^2)
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{==: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "not (views >= views / 2) (negated)" do
+      expected = from(p in Post, where: not (p.views >= p.views / ^2))
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{not: %{>=: %{value: %{/: [%{field: "views"}, %{value: 2}]}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "operator pipeline coverage" do
+  @describetag feature: :comparison_operators
+    test "overlaps on an array field produces &&" do
+      expected = from(p in "posts", where: fragment("? && ?", p.tags, ^["a", "b"]))
+
+      actual =
+        CommonFilters.convert_params_to_filter("posts", %{tags: %{overlaps: ["a", "b"]}},
+          field_types: [tags: {:array, :string}]
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "column (sibling) compare against another field on the same binding" do
+      expected = from(p in Post, where: p.views == p.id)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{==: %{field: "id"}}}, [])
+
+      assert_query(expected, actual)
+    end
+
+    test "binary arithmetic compare (field + value)" do
+      expected = from(p in Post, where: p.views > p.views + ^10)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{>: %{value: %{+: [%{field: "views"}, %{value: 10}]}}}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
+  # ---- merged from negation (via CommonFilters pipeline) ----
+  describe "negation (merged 1)" do
+  @describetag feature: :negation
+    test "excludes records where the field is in the given list" do
+      expected = from(p in Post, where: p.published not in ^[true, false])
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{published: %{not: %{in: [true, false]}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records when == with a list is wrapped in not" do
+      expected = from(p in Post, where: p.published not in ^[true, false])
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{published: %{not: %{==: [true, false]}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "includes records when != with a list is wrapped in not" do
+      expected = from(p in Post, where: p.published in ^[true, false])
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{published: %{not: %{!=: [true, false]}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the field is greater than the value" do
+      expected = from(p in Post, where: not (p.views > ^10))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{>: 10}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the field equals the value" do
+      expected = from(p in Post, where: p.views != ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{==: 10}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using negated quantified equality" do
+      expected =
+        from(p in Post,
+          where:
+            not (p.id ==
+                   all(
+                     from(c in Comment,
+                       where: c.published == ^true,
+                       select: c.id
+                     )
+                   ))
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{not: %{all: %{from: Comment, where: %{published: true}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using negated quantified any equality" do
+      expected =
+        from(p in Post,
+          where:
+            not (p.id ==
+                   any(
+                     from(c in Comment,
+                       where: c.published == ^true,
+                       select: c.id
+                     )
+                   ))
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{not: %{any: %{from: Comment, where: %{published: true}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "includes records where the field equals the value using double negation" do
+      expected = from(p in Post, where: p.views == ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{!=: 10}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "includes records where the field equals the value using negated ne alias" do
+      expected = from(p in Post, where: p.views == ^10)
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{ne: 10}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using negated gt alias" do
+      expected = from(p in Post, where: not (p.views > ^10))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{gt: 10}}}, [])
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "negated string transforms" do
+  @describetag feature: :negation
+    test "includes records where the lowercased field matches the value using not !=" do
+      expected = from(p in Post, where: fragment("lower(?)", p.title) == ^"hello")
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{title: %{not: %{!=: %{lower: "hello"}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "negated nil checks" do
+  @describetag feature: :negation
+    test "excludes nil using not ==" do
+      expected = from(p in Post, where: not is_nil(p.published_at))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{not: %{==: nil}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "includes nil using not !=" do
+      expected = from(p in Post, where: is_nil(p.published_at))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{published_at: %{not: %{!=: nil}}}, [])
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "negated quantified comparisons" do
+  @describetag feature: :negation
+    test "excludes records using negated != all comparison" do
+      expected =
+        from(p in Post,
+          where:
+            not (p.id !=
+                   all(
+                     from(c in Comment,
+                       where: c.published == ^true,
+                       select: c.id
+                     )
+                   ))
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{not: %{!=: %{all: %{from: Comment, where: %{published: true}}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records using negated > any comparison" do
+      expected =
+        from(p in Post,
+          where:
+            not (p.id >
+                   any(
+                     from(c in Comment,
+                       where: c.published == ^true,
+                       select: c.id
+                     )
+                   ))
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{id: %{not: %{>: %{any: %{from: Comment, where: %{published: true}}}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "negated aggregate nil checks" do
+  @describetag feature: :negation
+    test "excludes nil aggregate using not ==" do
+      expected = from(p in Post, group_by: p.id, having: not is_nil(avg(p.views)))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{==: nil}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "includes nil aggregate using not !=" do
+      expected = from(p in Post, group_by: p.id, having: is_nil(avg(p.views)))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{!=: nil}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "aggregate == nil produces is_nil check" do
+      expected = from(p in Post, group_by: p.id, having: is_nil(sum(p.views)))
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{==: nil}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "aggregate != nil produces not is_nil check" do
+      expected = from(p in Post, group_by: p.id, having: not is_nil(sum(p.views)))
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{!=: nil}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "negated aggregate <= produces not <= check" do
+      expected = from(p in Post, group_by: p.id, having: not (avg(p.views) <= ^10))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{<=: 10}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "negated aggregate != produces == check" do
+      expected = from(p in Post, group_by: p.id, having: avg(p.views) == ^50)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{!=: 50}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+  end
+
+  describe "not-in over a list (D-NULL)" do
+  @describetag feature: :negation
+    test "not-in over a list (plain NOT IN, no null guard added)" do
+      expected = from(p in Post, where: p.views not in ^[1, 2, 3])
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{nin: [1, 2, 3]}}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
+  # ---- merged from string_matching (via CommonFilters pipeline) ----
+  describe "string matching" do
+  @describetag feature: :string_matching
+    test "matches records where the field contains the text using like" do
+      expected = from(p in Post, where: like(p.title, ^"%hello%"))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{like: "hello"}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    # Bare string values are wrapped as `%value%`. Values that already contain `%`
+    # or `_` are forwarded unchanged. `assert_sql/2` compares SQL strings only, not
+    # bound parameters, so `to_sql/3` tuple equality is used to verify the parameter.
+    test "preserves caller-supplied wildcard patterns using like" do
+      expected = from(p in Post, where: like(p.title, ^"hello%"))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{like: "hello%"}}, [])
+
+      assert SQL.to_sql(:all, Config.repo(), expected) ===
+               SQL.to_sql(:all, Config.repo(), q2)
+    end
+
+    test "matches records where the field contains the text case-insensitively using ilike" do
+      expected = from(p in Post, where: ilike(p.title, ^"%hello%"))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{ilike: "hello"}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field matches any pattern in the like list" do
+      patterns = ["%hello%", "%world%"]
+
+      expected =
+        from(p in Post,
+          where: fragment("? LIKE ANY(?)", p.title, ^patterns)
+        )
+
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{like: ["hello", "world"]}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records where the field matches any pattern in the ilike list" do
+      patterns = ["%hello%", "%world%"]
+
+      expected =
+        from(p in Post,
+          where: fragment("? ILIKE ANY(?)", p.title, ^patterns)
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(Post, %{title: %{ilike: ["hello", "world"]}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    # Each element in the list is checked independently: bare strings are wrapped,
+    # patterns containing `%` or `_` are forwarded unchanged. Uses `to_sql/3` tuple
+    # equality to verify bound parameter values.
+    test "preserves caller-supplied wildcard patterns in the ilike list" do
+      patterns = ["hello%", "%world"]
+
+      expected =
+        from(p in Post,
+          where: fragment("? ILIKE ANY(?)", p.title, ^patterns)
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(Post, %{title: %{ilike: ["hello%", "%world"]}}, [])
+
+      assert SQL.to_sql(:all, Config.repo(), expected) ===
+               SQL.to_sql(:all, Config.repo(), q2)
+    end
+
+    test "excludes records where the field contains the text using negated like" do
+      expected = from(p in Post, where: not like(p.title, ^"%hello%"))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{not: %{like: "hello"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the field contains the text using negated ilike" do
+      expected = from(p in Post, where: not ilike(p.title, ^"%hello%"))
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{not: %{ilike: "hello"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the field matches any pattern in the negated like list" do
+      patterns = ["%hello%", "%world%"]
+
+      expected =
+        from(p in Post,
+          where: not fragment("? LIKE ANY(?)", p.title, ^patterns)
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{title: %{not: %{like: ["hello", "world"]}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the field matches any pattern in the negated ilike list" do
+      patterns = ["%hello%", "%world%"]
+
+      expected =
+        from(p in Post,
+          where: not fragment("? ILIKE ANY(?)", p.title, ^patterns)
+        )
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{title: %{not: %{ilike: ["hello", "world"]}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  # ---- merged from string_transformations (via CommonFilters pipeline) ----
+  describe "string transformations" do
+  @describetag feature: :string_transformations
+    test "matches records by comparing the lowercased field to the value" do
+      expected = from(p in Post, where: fragment("lower(?)", p.title) == ^"hello")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{==: %{lower: "hello"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records by comparing the uppercased field to the value" do
+      expected = from(p in Post, where: fragment("upper(?)", p.title) == ^"HELLO")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{==: %{upper: "HELLO"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records by comparing the trimmed field to the value" do
+      expected = from(p in Post, where: fragment("trim(?)", p.title) == ^"al")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{eq: %{trim: "al"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records by comparing the left-trimmed field to the value" do
+      expected = from(p in Post, where: fragment("ltrim(?)", p.title) == ^"al")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{eq: %{ltrim: "al"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "matches records by comparing the right-trimmed field to the value" do
+      expected = from(p in Post, where: fragment("rtrim(?)", p.title) == ^"al")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{eq: %{rtrim: "al"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the lowercased field equals the value" do
+      expected = from(p in Post, where: fragment("lower(?)", p.title) != ^"hello")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{!=: %{lower: "hello"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the uppercased field equals the value" do
+      expected = from(p in Post, where: fragment("upper(?)", p.title) != ^"HELLO")
+      q2 = CommonFilters.convert_params_to_filter(Post, %{title: %{!=: %{upper: "HELLO"}}}, [])
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the lowercased field matches using negated ==" do
+      expected = from(p in Post, where: fragment("lower(?)", p.title) != ^"hello")
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{title: %{not: %{==: %{lower: "hello"}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+
+    test "excludes records where the uppercased field matches using negated ==" do
+      expected = from(p in Post, where: fragment("upper(?)", p.title) != ^"HELLO")
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{title: %{not: %{==: %{upper: "HELLO"}}}},
+          []
+        )
+
+      assert_sql(expected, q2)
+    end
+  end
+
+  describe "trim transform (pipeline)" do
+  @describetag feature: :string_transformations
+    test "trim transform on a scalar field" do
+      expected = from(p in Post, where: fragment("trim(?)", p.title) == ^"hello")
+      actual = CommonFilters.convert_params_to_filter(Post, %{title: %{==: %{trim: "hello"}}}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
+  # ---- merged from aggregate_operators (via CommonFilters pipeline) ----
+  describe "aggregate operators" do
+  @describetag feature: :aggregate_operators
+    test "rule statement 1: avg views greater than" do
+      expected = from(p in Post, group_by: p.id, having: avg(p.views) > ^10)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{avg: %{>: 10}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    # `not: %{avg: %{>: value}}` produces `not (avg(field) > value)`.
+    test "rule statement 2: avg views greater than negated" do
+      expected = from(p in Post, group_by: p.id, having: not (avg(p.views) > ^10))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{avg: %{>: 10}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 3: count views greater than zero" do
+      expected = from(p in Post, group_by: p.id, having: count(p.views) > ^0)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{count: %{>: 0}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 4: max views greater than or equal" do
+      expected = from(p in Post, group_by: p.id, having: max(p.views) >= ^100)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{max: %{>=: 100}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 5: min views less than" do
+      expected = from(p in Post, group_by: p.id, having: min(p.views) < ^5)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{min: %{<: 5}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 6: sum views equals" do
+      expected = from(p in Post, group_by: p.id, having: sum(p.views) == ^1000)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{==: 1000}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 7: avg views not equals" do
+      expected = from(p in Post, group_by: p.id, having: avg(p.views) != ^50)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{avg: %{!=: 50}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 8: count views equals zero" do
+      expected = from(p in Post, group_by: p.id, having: count(p.views) == ^0)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{count: %{==: 0}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 9: count views greater than zero negated" do
+      expected = from(p in Post, group_by: p.id, having: not (count(p.views) > ^0))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{count: %{>: 0}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 10: max views greater than or equal negated" do
+      expected = from(p in Post, group_by: p.id, having: not (max(p.views) >= ^100))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{max: %{>=: 100}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 11: avg views less than or equal" do
+      expected = from(p in Post, group_by: p.id, having: avg(p.views) <= ^10)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{avg: %{<=: 10}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 12: sum views greater than" do
+      expected = from(p in Post, group_by: p.id, having: sum(p.views) > ^500)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{>: 500}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 13: min views equals zero" do
+      expected = from(p in Post, group_by: p.id, having: min(p.views) == ^0)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{min: %{==: 0}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 14: sum views not equals zero" do
+      expected = from(p in Post, group_by: p.id, having: sum(p.views) != ^0)
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{sum: %{!=: 0}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 15: min views less than negated" do
+      expected = from(p in Post, group_by: p.id, having: not (min(p.views) < ^5))
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{min: %{<: 5}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+
+    test "rule statement 16: sum views greater than negated" do
+      expected = from(p in Post, group_by: p.id, having: not (sum(p.views) > ^500))
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{views: %{not: %{sum: %{>: 500}}}}, [])
+
+      assert_sql(expected, actual)
+    end
+  end
+
+  describe "aggregate placement (where -> having, auto group_by)" do
+  @describetag feature: :aggregate_operators
+    test "an aggregate written under :where lands in HAVING with an auto GROUP BY" do
+      actual = CommonFilters.convert_params_to_filter(Post, %{views: %{avg: %{gt: 5}}}, [])
+      assert_sql(from(p in Post, group_by: p.id, having: avg(p.views) > ^5), actual)
+    end
+
+    test "an aggregate under :having on an explicitly grouped query keeps that grouping" do
+      source = from(p in Post, group_by: p.author_id)
+      actual = CommonFilters.convert_params_to_filter(source, %{having: %{views: %{avg: %{gt: 5}}}}, [])
+      assert_sql(from(p in Post, group_by: p.author_id, having: avg(p.views) > ^5), actual)
+    end
+  end
+
+  describe ":aggregate wrapper removed (D-ONE-WAY)" do
+  @describetag feature: :aggregate_operators
+    test "the short aggregate spelling works (gt spelling, end-to-end)" do
+      source = from(p in Post, group_by: p.author_id)
+
+      actual =
+        CommonFilters.convert_params_to_filter(source, %{having: %{views: %{avg: %{gt: 5}}}}, [])
+
+      assert_sql(from(p in Post, group_by: p.author_id, having: avg(p.views) > ^5), actual)
+    end
+
+    test "the :aggregate wrapper is no longer supported (unrecognized operator is skipped)" do
+      # With the wrapper clauses removed, an :aggregate key is an unrecognized
+      # operator on a valid field, which resolves to no predicate and is skipped.
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{aggregate: %{fn: :avg, compare: :>, value: 5}}},
+          []
+        )
+
+      assert_sql(from(p in Post), actual)
+    end
+  end
+
+  # ---- merged from comparison_operators (schemaless) ----
+  describe "comparison operators (schemaless)" do
+    @describetag feature: :comparison_operators
+    @describetag schema_mode: :schemaless
+    test "matches records where the field equals the value using ==" do
+      expected = from(p in "posts", where: p.id == ^1)
+      q2 = CommonFilters.convert_params_to_filter("posts", %{id: %{==: 1}}, [])
+
+      assert_query(expected, q2)
+    end
+
+    test "matches records where the field equals the value using a plain map value" do
+      expected = from(p in "posts", where: p.id == ^1)
+      q2 = CommonFilters.convert_params_to_filter("posts", %{id: 1}, [])
+
+      assert_query(expected, q2)
+    end
+  end
+
+  # ---- merged from negation (schemaless) ----
+  describe "negation (schemaless)" do
+    @describetag feature: :negation
+    @describetag schema_mode: :schemaless
+    test "excludes records where the field is not in the given list" do
+      expected =
+        from(p in "posts", where: p.published not in ^[true, false])
+
+      q2 =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{published: %{not: %{in: [true, false]}}},
+          []
+        )
+
+      assert_query(expected, q2)
+    end
+  end
+
+  # ---- merged from string_matching (schemaless) ----
+  describe "string matching (schemaless)" do
+    @describetag feature: :string_matching
+    @describetag schema_mode: :schemaless
+    test "matches records where the field contains the text using like" do
+      expected = from(p in "posts", where: like(p.title, ^"%hello%"))
+      q2 = CommonFilters.convert_params_to_filter("posts", %{title: %{like: "hello"}}, [])
+
+      assert_query(expected, q2)
+    end
+  end
+
+  # ---- merged from string_transformations (schemaless) ----
+  describe "string transformations (schemaless)" do
+    @describetag feature: :string_transformations
+    @describetag schema_mode: :schemaless
+    test "matches records by comparing the lowercased field to the value" do
+      expected = from(p in "posts", where: fragment("lower(?)", p.title) == ^"hello")
+      q2 = CommonFilters.convert_params_to_filter("posts", %{title: %{==: %{lower: "hello"}}}, [])
+
+      assert_query(expected, q2)
+    end
+  end
+
+  # ---- merged from aggregate_operators (schemaless) ----
+  describe "aggregate operators (schemaless)" do
+    @describetag feature: :aggregate_operators
+    @describetag schema_mode: :schemaless
+    test "avg views greater than" do
+      # A schemaless source has no primary key to group by, so the aggregate
+      # lands in HAVING without an auto GROUP BY.
+      expected = from(p in "posts", having: avg(p.views) > ^10)
+      actual = CommonFilters.convert_params_to_filter("posts", %{views: %{avg: %{>: 10}}}, [])
+
+      assert_query(expected, actual)
     end
   end
 end

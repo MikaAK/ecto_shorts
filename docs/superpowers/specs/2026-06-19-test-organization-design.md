@@ -1,7 +1,60 @@
 # Test Organization for Multi-Adapter Support
 
 **Date:** 2026-06-19
-**Status:** Approved design, pending implementation plan
+**Status:** Superseded in part — see "Revision" below.
+
+## Revision: mirror `lib/`, not semantic families
+
+The feature-family scheme below (`filters/{predicates,structural,clauses}/` +
+`filters_schemaless/`) was implemented, then **reverted**: the family names mapped to
+nothing in `lib/`, so a reader could not navigate from a test back to the module it
+covers. The final structure mirrors `lib/` path-for-path instead.
+
+**Final structure:**
+
+```
+test/ecto_shorts/
+  actions/                              # mirrors lib/ecto_shorts/actions/
+  common_filters_test.exs               # common_filters.ex — entry routing, assoc shorthand, sorter
+  common_filters/
+    builder_test.exs                    # builder.ex (+ :exclude)
+    predicate_builder_test.exs          # predicate_builder.ex — casting, boolean groups, field resolution
+    filters/                            # mirrors common_filters/filters/ — one file per filter module
+  common_params/
+  dynamic_builders/
+    postgres/                           # scalar_/array_/map_/common_expr — unit tests
+                                        #   + operator/predicate behavior (no 1:1 lib module)
+                                        #     as `describe` blocks tagged @describetag feature:
+    contract/contract_test.exs          # walks EctoShorts.FilterContract.cases/0
+  query_binding_test.exs                # query_binding.ex (+ :at out-of-range, parent_as)
+```
+
+**Operator/predicate tests** (comparison, string, negation, array, JSONB, dates,
+casting) have no 1:1 lib module — they are produced by the dynamic-builder adapter +
+`predicate_builder.ex`, exercised through the public `common_filters.ex` entry. Each
+is merged into the test file of the module that **implements** it.
+
+**Schemaless variants** are not a separate tree: each module's test file holds both
+schema-backed and schemaless cases, the latter tagged `@describetag schema_mode:
+:schemaless`. The `feature:` axis is preserved per merged block via `@describetag`,
+so `mix test --only feature:<name>` / `--only schema_mode:schemaless` still works.
+
+**Compromises** (modules with no dedicated test file): the set-operation family
+(`union`/`intersect`/`except` + `_all`) shares `filters/set_operation_test.exs`;
+`order_by`/`prepend_order_by` share `filters/order_by_test.exs` while `reverse_order`
+(the `:first` path) has `filters/reverse_order_test.exs`; `:first`/`:limit`/`:offset`
+schemaless cases live in `filters/limit_test.exs`.
+
+The retained decisions from the original design — the data-driven cross-adapter
+contract (`test/support/filter_contract.ex` + `dynamic_builders/contract/`) and the
+`adapter:`/`feature:`/`schema_mode:` tag axes — are unchanged.
+
+---
+
+_Original design (semantic families) follows; kept for history._
+
+**Date:** 2026-06-19
+**Status:** Superseded by the Revision above.
 
 ## Problem
 
