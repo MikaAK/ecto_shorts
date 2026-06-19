@@ -3,117 +3,62 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   @moduledoc false
 
   alias Ecto.Query
-  alias EctoShorts.QueryBinding
+  alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
 
   require Ecto.Query
 
   @logger_prefix "EctoShorts.DynamicBuilders.Postgres.ArrayExpr"
 
-  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
-
-  for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
-    def dynamic_expr(unquote(quoted_binding_head) = selected_binding, key, negated, term, _opts) do
+  def dynamic_expr(selected_binding, key, negated, term, _opts) do
+    if FieldAccessors.known_binding?(selected_binding) do
       selected_binding
       |> dispatch_expr(key, term)
       |> maybe_negate(negated)
-    end
-
-    defp field_dyn(unquote(quoted_binding_head), key) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        field(unquote(target_binding_var), ^key)
-      )
-    end
-
-    defp nil_field_dyn?(unquote(quoted_binding_head), key) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        is_nil(field(unquote(target_binding_var), ^key))
-      )
-    end
-
-    defp lower_exists_dyn(unquote(quoted_binding_head), key, value) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment(
-          "EXISTS (SELECT 1 FROM unnest(?) AS t WHERE lower(t) = ?)",
-          field(unquote(target_binding_var), ^key),
-          ^value
-        )
-      )
-    end
-
-    defp upper_exists_dyn(unquote(quoted_binding_head), key, value) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment(
-          "EXISTS (SELECT 1 FROM unnest(?) AS t WHERE upper(t) = ?)",
-          field(unquote(target_binding_var), ^key),
-          ^value
-        )
-      )
-    end
-
-    defp lower_not_exists_dyn(unquote(quoted_binding_head), key, value) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment(
-          "NOT EXISTS (SELECT 1 FROM unnest(?) AS t WHERE lower(t) = ?)",
-          field(unquote(target_binding_var), ^key),
-          ^value
-        )
-      )
-    end
-
-    defp upper_not_exists_dyn(unquote(quoted_binding_head), key, value) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        fragment(
-          "NOT EXISTS (SELECT 1 FROM unnest(?) AS t WHERE upper(t) = ?)",
-          field(unquote(target_binding_var), ^key),
-          ^value
-        )
-      )
+    else
+      nil
     end
   end
 
-  def dynamic_expr(_selected_binding, _key, _negated, _term, _opts), do: nil
-
   defp dispatch_expr(binding, key, {:==, nil}) do
-    nil_field_dyn?(binding, key)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], is_nil(^f))
   end
 
   defp dispatch_expr(binding, key, {:!=, nil}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], not is_nil(^field))
   end
 
   defp dispatch_expr(binding, key, {:==, values}) when is_list(values) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     # credo:disable-for-next-line
     Query.dynamic([], ^field == ^values)
   end
 
   defp dispatch_expr(binding, key, {:!=, values}) when is_list(values) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     # credo:disable-for-next-line
     Query.dynamic([], ^field != ^values)
   end
 
   defp dispatch_expr(binding, key, {:==, {:lower, value}}) do
-    lower_exists_dyn(binding, key, value)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], fragment("EXISTS (SELECT 1 FROM unnest(?) AS t WHERE lower(t) = ?)", ^f, ^value))
   end
 
   defp dispatch_expr(binding, key, {:==, {:upper, value}}) do
-    upper_exists_dyn(binding, key, value)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], fragment("EXISTS (SELECT 1 FROM unnest(?) AS t WHERE upper(t) = ?)", ^f, ^value))
   end
 
   defp dispatch_expr(binding, key, {:!=, {:lower, value}}) do
-    lower_not_exists_dyn(binding, key, value)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], fragment("NOT EXISTS (SELECT 1 FROM unnest(?) AS t WHERE lower(t) = ?)", ^f, ^value))
   end
 
   defp dispatch_expr(binding, key, {:!=, {:upper, value}}) do
-    upper_not_exists_dyn(binding, key, value)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], fragment("NOT EXISTS (SELECT 1 FROM unnest(?) AS t WHERE upper(t) = ?)", ^f, ^value))
   end
 
   defp dispatch_expr(_binding, key, {op, {:value, {arith_op, _}}})
@@ -131,198 +76,200 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp dispatch_expr(binding, key, {:==, {:any, qv}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field == any(qv))
   end
 
   defp dispatch_expr(binding, key, {:!=, {:any, qv}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field != any(qv))
   end
 
   defp dispatch_expr(binding, key, {:>, {:any, qv}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field > any(qv))
   end
 
   defp dispatch_expr(binding, key, {:>=, {:any, qv}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field >= any(qv))
   end
 
   defp dispatch_expr(binding, key, {:<, {:any, qv}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field < any(qv))
   end
 
   defp dispatch_expr(binding, key, {:<=, {:any, qv}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field <= any(qv))
   end
 
   defp dispatch_expr(binding, key, {:parent_as, {pb, pf}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field == field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:==, {:parent_as, {pb, pf}}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field == field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:!=, {:parent_as, {pb, pf}}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field != field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:>, {:parent_as, {pb, pf}}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field > field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:>=, {:parent_as, {pb, pf}}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field >= field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:<, {:parent_as, {pb, pf}}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field < field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:<=, {:parent_as, {pb, pf}}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^field <= field(parent_as(^pb), ^pf))
   end
 
   defp dispatch_expr(binding, key, {:==, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^value in ^field)
   end
 
   defp dispatch_expr(binding, key, {:!=, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^value not in ^field)
   end
 
   defp dispatch_expr(binding, key, {:overlaps, values}) when is_list(values) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? && ?", ^field, ^values))
   end
 
   defp dispatch_expr(binding, key, {:in, values}) when is_list(values) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? && ?", ^field, ^values))
   end
 
   defp dispatch_expr(binding, key, {:in, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], ^value in ^field)
   end
 
   defp dispatch_expr(binding, key, {:count, {:==, 0}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     # credo:disable-for-next-line
     Query.dynamic([], fragment("coalesce(array_length(?, 1), 0)", ^field) == ^0)
   end
 
   defp dispatch_expr(binding, key, {:count, {:==, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     # credo:disable-for-next-line
     Query.dynamic([], fragment("array_length(?, 1)", ^field) == ^value)
   end
 
   defp dispatch_expr(binding, key, {:count, {:!=, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     # credo:disable-for-next-line
     Query.dynamic([], fragment("array_length(?, 1)", ^field) != ^value)
   end
 
   defp dispatch_expr(binding, key, {:count, {:>, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("array_length(?, 1)", ^field) > ^value)
   end
 
   defp dispatch_expr(binding, key, {:count, {:>=, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("array_length(?, 1)", ^field) >= ^value)
   end
 
   defp dispatch_expr(binding, key, {:count, {:<, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("array_length(?, 1)", ^field) < ^value)
   end
 
   defp dispatch_expr(binding, key, {:count, {:<=, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("array_length(?, 1)", ^field) <= ^value)
   end
 
   defp dispatch_expr(binding, key, {:all, {:==, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? = ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:!=, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? != ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:>, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? < ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:>=, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? <= ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:<, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? > ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:<=, value}}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? >= ALL(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:all, {:in, values}}) when is_list(values) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? <@ ?", ^field, ^values))
   end
 
   defp dispatch_expr(binding, key, {:>, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? < ANY(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:>=, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? <= ANY(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:<, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? > ANY(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:<=, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     Query.dynamic([], fragment("? >= ANY(?)", ^value, ^field))
   end
 
   defp dispatch_expr(binding, key, {:lower, value}) do
-    lower_exists_dyn(binding, key, value)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], fragment("EXISTS (SELECT 1 FROM unnest(?) AS t WHERE lower(t) = ?)", ^f, ^value))
   end
 
   defp dispatch_expr(binding, key, {:upper, value}) do
-    upper_exists_dyn(binding, key, value)
+    f = FieldAccessors.field_dyn(binding, key)
+    Query.dynamic([], fragment("EXISTS (SELECT 1 FROM unnest(?) AS t WHERE upper(t) = ?)", ^f, ^value))
   end
 
   defp dispatch_expr(binding, key, {:like, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     patterns = wrap_patterns(value)
 
     Query.dynamic(
@@ -332,7 +279,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   end
 
   defp dispatch_expr(binding, key, {:ilike, value}) do
-    field = field_dyn(binding, key)
+    field = FieldAccessors.field_dyn(binding, key)
     patterns = wrap_patterns(value)
 
     Query.dynamic(
