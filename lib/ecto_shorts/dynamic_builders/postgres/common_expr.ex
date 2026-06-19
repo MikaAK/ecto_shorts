@@ -3,7 +3,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
   @moduledoc false
 
   alias Ecto.Query
-  alias EctoShorts.QueryBinding
+  alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
 
   require Ecto.Query
 
@@ -20,65 +20,50 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
 
   def operators, do: @operators
 
-  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
-
-  for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
-    def dynamic_expr(
-          unquote(quoted_binding_head) = selected_binding,
-          field,
-          negated,
-          expr,
-          _opts
-        ) do
+  def dynamic_expr(selected_binding, field, negated, expr, _opts) do
+    if FieldAccessors.known_binding?(selected_binding) do
       {operator, term} = expr
 
       selected_binding
       |> dispatch_expr(operator, field, term)
       |> maybe_negate(negated)
-    end
-
-    defp field_dyn(unquote(quoted_binding_head), field_name) do
-      Query.dynamic(
-        [unquote_splicing(quoted_binding_body)],
-        field(unquote(target_binding_var), ^field_name)
-      )
+    else
+      nil
     end
   end
 
-  def dynamic_expr(_selected_binding, _field, _negated, _expr, _opts), do: nil
-
   defp dispatch_expr(binding, :ids, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn in ^term)
   end
 
   defp dispatch_expr(binding, :after, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn > ^term)
   end
 
   defp dispatch_expr(binding, :before, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn < ^term)
   end
 
   defp dispatch_expr(binding, :since, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn >= ^term)
   end
 
   defp dispatch_expr(binding, :until, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn <= ^term)
   end
 
   defp dispatch_expr(binding, :since_date, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn >= ^term)
   end
 
   defp dispatch_expr(binding, :until_date, field, term) do
-    dyn = field_dyn(binding, field)
+    dyn = FieldAccessors.field_dyn(binding, field)
     Query.dynamic([], ^dyn <= ^term)
   end
 
