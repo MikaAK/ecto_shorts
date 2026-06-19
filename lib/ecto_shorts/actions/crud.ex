@@ -60,7 +60,7 @@ defmodule EctoShorts.Actions.CRUD do
     records =
       queryable
       |> CommonFilters.convert_params_to_filter(params, opts)
-      |> Config.repo!(opts).all(opts)
+      |> Config.replica!(opts).all(opts)
 
     case opts[:preload] do
       nil -> records
@@ -223,7 +223,7 @@ defmodule EctoShorts.Actions.CRUD do
   def stream(queryable, params, opts) do
     queryable
     |> CommonFilters.convert_params_to_filter(params, opts)
-    |> Config.repo!(opts).stream(opts)
+    |> Config.replica!(opts).stream(opts)
   end
 
   @doc false
