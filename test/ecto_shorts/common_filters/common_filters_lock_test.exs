@@ -132,25 +132,16 @@ defmodule EctoShorts.CommonFilters.LockTest do
     end
 
     # The provider return contract is `{:ok, fn}` | `{:error, reason}` | `nil`.
-    # A return value that does not match one of these shapes is rejected with a log
-    # warning and leaves the query unchanged.
-    test "keeps the query unchanged when the lock provider returns a raw expression" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{lock: %{name: :legacy_for_update}},
-              query_provider_module: EctoShorts.TestQueryProvider
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~
-               "Expected lock expression resolved from QueryProvider to return {:ok, function} | {:error, reason} | nil"
+    # A return value that does not match one of these shapes is out of contract
+    # and raises (D-PROVIDER).
+    test "raises when the lock provider returns a raw expression (out of contract)" do
+      assert_raise EctoShorts.FilterError, ~r/QueryProvider must return/, fn ->
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{lock: %{name: :legacy_for_update}},
+          query_provider_module: EctoShorts.TestQueryProvider
+        )
+      end
     end
   end
 
@@ -168,41 +159,24 @@ defmodule EctoShorts.CommonFilters.LockTest do
       assert_query(expected, actual)
     end
 
-    test "logs warning and keeps query unchanged when provider callback returns a non-Ecto.Query" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{lock: %{name: :callback_bad_return}},
-              query_provider_module: EctoShorts.TestQueryProvider
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~ "Expected lock expression callback to return an Ecto.Query"
+    test "raises when provider callback returns a non-Ecto.Query (out of contract)" do
+      assert_raise EctoShorts.FilterError, ~r/must return an Ecto.Query/, fn ->
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{lock: %{name: :callback_bad_return}},
+          query_provider_module: EctoShorts.TestQueryProvider
+        )
+      end
     end
 
-    test "logs warning and keeps query unchanged when provider returns a non-function ok tuple" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{lock: %{name: :callback_not_function}},
-              query_provider_module: EctoShorts.TestQueryProvider
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~
-               "Expected lock expression resolved from QueryProvider to be a 1-arity function"
+    test "raises when provider returns a non-function ok tuple (out of contract)" do
+      assert_raise EctoShorts.FilterError, ~r/must be a 1-arity function/, fn ->
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{lock: %{name: :callback_not_function}},
+          query_provider_module: EctoShorts.TestQueryProvider
+        )
+      end
     end
   end
 end

@@ -349,32 +349,23 @@ defmodule EctoShorts.CommonFilters.JoinTest do
     end
 
     # A return value that is not `{:ok, query}`, `{:error, reason}`, or `nil` is
-    # rejected with a log warning and leaves the query unchanged.
-    test "keeps the query unchanged when the fragment provider returns a raw source" do
-      expected = from(p in Post)
-
-      log =
-        capture_log(fn ->
-          actual =
-            CommonFilters.convert_params_to_filter(
-              Post,
-              %{
-                join: [
-                  fragment: [
-                    source: [name: :legacy_active_users, values: %{min_age: 18}],
-                    as: :users,
-                    on: true
-                  ]
-                ]
-              },
-              query_provider_module: EctoShorts.TestQueryProvider
-            )
-
-          assert_query(expected, actual)
-        end)
-
-      assert log =~
-               "Expected join source callback to return {:ok, source} | {:error, reason} | nil"
+    # out of contract and raises (D-PROVIDER).
+    test "raises when the fragment provider returns a raw source (out of contract)" do
+      assert_raise EctoShorts.FilterError, ~r/join source callback must return/, fn ->
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{
+            join: [
+              fragment: [
+                source: [name: :legacy_active_users, values: %{min_age: 18}],
+                as: :users,
+                on: true
+              ]
+            ]
+          },
+          query_provider_module: EctoShorts.TestQueryProvider
+        )
+      end
     end
   end
 

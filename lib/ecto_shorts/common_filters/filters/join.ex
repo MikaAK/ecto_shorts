@@ -132,12 +132,8 @@ defmodule EctoShorts.CommonFilters.Join do
         :error
 
       other ->
-        EctoShorts.LogUtils.warning(
-          @logger_prefix,
-          "Expected join source callback to return {:ok, source} | {:error, reason} | nil, got: #{inspect(other)}"
-        )
-
-        :error
+        raise EctoShorts.FilterError,
+              "join source callback must return {:ok, source} | {:error, reason} | nil, got: #{inspect(other)}"
     end
   end
 

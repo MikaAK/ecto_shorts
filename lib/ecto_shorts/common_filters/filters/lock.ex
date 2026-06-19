@@ -70,20 +70,12 @@ defmodule EctoShorts.CommonFilters.Lock do
                 next_query
 
               other ->
-                EctoShorts.LogUtils.warning(
-                  @logger_prefix,
-                  "Expected lock expression callback to return an Ecto.Query, got: #{inspect(other)}"
-                )
-
-                query
+                raise EctoShorts.FilterError,
+                      "lock expression callback must return an Ecto.Query, got: #{inspect(other)}"
             end
           else
-            EctoShorts.LogUtils.warning(
-              @logger_prefix,
-              "Expected lock expression resolved from QueryProvider to be a 1-arity function, got: #{inspect(callback)}"
-            )
-
-            query
+            raise EctoShorts.FilterError,
+                  "lock expression resolved from QueryProvider must be a 1-arity function, got: #{inspect(callback)}"
           end
 
         {:error, reason} ->
@@ -95,12 +87,8 @@ defmodule EctoShorts.CommonFilters.Lock do
           query
 
         other ->
-          EctoShorts.LogUtils.warning(
-            @logger_prefix,
-            "Expected lock expression resolved from QueryProvider to return {:ok, function} | {:error, reason} | nil, got: #{inspect(other)}"
-          )
-
-          query
+          raise EctoShorts.FilterError,
+                "lock expression resolved from QueryProvider must return {:ok, function} | {:error, reason} | nil, got: #{inspect(other)}"
       end
     end
   end
