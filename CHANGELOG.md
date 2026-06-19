@@ -11,6 +11,8 @@
 - **`EctoShorts.Actions.find_or_create_many/3` rewritten** — now uses `Ecto.Multi` internally and returns `{:ok, list}` | `{:error, reason}` instead of merging found/created records by index
 - **Runtime opt for query provider renamed** — the runtime opt key for supplying a `QueryProvider` to `CommonFilters` (and `Actions`) calls changed from `:query_provider_module` to `:query_provider`; the app-config key `:query_provider_module` is unchanged
 - **`EctoShorts.Actions.delete/2` no longer accepts `(queryable, id)`** — id-based delete now requires the 3-arity form `delete(queryable, id, opts)`; `delete/2` unambiguously means `delete(struct_or_changeset_or_list, opts)`
+- **`EctoShorts.Actions.batch/5` replaced by `batch/3`** — `batch_keys` and `cardinality` are now passed as opts keys (`:batch_keys`, default `:id`; `:cardinality`, default `:many`) instead of positional arguments
+- **`EctoShorts.Actions.aggregate/5` replaced by `aggregate/3`** — the aggregate function and field key are now passed as opts keys (`:aggregate`, default `:count`; `:key`, default `:id`) instead of positional arguments
 
 ##### New modules
 
@@ -19,7 +21,7 @@
 - **`EctoShorts.DynamicBuilders`** — database-adapter-aware entry point for building `Ecto.Query.DynamicExpr` values; ships with a Postgres adapter and supports custom adapters via `EctoShorts.DynamicBuilder`
 - **`EctoShorts.Testing`** — assertion helpers (`assert_query/2`, `assert_sql/3`, `assert_dynamic/2`, and their `refute_*` counterparts) for testing query construction
 - **`EctoShorts.Actions.Source`** — key-value lookup struct that can be passed as a queryable to `EctoShorts.Actions` read helpers
-- **`EctoShorts.Actions.Batch`** — batch grouping and lookup internals behind `EctoShorts.Actions.batch/5` and `EctoShorts.Actions.batch_find/4`
+- **`EctoShorts.Actions.Batch`** — batch grouping and lookup internals behind `EctoShorts.Actions.batch/3` and `EctoShorts.Actions.batch_find/4`
 - **`EctoShorts.Actions.Bulk`** — bulk operation internals behind `EctoShorts.Actions.insert_all/3`, `EctoShorts.Actions.update_all/4`, and `EctoShorts.Actions.delete_all/3`
 - **`EctoShorts.Actions.Multi`** — multi-record transaction internals behind `EctoShorts.Actions.create_many/3`, `EctoShorts.Actions.find_many/3`, `EctoShorts.Actions.update_many/3`, `EctoShorts.Actions.delete_many/3`, `EctoShorts.Actions.find_or_create_many/3`, and `EctoShorts.Actions.find_and_upsert_many/3`
 - **`EctoShorts.Actions.Transaction`** — transaction wrappers behind `EctoShorts.Actions.transaction/2` and `EctoShorts.Actions.transact/2`

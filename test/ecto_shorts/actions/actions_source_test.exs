@@ -149,14 +149,14 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
     end
   end
 
-  describe "aggregate/5 with Source" do
+  describe "aggregate/3 with Source" do
     test "counts records matching the filter" do
       %Post{} |> Post.changeset(%{title: "Agg"}) |> Repo.insert!()
-      assert Actions.aggregate(source(), %{from: :posts, title: "Agg"}, :count, :id) === 1
+      assert Actions.aggregate(source(), %{from: :posts, title: "Agg"}, aggregate: :count, key: :id) === 1
     end
 
     test "returns a not_found error when :from does not match any store entry" do
-      assert {:error, error} = Actions.aggregate(source(), %{from: :missing}, :count, :id)
+      assert {:error, error} = Actions.aggregate(source(), %{from: :missing}, aggregate: :count, key: :id)
       assert error.code === :not_found
       assert error.message === "source not found."
     end

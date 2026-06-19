@@ -6,9 +6,9 @@ defmodule EctoShorts.Actions.BatchTest do
   alias EctoShorts.Schema.Post
   alias EctoShorts.Schema.User
 
-  describe "batch/4" do
+  describe "batch/3" do
     test "returns an empty map when no params are given" do
-      assert %{} = Actions.batch(Post, [], [:title], :many, [])
+      assert %{} = Actions.batch(Post, [], batch_keys: [:title], cardinality: :many)
     end
 
     test "returns one record per key when cardinality is :one" do
@@ -20,7 +20,7 @@ defmodule EctoShorts.Actions.BatchTest do
       |> Post.changeset(%{title: "B"})
       |> Repo.insert!()
 
-      result = Actions.batch(Post, [%{title: "A"}, %{title: "B"}], :title, :one, [])
+      result = Actions.batch(Post, [%{title: "A"}, %{title: "B"}], batch_keys: :title, cardinality: :one)
 
       assert %{
                "A" => %Post{title: "A"},
@@ -37,7 +37,7 @@ defmodule EctoShorts.Actions.BatchTest do
       |> Post.changeset(%{title: "B"})
       |> Repo.insert!()
 
-      result = Actions.batch(Post, [%{title: "A"}, %{title: "B"}], :title, :many, [])
+      result = Actions.batch(Post, [%{title: "A"}, %{title: "B"}], batch_keys: :title, cardinality: :many)
 
       assert %{
                "A" => [%Post{title: "A"}],
@@ -54,7 +54,7 @@ defmodule EctoShorts.Actions.BatchTest do
       |> Post.changeset(%{title: "B"})
       |> Repo.insert!()
 
-      result = Actions.batch(Post, [%{title: "A"}, %{title: "B"}], [:title], :many, [])
+      result = Actions.batch(Post, [%{title: "A"}, %{title: "B"}], batch_keys: [:title], cardinality: :many)
 
       assert %{
                %{title: "A"} => [%Post{title: "A"}],
@@ -67,7 +67,19 @@ defmodule EctoShorts.Actions.BatchTest do
       |> Post.changeset(%{title: "A"})
       |> Repo.insert!()
 
-      assert %{} = Actions.batch(Post, [%{permalink: "missing-title"}], [:title], :many, [])
+      assert %{} = Actions.batch(Post, [%{permalink: "missing-title"}], batch_keys: [:title], cardinality: :many)
+    end
+
+    test "uses :id as default batch_keys and :many as default cardinality" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "Default"})
+        |> Repo.insert!()
+
+      post_id = post.id
+      result = Actions.batch(Post, [%{id: post_id}])
+
+      assert %{^post_id => [%Post{title: "Default"}]} = result
     end
   end
 
@@ -230,20 +242,20 @@ defmodule EctoShorts.Actions.BatchTest do
     end
   end
 
-  describe "batch/4 (4-arg: no opts)" do
+  describe "batch/3 edge cases" do
     test "returns an empty map when batch_keys is an empty list" do
       %Post{}
       |> Post.changeset(%{title: "A"})
       |> Repo.insert!()
 
       # build_batch_params/4 with empty batch_keys returns [] which causes batch to return %{}
-      result = Actions.batch(Post, [%{title: "A"}], [], :many)
+      result = Actions.batch(Post, [%{title: "A"}], batch_keys: [], cardinality: :many)
       assert result === %{}
     end
 
     test "raises ArgumentError when batch_keys contains a key not in the schema's query fields" do
       assert_raise ArgumentError, fn ->
-        Actions.batch(Post, [%{title: "A"}], [:nonexistent_field_xyz], :many)
+        Actions.batch(Post, [%{title: "A"}], batch_keys: [:nonexistent_field_xyz], cardinality: :many)
       end
     end
   end
@@ -369,13 +381,13 @@ defmodule EctoShorts.Actions.BatchTest do
     end
   end
 
-  describe "batch/5 with :preload" do
+  describe "batch/3 with :preload" do
     test "preloads associations on batched structs with :one cardinality" do
       %Post{}
       |> Post.changeset(%{title: "Alpha"})
       |> Repo.insert!()
 
-      result = Actions.batch(Post, [%{title: "Alpha"}], :title, :one, preload: [:comments])
+      result = Actions.batch(Post, [%{title: "Alpha"}], batch_keys: :title, cardinality: :one, preload: [:comments])
 
       assert %Post{comments: []} = result["Alpha"]
     end
@@ -385,7 +397,7 @@ defmodule EctoShorts.Actions.BatchTest do
       |> Post.changeset(%{title: "Beta"})
       |> Repo.insert!()
 
-      result = Actions.batch(Post, [%{title: "Beta"}], :title, :many, preload: [:comments])
+      result = Actions.batch(Post, [%{title: "Beta"}], batch_keys: :title, cardinality: :many, preload: [:comments])
 
       assert [%Post{comments: []}] = result["Beta"]
     end
@@ -403,7 +415,7 @@ defmodule EctoShorts.Actions.BatchTest do
 
       key = %{title: "Gamma", permalink: "gamma"}
 
-      result = Actions.batch(Post, [key], [:title, :permalink], :one, preload: [:comments])
+      result = Actions.batch(Post, [key], batch_keys: [:title, :permalink], cardinality: :one, preload: [:comments])
 
       assert %Post{id: post_id, comments: [%Comment{id: comment_id, body: "hello"}]} = result[key]
       assert post_id === post.id
@@ -435,7 +447,7 @@ defmodule EctoShorts.Actions.BatchTest do
       key_b = %{title: "Delta", permalink: "delta"}
 
       result =
-        Actions.batch(Post, [key_b, key_a], [:title, :permalink], :one, preload: [:comments])
+        Actions.batch(Post, [key_b, key_a], batch_keys: [:title, :permalink], cardinality: :one, preload: [:comments])
 
       assert %Post{id: post_a_id, comments: [%Comment{id: comment_a_id, body: "hello gamma"}]} =
                result[key_a]

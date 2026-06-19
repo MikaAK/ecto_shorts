@@ -12,7 +12,7 @@ defmodule EctoShorts.Actions do
     `delete/1`
   * bulk helpers such as `insert_all/3`, `update_all/4`, and `delete_all/3`
   * multi helpers such as `create_many/3`, `find_many/3`, and `update_many/3`
-  * batch helpers such as `batch/5` and `batch_find/4`
+  * batch helpers such as `batch/3` and `batch_find/4`
   * transaction helpers such as `transaction/2` and `transact/2`
 
   Read helpers accept the public `EctoShorts.CommonFilters` language. Write
@@ -97,7 +97,7 @@ defmodule EctoShorts.Actions do
   @type id :: integer() | binary()
 
   @typedoc """
-  Grouping shape used by `batch/5`.
+  Grouping shape used by `batch/3`.
   """
   @type cardinality :: :one | :many
 
@@ -449,13 +449,20 @@ defmodule EctoShorts.Actions do
   ## Examples
 
       count = EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{published: true})
-      total = EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{}, :sum, :views)
+      total = EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{}, aggregate: :sum, key: :views)
+
+  ## Options
+
+  * `:aggregate` (default `:count`) - the aggregate function to run (`:count`, `:sum`, `:avg`, `:min`, `:max`)
+  * `:key` (default `:id`) - the field to apply the aggregate function to
 
   See also `all/3` and `exists?/3`.
   """
-  @spec aggregate(queryable, params, atom(), atom(), opts) :: term()
-  def aggregate(queryable, params \\ %{}, aggregate \\ :count, key \\ :id, opts \\ []) do
-    CRUD.aggregate(queryable, params, aggregate, key, opts)
+  @spec aggregate(queryable, params, opts) :: term()
+  def aggregate(queryable, params \\ %{}, opts \\ []) do
+    aggregate_fn = Keyword.get(opts, :aggregate, :count)
+    key = Keyword.get(opts, :key, :id)
+    CRUD.aggregate(queryable, params, aggregate_fn, key, opts)
   end
 
   @doc group: "CRUD"
@@ -666,22 +673,35 @@ defmodule EctoShorts.Actions do
       EctoShorts.Actions.batch(
         Post,
         [%{author_id: 1}, %{author_id: 2}],
-        :author_id,
-        :many
+        batch_keys: :author_id,
+        cardinality: :many
       )
-      EctoShorts.Actions.batch(Post, [%{id: 1}, %{id: 2}], :id, :one)
+      EctoShorts.Actions.batch(Post, [%{id: 1}, %{id: 2}], batch_keys: :id, cardinality: :one)
 
-      EctoShorts.Actions.batch(PostTag, [%{post_id: 1, tag_id: 5}], [:post_id, :tag_id], :one)
+      EctoShorts.Actions.batch(PostTag, [%{post_id: 1, tag_id: 5}], batch_keys: [:post_id, :tag_id], cardinality: :one)
+
+  ## Options
+
+  * `:batch_keys` (default `:id`) - atom or list of atoms used to group results
+  * `:cardinality` (default `:many`) - `:one` or `:many`; when `:one`, each key maps to a
+    single struct and raises `ArgumentError` if multiple records share a key
+  * `:preload` - applied to each grouped result after loading
   """
-  @spec batch(module(), list(params()), atom() | list(atom()), cardinality, opts) :: map()
-  def batch(schema, params, batch_keys \\ :id, cardinality \\ :many, opts \\ [])
+  @spec batch(module(), list(params()), opts) :: map()
+  def batch(schema, params, opts \\ [])
 
-  def batch(_schema, [], _batch_keys, _cardinality, _opts) do
+  def batch(_schema, [], _opts) do
     %{}
   end
 
-  def batch(schema, params, batch_keys, cardinality, opts)
-      when is_list(batch_keys) and cardinality in @cardinalities do
+  def batch(schema, params, opts) do
+    batch_keys = Keyword.get(opts, :batch_keys, :id)
+    cardinality = Keyword.get(opts, :cardinality, :many)
+    do_batch(schema, params, batch_keys, cardinality, opts)
+  end
+
+  defp do_batch(schema, params, batch_keys, cardinality, opts)
+       when is_list(batch_keys) and cardinality in @cardinalities do
     batch_keys = Enum.uniq(batch_keys)
 
     case Batch.build_batch_params(schema, params, batch_keys, opts) do
@@ -697,8 +717,8 @@ defmodule EctoShorts.Actions do
     end
   end
 
-  def batch(schema, params, batch_key, cardinality, opts)
-      when cardinality in @cardinalities do
+  defp do_batch(schema, params, batch_key, cardinality, opts)
+       when cardinality in @cardinalities do
     values =
       params
       |> Enum.map(&Batch.normalize_batch_key(&1, batch_key))
@@ -740,7 +760,7 @@ defmodule EctoShorts.Actions do
 
     key_fields = Batch.normalize_key_fields(keys)
 
-    fetched_records = batch(schema, params_list, key_fields, :one, opts)
+    fetched_records = batch(schema, params_list, Keyword.merge(opts, batch_keys: key_fields, cardinality: :one))
 
     Enum.reduce(index_to_key, entries, fn {index, batch_key}, acc ->
       case Map.get(fetched_records, batch_key) do

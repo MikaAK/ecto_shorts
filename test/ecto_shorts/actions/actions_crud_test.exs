@@ -2075,7 +2075,7 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
   end
 
-  describe "aggregate/5" do
+  describe "aggregate/3" do
     test "counts all records when no filter is given" do
       %Post{}
       |> Post.changeset(%{title: "A"})
@@ -2089,7 +2089,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert 1 === Actions.aggregate(Post, %{title: "A"})
     end
 
-    test "computes the aggregate using the specified function and field" do
+    test "computes the aggregate using the specified function and field via opts" do
       %Post{}
       |> Post.changeset(%{title: "Low", views: 1})
       |> Repo.insert!()
@@ -2098,8 +2098,8 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "High", views: 10})
       |> Repo.insert!()
 
-      assert 10 === Actions.aggregate(Post, %{}, :max, :views)
-      assert 1 === Actions.aggregate(Post, %{title: "Low"}, :max, :views)
+      assert 10 === Actions.aggregate(Post, %{}, aggregate: :max, key: :views)
+      assert 1 === Actions.aggregate(Post, %{title: "Low"}, aggregate: :max, key: :views)
     end
   end
 
