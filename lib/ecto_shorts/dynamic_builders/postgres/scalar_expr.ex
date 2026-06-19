@@ -3,8 +3,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @moduledoc false
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
-  alias EctoShorts.DynamicBuilders.Postgres.Scalar.Membership
-  alias EctoShorts.DynamicBuilders.Postgres.Scalar.StringTransform
+  alias EctoShorts.DynamicBuilders.Postgres.Scalar
 
   import Ecto.Query
 
@@ -38,52 +37,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
 
   defp dispatch_expr(binding, key, negated, {op, value}) do
     case family_for(op, value) do
-      :membership -> Membership.build(binding, key, negated, {op, value})
-      :string_transform -> StringTransform.build(binding, key, negated, {op, value})
-      :string -> string_impl(binding, key, negated, {op, value})
+      :membership -> Scalar.Membership.build(binding, key, negated, {op, value})
+      :string_transform -> Scalar.StringTransform.build(binding, key, negated, {op, value})
+      :string -> Scalar.String.build(binding, key, negated, {op, value})
       :comparison -> comparison_impl(binding, key, negated, {op, value})
-    end
-  end
-
-  defp string_impl(binding, key, negated, {op, value}) do
-    term = if negated === :not, do: {:not, {op, value}}, else: {op, value}
-
-    case term do
-      {:not, {:like, values}} when is_list(values) ->
-        patterns = Enum.map(values, &preserve_or_wrap_pattern/1)
-        f = field_dyn(binding, key)
-        dynamic([], not fragment("? LIKE ANY(?)", ^f, ^patterns))
-
-      {:like, values} when is_list(values) ->
-        patterns = Enum.map(values, &preserve_or_wrap_pattern/1)
-        f = field_dyn(binding, key)
-        dynamic([], fragment("? LIKE ANY(?)", ^f, ^patterns))
-
-      {:not, {:ilike, values}} when is_list(values) ->
-        patterns = Enum.map(values, &preserve_or_wrap_pattern/1)
-        f = field_dyn(binding, key)
-        dynamic([], not fragment("? ILIKE ANY(?)", ^f, ^patterns))
-
-      {:ilike, values} when is_list(values) ->
-        patterns = Enum.map(values, &preserve_or_wrap_pattern/1)
-        f = field_dyn(binding, key)
-        dynamic([], fragment("? ILIKE ANY(?)", ^f, ^patterns))
-
-      {:not, {:like, v}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not like(^f, ^preserve_or_wrap_pattern(v)))
-
-      {:like, v} ->
-        f = field_dyn(binding, key)
-        dynamic([], like(^f, ^preserve_or_wrap_pattern(v)))
-
-      {:not, {:ilike, v}} ->
-        f = field_dyn(binding, key)
-        dynamic([], not ilike(^f, ^preserve_or_wrap_pattern(v)))
-
-      {:ilike, v} ->
-        f = field_dyn(binding, key)
-        dynamic([], ilike(^f, ^preserve_or_wrap_pattern(v)))
     end
   end
 
@@ -876,15 +833,4 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
 
   defp family_for(_op, _term), do: :comparison
 
-  defp preserve_or_wrap_pattern(value) when is_binary(value) do
-    if String.contains?(value, ["%", "_"]) do
-      value
-    else
-      "%#{value}%"
-    end
-  end
-
-  defp preserve_or_wrap_pattern(value) do
-    "%#{value}%"
-  end
 end
