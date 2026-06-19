@@ -23,5 +23,14 @@ tasks include updating the specific tests its decision touches.
 extend it, 05 wires it in, 06 sits in front for HTTP. Each plan is independently
 green (`mix test` passes) at its end.
 
-**Status:** Plan 01 is fully expanded (`...-01-term-resolver.md`). Plans 02–06 are
-expanded just-in-time before execution.
+**Plan files** (all six now fully expanded):
+- `…-01-predicate-builder.md` — PredicateBuilder + Predicate struct
+- `…-02-pure-expr.md` — pure Expr + comparison_impl decomposition
+- `…-03-operands-and-operators.md` — operands + new operators
+- `…-04-behavior-changes.md` — D-NULL/D-RAISE/D-ONE-WAY/D-PROVIDER/sort
+- `…-05-wiring.md` — wiring + thin adapter + subquery operands + aggregate→HAVING
+- `…-06-validate-step.md` — the HTTP validate gate (`from_request/3`)
+
+**Status:** all six plans expanded. Execution order is strict (01→06); each ends
+`mix test`-green. Implementation is delegated to `claude-copilot:code-implementer`
+per `RULES.md`, task-by-task, after the spec + plans are approved.
