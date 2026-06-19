@@ -212,6 +212,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # `not` wraps a single inner test. (A `not` over a multi-operator map needs
   # De Morgan — flagged for §3.11/Plan 04; the common case is one operator.)
   defp lift_negation(%{not: inner}), do: toggle(lift_negation(inner))
+  defp lift_negation({:not, inner}), do: toggle(lift_negation(inner))
   defp lift_negation(term), do: {false, term}
   defp toggle({negated, term}), do: {not negated, term}
 
@@ -219,6 +220,15 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # Each operator entry contributes one (or more) tidied term; we fold over all
   # of them. Bare scalar/list/nil are single terms.
   defp build_terms(nil, _type), do: [{:==, nil}]
+
+  # A bare operator tuple, e.g. `{:>, 18}` or `{:in, [..]}`, is one operator
+  # entry (the keyword-list form de-sugared to a single pair).
+  defp build_terms({raw_op, val}, type) when is_atom(raw_op) do
+    case canonical_op(raw_op) do
+      :__unknown__ -> [{:==, cast(type, {raw_op, val})}]
+      op -> build_one(op, val, type)
+    end
+  end
 
   defp build_terms(term, type) do
     cond do
@@ -255,6 +265,22 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # `lower(col) == x`; ArrayExpr unnests and lower()-compares each element.
   defp build_one(t, value, _type) when t in [:lower, :upper] and is_binary(value),
     do: [{:==, {t, value}}]
+
+  # Quantified subquery, default equality: %{all: %{from: Src, where: ...}} →
+  # {:==, {:all, {:subquery, src, select, where}}}. Select defaults to the outer
+  # column (filled by the adapter from the predicate field) unless overridden.
+  defp build_one(q, %{from: src} = spec, _type) when q in @quantifier_ops do
+    [{:==, {q, subquery_spec(src, spec)}}]
+  end
+
+  # Quantified subquery under a comparison: %{>: %{all: %{from: ...}}}.
+  defp build_one(op, %{all: %{from: src} = spec}, _type) when op in @comparison_ops do
+    [{op, {:all, subquery_spec(src, spec)}}]
+  end
+
+  defp build_one(op, %{any: %{from: src} = spec}, _type) when op in @comparison_ops do
+    [{op, {:any, subquery_spec(src, spec)}}]
+  end
 
   # Array quantifier operators: %{all: %{>: "a"}} / %{all: %{in: [...]}} →
   # {:all, {op, value}} consumed by ArrayExpr. Reduce the inner comparison map.
@@ -441,6 +467,21 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     end
   end
 
+  # Carry a quantified-subquery spec for the adapter to build. The select field
+  # may be overridden (`select: %{field: "x"}` or `select: :x`); otherwise it is
+  # left nil and the adapter defaults it to the outer column.
+  defp subquery_spec(src, spec) do
+    where_params = Map.drop(spec, [:from, :select])
+    {:subquery, src, select_field(Map.get(spec, :select)), where_params}
+  end
+
+  defp select_field(nil), do: nil
+  defp select_field(field) when is_atom(field), do: field
+  defp select_field(field) when is_binary(field), do: field
+  defp select_field(%{field: f}), do: f
+  defp select_field(%{} = m), do: m[:field]
+  defp select_field(_), do: nil
+
   # `field SYM value` uses the value-wrapped arithmetic shape consumed by the
   # ScalarExpr `arithmetic?` clause (so negation emits NOT(...)); any other
   # operand combination uses the generic binary-operand list form.
@@ -508,6 +549,10 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp walk_fields({:field, {b, name}}, source, opts) when is_binary(name) do
     {:field, {b, resolve_ref!(source, name, opts)}}
   end
+
+  # Subquery specs reference the inner source; leave them untouched here (the
+  # adapter recurses through CommonFilters with the inner source).
+  defp walk_fields({:subquery, _src, _select, _where} = sq, _source, _opts), do: sq
 
   defp walk_fields(list, source, opts) when is_list(list) do
     Enum.map(list, &walk_fields(&1, source, opts))

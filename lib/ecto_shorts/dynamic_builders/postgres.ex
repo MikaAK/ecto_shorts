@@ -75,7 +75,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   def build_dynamic(%Predicate{routing: routing, field: field, negated: negated, expr: expr}, selected_binding, opts) do
     neg = if negated, do: :not, else: nil
 
-    expr = build_subqueries(expr, opts)
+    expr = build_subqueries(expr, field, opts)
 
     case routing do
       :scalar -> ScalarExpr.dynamic_expr(selected_binding, field, neg, expr, opts)
@@ -87,10 +87,67 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
 
   def build_dynamic(source, selected_binding, args), do: build_dynamic(source, selected_binding, args, [])
 
-  # Replaces any {:subquery, source, where_params} operand carried inside a
-  # tidied predicate expr with a built Ecto.SubQuery. Identity for exprs that
-  # carry no subquery spec. (Filled out in Plan 05 Task 5.)
-  defp build_subqueries(expr, _opts), do: expr
+  # Replaces any {:subquery, source, select, where_params} operand carried inside
+  # a tidied predicate expr with a built Ecto.SubQuery (the only place query
+  # construction happens). `default_select` is the outer column used when the
+  # spec gives no select override. Identity for exprs carrying no subquery spec.
+  defp build_subqueries({:subquery, src, select, where_params}, default_select, opts) do
+    inner_source = resolve_subquery_source(src, opts)
+    inner_query = CommonFilters.convert_params_to_filter(inner_source, where_params, opts)
+    select_term = resolve_subquery_select(inner_source, select, default_select, opts)
+    Select.build_query(:select, inner_source, inner_query, {:as, nil}, select_term, opts)
+  end
+
+  defp build_subqueries(expr, default_select, opts) when is_tuple(expr) do
+    expr
+    |> Tuple.to_list()
+    |> Enum.map(&build_subqueries(&1, default_select, opts))
+    |> List.to_tuple()
+  end
+
+  defp build_subqueries(expr, default_select, opts) when is_list(expr) do
+    Enum.map(expr, &build_subqueries(&1, default_select, opts))
+  end
+
+  defp build_subqueries(expr, _default_select, _opts), do: expr
+
+  defp resolve_subquery_source(src, _opts) when is_atom(src) and not is_nil(src), do: src
+  defp resolve_subquery_source({_source, _schema} = src, _opts), do: src
+
+  defp resolve_subquery_source(src, opts) when is_binary(src) do
+    aliases = opts[:source_aliases] || %{}
+
+    case Map.get(aliases, src) do
+      nil -> raise EctoShorts.FilterError, "unknown subquery source alias #{inspect(src)}"
+      resolved -> resolved
+    end
+  end
+
+  defp resolve_subquery_source(src, _opts) do
+    raise EctoShorts.FilterError, "invalid subquery source #{inspect(src)}"
+  end
+
+  # Resolve the subquery's select column: an explicit override (atom or a string
+  # checked against the inner schema), else the outer column.
+  defp resolve_subquery_select(_source, field, _default, _opts) when is_atom(field) and not is_nil(field),
+    do: field
+
+  defp resolve_subquery_select(source, field, default, _opts) when is_binary(field) do
+    fields = CommonSchema.get_schema_reflection(source, :fields) || []
+
+    if field in Enum.map(fields, &Atom.to_string/1) do
+      String.to_existing_atom(field)
+    else
+      EctoShorts.LogUtils.warning(
+        @logger_prefix,
+        "Field \"#{field}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
+      )
+
+      default
+    end
+  end
+
+  defp resolve_subquery_select(_source, _select, default, _opts), do: default
 
   @spec build_dynamic(term(), {:as, nil | atom()} | {:at, pos_integer()}, term(), keyword()) ::
           Ecto.Query.dynamic_expr()
