@@ -150,6 +150,65 @@ designs/reviews (`reviews/fresh-eyes-review.md`).
 9. **A stated rule for names that look like operators.** (D-COLLISION.) A column
    named like an operator (`count`, `before`, `data`, `all`) still works; §3.4.
 
+### 0.5 Design tenets (and the prior art behind them)
+These are the principles every decision in this document traces back to. They are
+recorded here so future work and documentation can see *why* the design is shaped
+the way it is, not just *what* it does.
+
+**The prior art it builds on.** Four widely-used filter systems — built by
+different teams for different ecosystems — independently arrived at almost the same
+filter shape. "Consensus" below is shorthand for the structure those four share;
+it is not a formal standard, and they differ in surface details.
+
+- **MongoDB** (document database): `{age: {$gt: 21}}`
+- **Prisma** (TypeScript database toolkit): `{ age: { gt: 21 } }`
+- **Hasura** (auto-generated GraphQL over Postgres): `{ age: { _gt: 21 } }`
+- **Ash** (Elixir application framework): `%{age: %{greater_than: 21}}`
+
+The full per-system breakdown is in `reviews/fresh-eyes-review.md`. When this
+project's own blind designers (given only the problem, not our code) landed on the
+same shape, that was the signal our foundation was right.
+
+**The tenets.**
+1. **The structure describes the action.** A filter is plain data — a map — that
+   reads like a description of what to fetch. This is the root tenet: it is what
+   lets the same value travel from an HTTP request, through the library, to the
+   database without a custom mini-language.
+2. **Field-keyed, operator-nested.** `%{column: %{operator: value}}`. Operators
+   live one level *below* the column, never beside it — which is what lets a column
+   be named `count` or `before` without colliding with an operator (no `$`/`_`
+   sigil needed). (Consensus point; our D-COLLISION rule, §3.4.)
+3. **The common case is bare.** A plain value means equals (`%{status: "active"}`);
+   a plain list means "is one of." No ceremony for the 80% case. (Consensus.)
+4. **AND is implicit, OR is explicit.** Sibling keys are ANDed; OR is a list of
+   sub-filters (`%{or: [...]}`) — forced by the fact that a map cannot hold two of
+   the same key. (Consensus.)
+5. **A small, closed operator set, one spelling per operation.** Adding an operator
+   is a deliberate decision, not an open door. (Consensus; our D-ONE-WAY.)
+6. **One operand convention.** Whatever a column is compared against — a literal, another
+   column, a subquery, or an outer-query column — is told apart by one reserved key
+   (§1.5a). One mental model for the whole language. (Our D-OPERAND.)
+7. **HTTP-native by construction.** The decoder is dumb (it does no type guessing);
+   types come from the schema; nothing on the wire is an atom or a tuple; untrusted
+   input is allow-listed and validated. (Our D-WIRE, §1.7.) This is the prior-art
+   lesson that JSON bodies are the home for rich filters and query strings carry
+   the simple subset.
+8. **A minimal core, with the rest tiered behind it.** Everyday filters form a
+   small wire-safe core; power-user features are a labelled advanced tier; a raw
+   Ecto condition is the final escape hatch. Capability is organized, not cut.
+   (Our D-CORE.)
+9. **Pure leaves, one translator.** The pieces that emit SQL are pure functions;
+   all the tidying (renaming, casting, resolving, routing) lives in one
+   dialect-agnostic translator. (§2.) This is an internal tenet, but it is what
+   keeps the library simple enough to reason about.
+10. **Safe with untrusted input.** Allow-list the columns and operators a request
+    may use; never turn caller strings into atoms outside a fixed safe list; always
+    pass values as parameters, never interpolate. (Prior-art lesson — Ransack's
+    mass-assignment history; our D-WIRE.)
+11. **Predictable failure.** A filter that does not apply is warned-and-skipped; a
+    clear caller mistake raises (from Elixir) or becomes a validation error (from
+    HTTP). (Our D-WARN / D-RAISE.)
+
 ---
 
 ## 1. THE PROMISE TO CALLERS — `EctoShorts.CommonFilters.convert_params_to_filter/3`
