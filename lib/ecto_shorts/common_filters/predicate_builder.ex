@@ -14,13 +14,15 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   @text_transforms [:lower, :upper, :trim, :ltrim, :rtrim]
   @string_ops [:like, :ilike]
   @list_ops [:in, :nin, :overlaps]
+  @date_math_ops [:ago, :from_now, :shift]
 
   # Canonical operator atoms recognized from the wire (as strings).
   @operator_atoms @comparison_ops ++
                     @aggregate_ops ++
                     @text_transforms ++
                     @string_ops ++
-                    @list_ops
+                    @list_ops ++
+                    @date_math_ops
 
   @op_aliases %{
     eq: :==,
@@ -197,6 +199,20 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     Enum.map(compares(inner, type), fn cmp -> {agg, cmp} end)
   end
 
+  # date-math RHS: a wrapper map carrying :date or :datetime. Recognize by key
+  # access (not a singleton Map.to_list match) and reduce the inner op map.
+  defp build_one(op, %{date: w}, _type) when op in @comparison_ops, do: dt_term(op, :date, w)
+
+  defp build_one(op, %{datetime: w}, _type) when op in @comparison_ops,
+    do: dt_term(op, :datetime, w)
+
+  # Bare date-math op (no date/datetime wrapper) defaults to :datetime.
+  defp build_one(op, %{} = w, _type)
+       when op in @comparison_ops and is_map_key(w, :ago)
+       when op in @comparison_ops and is_map_key(w, :from_now)
+       when op in @comparison_ops and is_map_key(w, :shift),
+       do: dt_term(op, :datetime, w)
+
   # text transforms on the value side: %{lower: v} (reduced, in case of several)
   defp build_one(op, %{} = inner, _type) when op in [:==, :!=] do
     Enum.reduce(inner, [], fn {raw_t, v}, acc ->
@@ -246,6 +262,38 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
       true ->
         warn_skip("Aggregate expects a comparison map, skipping")
         []
+    end
+  end
+
+  @date_units ~w(second minute hour day week month year)
+
+  # w is %{ago | from_now | shift => params}; reduce so multiple/zero entries
+  # don't crash — each recognized date-math op yields one tidied term.
+  defp dt_term(op, wrapper, w) do
+    Enum.reduce(w, [], fn {raw_dt_op, params}, acc ->
+      case canonical_op(raw_dt_op) do
+        dt_op when dt_op in @date_math_ops ->
+          acc ++ [{op, {wrapper, {dt_op, dt_keyword(params)}}}]
+
+        _ ->
+          warn_skip("Unknown date-math op, skipping")
+          acc
+      end
+    end)
+  end
+
+  defp dt_keyword(%{} = p) do
+    unit = p[:unit] || p["unit"] || p[:interval] || p["interval"]
+
+    unless to_string(unit) in @date_units do
+      raise EctoShorts.FilterError, "unknown date unit #{inspect(unit)}"
+    end
+
+    kw = [count: p[:count] || p["count"], interval: to_string(unit)]
+
+    case p[:field] || p["field"] do
+      nil -> kw
+      f -> kw ++ [field: f]
     end
   end
 

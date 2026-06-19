@@ -307,12 +307,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
 
   defp datetime?({op, {wrapper, {datetime_op, _}}})
        when op in @comparison_operators and wrapper in [:datetime, :date] and
-              datetime_op in [:ago, :from_now, :add],
+              datetime_op in [:ago, :from_now, :add, :shift],
        do: true
 
   defp datetime?({:not, {op, {wrapper, {datetime_op, _}}}})
        when op in @comparison_operators and wrapper in [:datetime, :date] and
-              datetime_op in [:ago, :from_now, :add],
+              datetime_op in [:ago, :from_now, :add, :shift],
        do: true
 
   defp datetime?(_), do: false
@@ -741,13 +741,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   # Generic datetime - all ops × {datetime,date} × {ago,from_now,add}
   defp datetime_comparison(binding, key, {op_d, {wrapper, {datetime_op, params}}})
        when op_d in @comparison_operators and wrapper in [:datetime, :date] and
-              datetime_op in [:ago, :from_now, :add] do
+              datetime_op in [:ago, :from_now, :add, :shift] do
     apply_datetime_comparison(binding, key, op_d, wrapper, datetime_op, params, :plain)
   end
 
   defp datetime_comparison(binding, key, {:not, {op_d, {wrapper, {datetime_op, params}}}})
        when op_d in @comparison_operators and wrapper in [:datetime, :date] and
-              datetime_op in [:ago, :from_now, :add] do
+              datetime_op in [:ago, :from_now, :add, :shift] do
     apply_datetime_comparison(binding, key, op_d, wrapper, datetime_op, params, :negated)
   end
 
@@ -952,6 +952,11 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     apply_dyn_comparison(op, dynamic([], ^f), rhs, mode)
   end
 
+  # :shift is the canonical date-math word — same datetime_add SQL as :add.
+  defp apply_datetime_comparison(binding, key, op, :datetime, :shift, params, mode) do
+    apply_datetime_comparison(binding, key, op, :datetime, :add, params, mode)
+  end
+
   defp apply_datetime_comparison(binding, key, op, :date, :ago, params, mode) do
     count = Keyword.fetch!(params, :count)
     interval = Keyword.fetch!(params, :interval)
@@ -976,6 +981,10 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     f2 = field_dyn(binding, field_name)
     rhs = dynamic([], fragment("date(?)", datetime_add(^f2, ^count, ^interval)))
     apply_dyn_comparison(op, dynamic([], ^f), rhs, mode)
+  end
+
+  defp apply_datetime_comparison(binding, key, op, :date, :shift, params, mode) do
+    apply_datetime_comparison(binding, key, op, :date, :add, params, mode)
   end
 
   defp apply_dyn_comparison(:==, lhs, rhs, :plain), do: dynamic([], ^lhs == ^rhs)

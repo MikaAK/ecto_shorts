@@ -956,6 +956,25 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
       assert_dynamic(expected, actual)
     end
 
+    test "{:>=, {:datetime, {:shift, ...}}} emits datetime_add (same SQL as :add)" do
+      expected =
+        dynamic(
+          [q],
+          field(q, :inserted_at) >= datetime_add(field(q, :inserted_at), ^7, "day")
+        )
+
+      actual =
+        ScalarExpr.dynamic_expr(
+          {:as, nil},
+          :inserted_at,
+          nil,
+          {:>=, {:datetime, {:shift, [count: 7, interval: "day", field: :inserted_at]}}},
+          []
+        )
+
+      assert_dynamic(expected, actual)
+    end
+
     test "{:>, {:datetime, {:ago, ...}}} produces datetime greater-than using ago" do
       expected =
         from(p in Post,

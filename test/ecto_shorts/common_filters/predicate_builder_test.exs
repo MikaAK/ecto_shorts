@@ -169,6 +169,21 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
                PredicateBuilder.build({"posts", nil}, :tags, %{overlaps: ["a", "b"]}, [])
     end
 
+    test "date-math: bare ago map tidies to a :datetime interval keyword" do
+      assert {:ok, [%Predicate{expr: {:>, {:datetime, {:ago, [count: 1, interval: "day"]}}}}]} =
+               PredicateBuilder.build(Post, :inserted_at, %{gt: %{ago: %{count: 1, unit: "day"}}}, [])
+    end
+
+    test "date-math: date wrapper with shift tidies to a :date interval keyword" do
+      assert {:ok, [%Predicate{expr: {:>=, {:date, {:shift, [count: 7, interval: "day"]}}}}]} =
+               PredicateBuilder.build(
+                 Post,
+                 :inserted_at,
+                 %{gte: %{date: %{shift: %{count: 7, unit: "day"}}}},
+                 []
+               )
+    end
+
     test "an unknown operator entry is dropped (warn); other entries survive" do
       log =
         capture_log(fn ->
