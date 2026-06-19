@@ -277,7 +277,7 @@ defmodule EctoShorts.MixProject do
           const hint = document.createElement("div");
           hint.className = "es-cy-hint";
           hint.style.color = c.hint;
-          hint.textContent = "Click to interact";
+          hint.textContent = "Pinch or click to zoom";
           canvas.appendChild(hint);
           frame.appendChild(canvas);
 
@@ -329,7 +329,7 @@ defmodule EctoShorts.MixProject do
         }
 
         function wireCytoscape(cy, frame, spec, dark) {
-          const { c, bar } = frame._es;
+          const { c, bar, canvas } = frame._es;
           const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
           // --- Controls in the title bar ---
@@ -374,16 +374,35 @@ defmodule EctoShorts.MixProject do
           mkBtn("Fit to view", "⤢", () => { clearFocus(); cy.fit(undefined, 24); });
           bar.appendChild(controls);
 
-          // --- Scroll-guard: wheel-zoom only after the graph is activated ---
+          // --- Zoom + scroll-guard ---
+          // We drive zoom ourselves so a plain two-finger scroll passes
+          // through to the page until the reader opts into the graph, while
+          // gestures that clearly mean "zoom" always work:
+          //   * trackpad pinch — the browser delivers this as a wheel event
+          //     with ctrlKey set (even though no key is held)
+          //   * ctrl/⌘ + wheel
+          //   * any wheel after the graph has been activated by a click/focus
+          // Touch devices still pinch-zoom natively (touch events, not wheel).
           cy.userZoomingEnabled(false);
-          function activate() { frame.classList.add("is-active"); cy.userZoomingEnabled(true); }
-          function deactivate() { frame.classList.remove("is-active"); cy.userZoomingEnabled(false); }
+          function activate() { frame.classList.add("is-active"); }
+          function deactivate() { frame.classList.remove("is-active"); }
           cy.on("tap", activate);
           frame.addEventListener("focusin", activate);
           frame.addEventListener("mouseleave", deactivate);
           frame.addEventListener("focusout", (e) => {
             if (!frame.contains(e.relatedTarget)) deactivate();
           });
+          cy.on("touchstart", () => cy.userZoomingEnabled(true));
+          canvas.addEventListener("wheel", (e) => {
+            const zoomIntent = e.ctrlKey || e.metaKey || frame.classList.contains("is-active");
+            if (!zoomIntent) return;            // let the page scroll
+            e.preventDefault();
+            activate();
+            const r = cy.container().getBoundingClientRect();
+            const factor = Math.exp(-e.deltaY * 0.0015);
+            const level = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), cy.zoom() * factor));
+            cy.zoom({ level: level, renderedPosition: { x: e.clientX - r.left, y: e.clientY - r.top } });
+          }, { passive: false });
 
           // --- Search filter ---
           search.addEventListener("input", () => {
