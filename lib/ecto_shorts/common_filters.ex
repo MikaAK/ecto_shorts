@@ -523,17 +523,18 @@ defmodule EctoShorts.CommonFilters do
   defp list_of_params?([head | _]), do: params?(head)
   defp list_of_params?(_), do: false
 
-  defp sort_filter_params(params) do
-    where_filters = Enum.filter(params, fn {key, _val} -> key === :where end)
-    or_where_filters = Enum.filter(params, fn {key, _val} -> key === :or_where end)
-    terminal_filters = Enum.filter(params, fn {key, _val} -> key in [:last, :subquery] end)
+  @doc false
+  def sort_filter_params(params) do
+    {where, ors, terminal, other} =
+      Enum.reduce(params, {[], [], [], []}, fn {key, _} = entry, {w, o, t, rest} ->
+        case key do
+          :where -> {[entry | w], o, t, rest}
+          :or_where -> {w, [entry | o], t, rest}
+          k when k in [:last, :subquery] -> {w, o, [entry | t], rest}
+          _ -> {w, o, t, [entry | rest]}
+        end
+      end)
 
-    other_filters =
-      Enum.filter(params, fn {key, _val} -> key not in [:where, :or_where, :last, :subquery] end)
-
-    where_filters
-    |> Kernel.++(other_filters)
-    |> Kernel.++(or_where_filters)
-    |> Kernel.++(terminal_filters)
+    Enum.reverse(where) ++ Enum.reverse(other) ++ Enum.reverse(ors) ++ Enum.reverse(terminal)
   end
 end
