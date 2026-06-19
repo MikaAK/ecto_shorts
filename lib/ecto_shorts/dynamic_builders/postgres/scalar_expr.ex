@@ -248,73 +248,108 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     end
   end
 
-  # All comparison cases in one function - compiled once, not 12×
+  # comparison_impl keeps the term-building, then routes by operand family.
   defp comparison_impl(binding, key, negated, {op, value}) do
     term = if negated === :not, do: {:not, {op, value}}, else: {op, value}
 
+    cond do
+      nil_or_scalar?(term) -> scalar_comparison(binding, key, term)
+      true -> comparison_impl_rest(binding, key, term)
+    end
+  end
+
+  # Family predicate: nil checks and scalar (non-tuple value) comparisons.
+  defp nil_or_scalar?({op, v}) when op in [:==, :!=] and (is_nil(v) or not is_tuple(v)), do: true
+
+  defp nil_or_scalar?({:not, {op, v}}) when op in [:==, :!=] and (is_nil(v) or not is_tuple(v)),
+    do: true
+
+  defp nil_or_scalar?({op, v}) when op in [:>, :>=, :<, :<=] and not is_tuple(v), do: true
+  defp nil_or_scalar?({:not, {op, v}}) when op in [:>, :>=, :<, :<=] and not is_tuple(v), do: true
+  defp nil_or_scalar?(_), do: false
+
+  # scalar_comparison receives the already-negation-folded `term`.
+  # Nil checks
+  defp scalar_comparison(binding, key, {:==, nil}) do
+    nil_field_dyn?(binding, key)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:==, nil}}) do
+    not_nil_dyn(binding, key)
+  end
+
+  defp scalar_comparison(binding, key, {:!=, nil}) do
+    not_nil_dyn(binding, key)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:!=, nil}}) do
+    nil_field_dyn?(binding, key)
+  end
+
+  # Scalar comparisons
+  defp scalar_comparison(binding, key, {:==, v}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f == ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:==, v}}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f != ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:!=, v}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f != ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:!=, v}}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f == ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:>, v}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f > ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:>, v}}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f > ^v))
+  end
+
+  defp scalar_comparison(binding, key, {:>=, v}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f >= ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:>=, v}}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f >= ^v))
+  end
+
+  defp scalar_comparison(binding, key, {:<, v}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f < ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:<, v}}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f < ^v))
+  end
+
+  defp scalar_comparison(binding, key, {:<=, v}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], ^f <= ^v)
+  end
+
+  defp scalar_comparison(binding, key, {:not, {:<=, v}}) when not is_tuple(v) do
+    f = field_dyn(binding, key)
+    dynamic([], not (^f <= ^v))
+  end
+
+  # comparison_impl_rest holds the families not yet extracted; later tasks carve them out.
+  defp comparison_impl_rest(binding, key, term) do
     case term do
-      # Nil checks
-      {:==, nil} ->
-        nil_field_dyn?(binding, key)
-
-      {:not, {:==, nil}} ->
-        not_nil_dyn(binding, key)
-
-      {:!=, nil} ->
-        not_nil_dyn(binding, key)
-
-      {:not, {:!=, nil}} ->
-        nil_field_dyn?(binding, key)
-
-      # Scalar comparisons
-      {:==, v} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f == ^v)
-
-      {:not, {:==, v}} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f != ^v)
-
-      {:!=, v} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f != ^v)
-
-      {:not, {:!=, v}} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f == ^v)
-
-      {:>, v} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f > ^v)
-
-      {:not, {:>, v}} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f > ^v))
-
-      {:>=, v} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f >= ^v)
-
-      {:not, {:>=, v}} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f >= ^v))
-
-      {:<, v} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f < ^v)
-
-      {:not, {:<, v}} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f < ^v))
-
-      {:<=, v} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], ^f <= ^v)
-
-      {:not, {:<=, v}} when not is_tuple(v) ->
-        f = field_dyn(binding, key)
-        dynamic([], not (^f <= ^v))
-
       # Quantified comparisons (all / any)
       {:==, {:all, qv}} ->
         f = field_dyn(binding, key)
