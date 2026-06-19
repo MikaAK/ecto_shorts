@@ -2,12 +2,16 @@ defmodule EctoShorts.DynamicBuildersTest do
   use ExUnit.Case, async: true
 
   import Ecto.Query
+  import ExUnit.CaptureLog
 
   alias EctoShorts.DynamicBuilders
-  alias EctoShorts.Schema.Post
   alias EctoShorts.Testing
 
   # Fake repo modules that report specific adapter names without any real DB connection.
+  defmodule FakePostgresRepo do
+    def __adapter__, do: Ecto.Adapters.Postgres
+  end
+
   defmodule FakeMyXQLRepo do
     def __adapter__, do: Ecto.Adapters.MyXQL
   end
@@ -57,28 +61,43 @@ defmodule EctoShorts.DynamicBuildersTest do
     end
   end
 
-  describe "build_dynamic/4 unsupported adapter raises" do
-    test "raises for Ecto.Adapters.MyXQL" do
-      assert_raise RuntimeError, ~r/Adapter not yet implemented: Ecto.Adapters.MyXQL/, fn ->
-        DynamicBuilders.build_dynamic(Post, {:as, nil}, {:id, 1}, repo: FakeMyXQLRepo)
-      end
+  describe "unsupported adapter warns and defaults to Postgres" do
+    @predicate %EctoShorts.CommonFilters.Predicate{
+      field: :id,
+      routing: :scalar,
+      negated: false,
+      expr: {:==, 1}
+    }
+
+    test "Postgres adapter resolves silently with no warning" do
+      expected = dynamic([q], q.id == ^1)
+
+      log =
+        capture_log(fn ->
+          actual = DynamicBuilders.build_dynamic(@predicate, {:as, nil}, repo: FakePostgresRepo)
+          Testing.assert_dynamic(expected, actual)
+        end)
+
+      refute log =~ "no built-in dynamic builder"
     end
 
-    test "raises for Ecto.Adapters.SQL" do
-      assert_raise RuntimeError, ~r/Adapter not yet implemented: Ecto.Adapters.SQL/, fn ->
-        DynamicBuilders.build_dynamic(Post, {:as, nil}, {:id, 1}, repo: FakeSQLRepo)
-      end
-    end
+    for {adapter_name, repo} <- [
+          {"Ecto.Adapters.MyXQL", FakeMyXQLRepo},
+          {"Ecto.Adapters.SQL", FakeSQLRepo},
+          {"Ecto.Adapters.Tds", FakeTdsRepo},
+          {"an unknown adapter", FakeUnknownRepo}
+        ] do
+      test "warns and falls back to Postgres for #{adapter_name}" do
+        expected = dynamic([q], q.id == ^1)
 
-    test "raises for Ecto.Adapters.Tds" do
-      assert_raise RuntimeError, ~r/Adapter not yet implemented/, fn ->
-        DynamicBuilders.build_dynamic(Post, {:as, nil}, {:id, 1}, repo: FakeTdsRepo)
-      end
-    end
+        log =
+          capture_log(fn ->
+            actual = DynamicBuilders.build_dynamic(@predicate, {:as, nil}, repo: unquote(repo))
+            Testing.assert_dynamic(expected, actual)
+          end)
 
-    test "raises for an unknown/unsupported adapter" do
-      assert_raise RuntimeError, ~r/is not supported/, fn ->
-        DynamicBuilders.build_dynamic(Post, {:as, nil}, {:id, 1}, repo: FakeUnknownRepo)
+        assert log =~ "no built-in dynamic builder"
+        assert log =~ "defaulting to EctoShorts.DynamicBuilders.Postgres"
       end
     end
   end

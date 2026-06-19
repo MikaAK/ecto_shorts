@@ -39,8 +39,10 @@ defmodule EctoShorts.DynamicBuilders do
 
     * `Ecto.Adapters.Postgres` - resolves to `EctoShorts.DynamicBuilders.Postgres`
 
-  All other adapters raise at runtime unless a custom dynamic adapter is
-  provided.
+  All other adapters emit a `Logger.warning` and fall back to
+  `EctoShorts.DynamicBuilders.Postgres`, which may generate invalid SQL for that
+  database. Provide a custom dynamic adapter to silence the warning and get
+  dialect-correct expressions.
 
   ## Custom adapters
 
@@ -50,7 +52,7 @@ defmodule EctoShorts.DynamicBuilders do
   A custom adapter may be configured in your application environment:
 
       # config/config.exs
-      config :ecto_shorts, dynamic_builder: MyApp.DynamicBuilders.Custom
+      config :ecto_shorts, dynamic_builder_module: MyApp.DynamicBuilders.Custom
 
   It may also be passed at call time:
 
@@ -58,6 +60,8 @@ defmodule EctoShorts.DynamicBuilders do
         dynamic_builder: MyApp.DynamicBuilders.Custom
       )
   """
+
+  require Logger
 
   alias EctoShorts.Config
 
@@ -128,17 +132,16 @@ defmodule EctoShorts.DynamicBuilders do
           Ecto.Adapters.Postgres ->
             EctoShorts.DynamicBuilders.Postgres
 
-          Ecto.Adapters.MyXQL ->
-            raise "Adapter not yet implemented: Ecto.Adapters.MyXQL"
-
-          Ecto.Adapters.SQL ->
-            raise "Adapter not yet implemented: Ecto.Adapters.SQL"
-
-          Ecto.Adapters.Tds ->
-            raise "Adapter not yet implemented: Ecto.Adapters.SQL"
-
           adapter ->
-            raise "The adapter #{inspect(adapter)} is not supported. You must specify the option :dynamic_builder..."
+            Logger.warning("""
+            EctoShorts has no built-in dynamic builder for #{inspect(adapter)}; \
+            defaulting to EctoShorts.DynamicBuilders.Postgres, which may generate \
+            invalid SQL for this database. Configure a dialect-specific builder via \
+            `config :ecto_shorts, dynamic_builder_module: MyApp.DynamicBuilder` or the \
+            `:dynamic_builder` call-time option.
+            """)
+
+            EctoShorts.DynamicBuilders.Postgres
         end
 
       module ->
