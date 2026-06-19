@@ -39,11 +39,13 @@ schema-backed and schemaless cases, the latter tagged `@describetag schema_mode:
 :schemaless`. The `feature:` axis is preserved per merged block via `@describetag`,
 so `mix test --only feature:<name>` / `--only schema_mode:schemaless` still works.
 
-**Compromises** (modules with no dedicated test file): the set-operation family
-(`union`/`intersect`/`except` + `_all`) shares `filters/set_operation_test.exs`;
-`order_by`/`prepend_order_by` share `filters/order_by_test.exs` while `reverse_order`
-(the `:first` path) has `filters/reverse_order_test.exs`; `:first`/`:limit`/`:offset`
-schemaless cases live in `filters/limit_test.exs`.
+**One file per lib module — no shared files.** Every filter module in
+`common_filters/filters/` has its own dedicated test file, including the
+set-operation family (`union`, `union_all`, `intersect`, `intersect_all`, `except`,
+`except_all` — six files) and the ordering modules (`order_by`, `prepend_order_by`,
+`reverse_order` — separate files). `:first` is implemented by `Limit`
+(`builder.ex` → `Limit.build_query(:limit, …)`), so its tests live in
+`filters/limit_test.exs`, not a `first` file.
 
 The retained decisions from the original design — the data-driven cross-adapter
 contract (`test/support/filter_contract.ex` + `dynamic_builders/contract/`) and the

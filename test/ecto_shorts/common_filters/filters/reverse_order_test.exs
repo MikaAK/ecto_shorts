@@ -1,84 +1,52 @@
-defmodule EctoShorts.CommonFilters.FirstTest do
+defmodule EctoShorts.CommonFilters.ReverseOrderTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
   @moduletag adapter: :postgres
-  @moduletag feature: :first
+  @moduletag feature: :reverse_order
 
   alias EctoShorts.CommonFilters
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
 
-  describe "first shapes" do
-    test "matches Ecto.Query for a root integer first" do
-      expected = limit(Post, ^10)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{first: 10},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
-
-    test "matches Ecto.Query for a named binding first payload" do
-      source =
-        from(p in Post,
-          join: u in assoc(p, :author),
-          as: :author
-        )
-
-      expected = limit(source, [author: u], ^5)
+  describe "reverse_order nil" do
+    test "reverses the query order when reverse_order is nil" do
+      source = from(p in Post, order_by: [asc: p.title])
+      expected = reverse_order(source)
 
       actual =
         CommonFilters.convert_params_to_filter(
           source,
-          %{
-            as: %{
-              author: %{
-                first: 5
-              }
-            }
-          },
+          %{reverse_order: nil},
           []
         )
 
       assert_query(expected, actual)
     end
+  end
 
-    test "matches Ecto.Query for a positional binding first payload" do
-      source =
-        from(p in Post,
-          join: u in assoc(p, :author)
-        )
+  describe "reverse_order raises on non-true value (D-RAISE)" do
+    test "raises when reverse_order is not true" do
+      base = from(p in Post, order_by: [asc: p.title])
 
-      expected = limit(source, [_, u], ^5)
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{
-            at: %{
-              2 => %{
-                first: 5
-              }
-            }
-          },
-          []
-        )
-
-      assert_query(expected, actual)
+      assert_raise EctoShorts.FilterError, ~r/reverse_order/, fn ->
+        CommonFilters.convert_params_to_filter(base, %{reverse_order: false}, [])
+      end
     end
+  end
 
-    test "casts a string integer first payload" do
-      expected = limit(Post, ^10)
+  describe "order modifier shapes (schemaless)" do
+    @describetag schema_mode: :schemaless
+    test "matches Ecto.Query for reverse_order after local order_by params" do
+      expected =
+        "posts"
+        |> order_by([], asc: :title)
+        |> reverse_order()
 
       actual =
         CommonFilters.convert_params_to_filter(
-          Post,
-          %{first: "10"},
+          "posts",
+          %{order_by: :title, reverse_order: true},
           []
         )
 

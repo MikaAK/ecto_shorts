@@ -9,6 +9,22 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
 
   import Ecto.Query
 
+  describe "first, limit, offset shapes (schemaless)" do
+    @describetag schema_mode: :schemaless
+    test "matches Ecto.Query for a root integer offset" do
+      expected = offset("posts", ^5)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{offset: 5},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe "offset shapes" do
     test "matches Ecto.Query for a root integer offset" do
       expected = offset(Post, ^5)
@@ -85,9 +101,6 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
       assert_query(expected, actual)
     end
 
-    # Covers the fallback apply_offset/3 clause that builds Query.offset(query, ^expr)
-    # without any binding list. This clause is reached when the selected_binding does
-    # not match any of the generated patterns (root, named, or positional).
     test "applies offset via fallback when selected_binding is not a recognised pattern" do
       alias EctoShorts.CommonFilters.Offset
 
