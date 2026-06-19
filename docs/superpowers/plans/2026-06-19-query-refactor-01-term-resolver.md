@@ -396,7 +396,7 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
   `canonicalize(source, key, raw_term, opts) :: {:ok, %{field: atom(), routing: :scalar | :array | :map, negated: boolean(), term: tidied}} | :skip`
   where `tidied` (comparison family) is one of:
   `{canonical_op, cast_value}` · `{:==, nil}` / `{:!=, nil}` · `{:in, [cast_values]}` / `{:nin, [cast_values]}` · `{op, [cast_values]}` (eq/ne + list) · `{:like | :ilike, wrapped_pattern}` · `{op, {transform, value}}` (transform in `:lower :upper :trim :ltrim :rtrim`) · `{agg, {op, cast_value}}` (agg in `:avg :count :max :min :sum`).
-  `negated` is lifted out of any `%{not: …}` / `[not: …]` wrapper (nested `not` toggles). A bare scalar becomes `{:==, cast_value}`; a bare list becomes `{:in, [cast_values]}`; `nil` becomes `{:==, nil}`. An unknown operator → `:skip` (with warning).
+  `negated` is lifted out of any `%{not: …}` / `[not: …]` wrapper (nested `not` toggles). A bare scalar becomes `{:==, cast_value}`; a **bare list becomes `{:==, [cast_values]}`** (a bare list is sugar for `eq`; routing decides membership vs equality downstream — D-LIST); `nil` becomes `{:==, nil}`. An unknown operator → `:skip` (with warning).
   Assumes a single value-test (one operator entry); multi-entry expansion is the caller's job (Plan 05).
 
 - [ ] **Step 1: Write the failing test**
@@ -418,9 +418,9 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
                {:ok, %{field: :published_at, routing: :scalar, negated: false, term: {:==, nil}}}
     end
 
-    test "bare list becomes membership" do
+    test "bare list is sugar for eq (routing decides membership vs equality)" do
       assert TermResolver.canonicalize(Post, :views, ["1", "2"], []) ==
-               {:ok, %{field: :views, routing: :scalar, negated: false, term: {:in, [1, 2]}}}
+               {:ok, %{field: :views, routing: :scalar, negated: false, term: {:==, [1, 2]}}}
     end
 
     test "explicit in/nin keep their operator" do
@@ -451,8 +451,8 @@ git commit -m "feat(resolver): cast/2 (scalar + list element casting via Types.c
                TermResolver.canonicalize(Post, :views, %{not: %{not: %{eq: "5"}}}, [])
     end
 
-    test "array column routes to :array" do
-      assert {:ok, %{routing: :array, term: {:in, ["a", "b"]}}} =
+    test "array column: bare list is eq (routing :array → exact equality downstream)" do
+      assert {:ok, %{routing: :array, term: {:==, ["a", "b"]}}} =
                TermResolver.canonicalize(Post, :tags, ["a", "b"], [])
     end
 
@@ -515,7 +515,7 @@ Expected: FAIL — `canonicalize/4` undefined.
     cond do
       is_map(term) and not is_struct(term) -> build_op(Map.to_list(term), type)
       Keyword.keyword?(term) and term != [] -> build_op(term, type)
-      is_list(term) -> {:in, cast(type, term)}
+      is_list(term) -> {:==, cast(type, term)}
       true -> {:==, cast(type, term)}
     end
   end

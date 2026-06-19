@@ -374,12 +374,14 @@ A raw `Ecto.dynamic` passed as a value is applied as-is. This is the only
 genuinely Elixir-only path; the structured shapes above all travel over HTTP.
 
 **v3.0.0 changes to this language (see §0.4):**
-- **A bare list always means "is one of" (D-LIST).** `%{tags: ["a", "b"]}` means
-  "tags is one of a, b" on every column. For a *list column* overlap, use the
-  explicit `overlaps` operator. For exact list equality on a list column, use
-  `eq`/`ne` with a list: `%{tags: %{eq: ["a", "b"]}}` means "tags equals exactly
-  `["a","b"]`" (on a scalar column the same `eq`+list still means membership —
-  routing is by column type). The `:elements` wrapper is gone.
+- **A bare list is sugar for `eq`, and `eq`+list routes by column type (D-LIST).**
+  A bare list (`%{x: ["a","b"]}`) is the same as `%{x: %{eq: ["a","b"]}}`. On a
+  **scalar** column that means **membership** — `x IN ("a","b")`. On a **list**
+  column it means **exact array equality** — `x = ["a","b"]`. To ask whether a list
+  column *overlaps* a list (shares any element), use the explicit **`overlaps`**
+  operator (`%{tags: %{overlaps: ["a","b"]}}` → `tags && [...]`). `:in` is a
+  scalar-membership operator; used on a **list** column it warns-and-skips (use
+  `overlaps` or `eq`). The `:elements` wrapper is gone.
 - **Date-math is a map, not a tuple, and "add" is "shift" (D-WIRE).** Write
   `%{ago: %{count: 1, unit: "day"}}`. To move a timestamp by an interval the word
   is `shift` (`%{date: %{shift: %{count: 7, unit: "day"}}}`) — distinct from the
@@ -641,7 +643,7 @@ time.
 | `%{views: %{gt: 10}}` | `{"views":{"gt":10}}` | `:views` · no · `{:>,10}` · scalar | views > `^10` |
 | `%{published_at: %{eq: nil}}` | `{"published_at":{"eq":null}}` | `:published_at` · no · `{:==,nil}` · scalar | published_at has no value |
 | `%{published_at: %{ne: nil}}` | `{"published_at":{"ne":null}}` | `:published_at` · no · `{:!=,nil}` · scalar | published_at has a value |
-| `%{id: [1,2]}` | `{"id":[1,2]}` | `:id` · no · `{:in,[1,2]}` · scalar | id is one of `^[1,2]` *(bare list = "is one of", always)* |
+| `%{id: [1,2]}` | `{"id":[1,2]}` | `:id` · no · `{:==,[1,2]}` · scalar | id is one of `^[1,2]` *(bare list = `eq`; on a scalar column → membership/IN — D-LIST)* |
 | `%{published: %{ne: [true]}}` | `{"published":{"ne":[true]}}` | `:published` · no · `{:!=,[true]}` · scalar | published not one of `^[true]` *(nulls excluded — D-NULL)* |
 | `%{title: %{ilike: "al"}}` | `{"title":{"ilike":"al"}}` | `:title` · no · `{:ilike,"%al%"}` · scalar | title contains "al", any case *(auto-`%` — D-LIKE-WRAP)* |
 | `%{title: %{ilike: "al%"}}` | `{"title":{"ilike":"al%"}}` | `:title` · no · `{:ilike,"al%"}` · scalar | title starts with "al" *(your `%` kept)* |
@@ -653,8 +655,10 @@ time.
 **Core — list columns, JSON columns, shorthands**
 | Elixir | JSON body | tidied | Condition |
 |---|---|---|---|
-| `%{tags: ["a","b"]}` | `{"tags":["a","b"]}` | `:tags` · no · `{:in,["a","b"]}` · scalar | tags is one of `^["a","b"]` *(membership, like any column)* |
-| `%{tags: %{overlaps: ["a","b"]}}` | `{"tags":{"overlaps":["a","b"]}}` | `:tags` · no · `{:overlaps,["a","b"]}` · array | tags shares a value with `^["a","b"]` *(explicit — D-LIST)* |
+| `%{tags: ["a","b"]}` | `{"tags":["a","b"]}` | `:tags` · no · `{:==,["a","b"]}` · array | tags `=` `^["a","b"]` *(bare list = `eq`; on a list column → exact equality — D-LIST)* |
+| `%{tags: "a"}` | `{"tags":"a"}` | `:tags` · no · `{:==,"a"}` · array | `^"a"` is an element of tags *(scalar vs list column → membership)* |
+| `%{tags: %{overlaps: ["a","b"]}}` | `{"tags":{"overlaps":["a","b"]}}` | `:tags` · no · `{:overlaps,["a","b"]}` · array | tags shares a value with `^["a","b"]` (`&&`) *(explicit — D-LIST)* |
+| `%{tags: %{in: ["a","b"]}}` | `{"tags":{"in":["a","b"]}}` | `:tags` · no · `{:in,["a","b"]}` · array | **warns and skips** *(`:in` is scalar-only; use `overlaps`/`eq` on a list column — D-LIST)* |
 | `%{tags: %{count: %{gt: 3}}}` | `{"tags":{"count":{"gt":3}}}` | `:tags` · no · `{:count,{:>,3}}` · array | tags has more than `^3` items |
 | `%{data: %{contains: %{role: "admin"}}}` | `{"data":{"contains":{"role":"admin"}}}` | `:data` · no · `{:contains,{:role,"admin"}}` · map | data's JSON contains `{role: "admin"}` |
 | `%{data: %{has_key: "role"}}` | `{"data":{"has_key":"role"}}` | `:data` · no · `{:has_key,"role"}` · map | data's JSON has key "role" |
@@ -761,8 +765,15 @@ everything else → the scalar helper. An unknown column → skip and warn.
 
 Because the `:elements` wrapper is gone (§0.4), the array helper is chosen **only**
 when the column's type is known to be a list. On a schemaless source with no
-`:field_types` entry for the column, a list value is treated as a plain
-"is one of" test, not as a list-overlap test.
+`:field_types` entry for the column, the column is treated as scalar — a bare list
+is `eq`+list → membership (`IN`), and the list-only operators (`overlaps`, list
+`count`) warn-and-skip naming `:field_types` (§3.11).
+
+On a column the array helper does handle (a known list type): a bare list is
+`eq`+list → **exact array equality**; `overlaps` → `&&`; a scalar value →
+element membership (`value IN array`); and `:in` (a scalar-membership operator)
+**warns-and-skips** — list overlap is spelled `overlaps`, exact equality `eq`
+(D-LIST).
 
 **Names that look like operators (D-COLLISION).** A column may legitimately be
 named `count`, `before`, `data`, or `all`. The rule that removes the ambiguity:
@@ -960,7 +971,7 @@ is marked **Change (breaking)** and needs a line in the v3.0.0 migration notes.
 | D-ADD-SHIFT | Date-math and arithmetic both used `add`. | **Change (breaking)** | §1.5/§1.5a. Date shifting is `shift` (inside a `:date`/`:datetime` wrapper); `add` is arithmetic only. No clash. |
 | D-TRIM | `trim`/`ltrim`/`rtrim` absent. | **Change (add)** | §1.5. Added to the text transforms alongside `lower`/`upper`. |
 | D-WIRE | The language assumed Elixir atoms/tuples; HTTP decoding was unspecified. | **Change (breaking)** | §1.7. Operator keys may be strings (closed safe list, never `String.to_atom`); date-math is a map not a tuple; subquery sources are registered names not modules; times are ISO 8601. |
-| D-LIST | List behavior needs `:elements`; a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4/§3.4. Remove `:elements`; a bare list always means "is one of"; list overlap uses `overlaps`; exact list equality on a list column uses `eq`/`ne` with a list. |
+| D-LIST | List behavior needs `:elements`; a plain list vs an `:in` list mean different things on a list column. | **Change (breaking)** | §0.4/§3.4/§3.11. Remove `:elements`. A bare list is sugar for `eq`; `eq`+list routes by column type — scalar → membership (`IN`), list column → exact array equality. Overlap is the explicit `overlaps` operator; `:in` on a list column warns-and-skips. |
 | D-RAISE | Caller mistakes are silently warned-and-skipped (scalar association, bad binding, `:reverse_order` with no order, malformed value shapes, ordering-operator-vs-nil, out-of-contract provider return). | **Change (breaking)** | §3.9. From Elixir these raise (a bug). Untrusted HTTP input is validated first and returns errors as data, so a bad request is a 4xx, not a crash. An in-contract provider `{:error, reason}` still warns-and-skips. |
 | D-NULL | `!=` / not-in against a list also matches null rows (`is_nil OR not in`); inconsistent across forms. | **Change (breaking)** | §3.5/§3.9. Only `== nil` / `!= nil` consider nulls; everything else is plain SQL. Callers who want nulls add `%{eq: nil}` explicitly. |
 | D-ONE-WAY | Two spellings for aggregates (`%{avg: …}` and `%{aggregate: %{fn: :avg, …}}`). | **Change (breaking)** | §1.5. Keep one: `%{views: %{avg: %{gt: 5}}}`. Remove the wrapper. |
