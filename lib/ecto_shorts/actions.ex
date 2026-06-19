@@ -158,31 +158,20 @@ defmodule EctoShorts.Actions do
 
   @doc group: "CRUD"
   @doc """
-  Fetches all records using either a params map or the keyword shorthand form.
+  Fetches all records matching the given params map.
 
-  When the second argument is a map it is used as filter params and
-  forwarded to `all/3` with an empty opts list.
-
-  When it is a keyword list, `:repo`, `:replica`, and
-  `:dynamic_builder` are extracted as options; every other key is
-  treated as a filter param and passed to `all/3`.
-
-  This shorthand is best when you want a filter-only keyword list such as
-  `[published: true, limit: 10]`. Use `all/3` when you want to separate
-  query params from runtime options explicitly.
-
-  Raises `ArgumentError` if the second argument is neither a map nor a
-  keyword list.
+  The second argument must be a map. It is used as filter params and
+  forwarded to `all/3` with an empty opts list. To pass runtime options
+  such as `:repo`, `:replica`, or `:preload`, use `all/3` instead.
 
   ## Examples
 
       posts = EctoShorts.Actions.all(EctoShorts.Schema.Post, %{published: true})
-      posts = EctoShorts.Actions.all(EctoShorts.Schema.Post, replica: MyApp.Repo)
-      posts = EctoShorts.Actions.all(EctoShorts.Schema.Post, [published: true, limit: 10])
+      posts = EctoShorts.Actions.all(EctoShorts.Schema.Post, %{})
 
   See also `all/1`, `all/3`, and `find/3`.
   """
-  @spec all(queryable, params | opts) :: list(term())
+  @spec all(queryable, params) :: list(term())
   def all(queryable, params_or_opts), do: CRUD.all(queryable, params_or_opts)
 
   @doc group: "CRUD"

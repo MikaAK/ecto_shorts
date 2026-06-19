@@ -850,7 +850,7 @@ defmodule EctoShorts.CommonChanges do
 
       member_update?(params_data) ->
         schema = changeset_relationship_schema(changeset, key)
-        data = Actions.all(schema, ids: data_ids(params_data))
+        data = Actions.all(schema, %{ids: data_ids(params_data)})
         Changeset.put_assoc(changeset, key, data, opts)
 
       SchemaHelpers.any_created?(params_data) ->

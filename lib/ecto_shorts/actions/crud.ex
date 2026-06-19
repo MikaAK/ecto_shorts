@@ -41,27 +41,8 @@ defmodule EctoShorts.Actions.CRUD do
     end
   end
 
-  def all(%Source{} = source, opts) when is_list(opts) do
-    params = Keyword.drop(opts, [:repo, :replica, :dynamic_builder])
-    actual_opts = Keyword.take(opts, [:repo, :replica, :dynamic_builder])
-
-    with {:ok, queryable, input_params} <- resolve_source(source, params, actual_opts) do
-      all(queryable, input_params, actual_opts)
-    end
-  end
-
   def all(queryable, params) when is_map(params) and not is_struct(params) do
     all(queryable, params, [])
-  end
-
-  def all(queryable, opts) do
-    if Keyword.keyword?(opts) do
-      params = Keyword.drop(opts, [:repo, :replica, :dynamic_builder])
-      all(queryable, params, Keyword.take(opts, [:repo, :replica, :dynamic_builder]))
-    else
-      raise ArgumentError,
-            "Expected the options parameter to be a keyword list, got: #{inspect(opts)}"
-    end
   end
 
   def all(%Source{} = source, params, opts) do

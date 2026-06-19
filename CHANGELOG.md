@@ -13,6 +13,7 @@
 - **`EctoShorts.Actions.delete/2` no longer accepts `(queryable, id)`** — id-based delete now requires the 3-arity form `delete(queryable, id, opts)`; `delete/2` unambiguously means `delete(struct_or_changeset_or_list, opts)`
 - **`EctoShorts.Actions.batch/5` replaced by `batch/3`** — `batch_keys` and `cardinality` are now passed as opts keys (`:batch_keys`, default `:id`; `:cardinality`, default `:many`) instead of positional arguments
 - **`EctoShorts.Actions.aggregate/5` replaced by `aggregate/3`** — the aggregate function and field key are now passed as opts keys (`:aggregate`, default `:count`; `:key`, default `:id`) instead of positional arguments
+- **`EctoShorts.Actions.all/2` no longer accepts a keyword list** — the second argument must be a params map; to pass runtime options (`:repo`, `:replica`, `:preload`, etc.) use `all/3`
 
 ##### New modules
 

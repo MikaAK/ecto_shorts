@@ -1350,7 +1350,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert %Post{title: "Match"} = result
     end
 
-    test "accepts a keyword list as filter params" do
+    test "accepts a params map as filter params" do
       %Post{}
       |> Post.changeset(%{title: "Published", published: true})
       |> Repo.insert!()
@@ -1360,7 +1360,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Post.changeset(%{title: "Unpublished", published: false})
         |> Repo.insert!()
 
-      assert [%Post{title: "Published", published: true}] = Actions.all(Post, published: true)
+      assert [%Post{title: "Published", published: true}] = Actions.all(Post, %{published: true})
     end
 
     test "treats a plain list value as an IN membership check" do
@@ -1486,10 +1486,10 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       via_or_where =
-        Actions.all(Post, where: %{published: true}, or_where: %{published: false})
+        Actions.all(Post, [where: %{published: true}, or_where: %{published: false}], [])
 
       via_or =
-        Actions.all(Post, where: %{published: true}, or: %{published: false})
+        Actions.all(Post, [where: %{published: true}, or: %{published: false}], [])
 
       assert Enum.count(via_or_where) === 2
       assert Enum.sort_by(via_or_where, & &1.title) === Enum.sort_by(via_or, & &1.title)
@@ -1509,7 +1509,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       assert [result] =
-               Actions.all(Post, where: %{published: true}, where: %{views: 5})
+               Actions.all(Post, [where: %{published: true}, where: %{views: 5}], [])
 
       assert %Post{title: "BothMatch"} = result
     end
@@ -1528,7 +1528,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       results =
-        Actions.all(Post, or_where: %{title: "A"}, or_where: %{title: "B"})
+        Actions.all(Post, [or_where: %{title: "A"}, or_where: %{title: "B"}], [])
 
       assert Enum.count(results) === 2
       assert Enum.any?(results, &match?(%Post{title: "A"}, &1))
@@ -1553,11 +1553,15 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       results =
-        Actions.all(Post,
-          where: %{published: true},
-          where: %{views: 0},
-          or_where: %{title: "Extra1"},
-          or_where: %{title: "Extra2"}
+        Actions.all(
+          Post,
+          [
+            where: %{published: true},
+            where: %{views: 0},
+            or_where: %{title: "Extra1"},
+            or_where: %{title: "Extra2"}
+          ],
+          []
         )
 
       assert Enum.count(results) === 3
@@ -1580,7 +1584,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       assert [result] =
-               Actions.all(Post, and: %{published: true}, and: %{views: 5})
+               Actions.all(Post, [and: %{published: true}, and: %{views: 5}], [])
 
       assert %Post{title: "BothMatch"} = result
     end
@@ -1605,10 +1609,14 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       results =
-        Actions.all(Post,
-          where: %{published: true},
-          or_where: %{title: "OrA"},
-          or_where: %{title: "OrB"}
+        Actions.all(
+          Post,
+          [
+            where: %{published: true},
+            or_where: %{title: "OrA"},
+            or_where: %{title: "OrB"}
+          ],
+          []
         )
 
       assert Enum.count(results) === 3
@@ -2142,8 +2150,8 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
   end
 
-  describe "all/2 with keyword opts" do
-    test "filters records when params are given as a keyword list" do
+  describe "all/2 with params map" do
+    test "filters records when params are given as a map" do
       %Post{}
       |> Post.changeset(%{title: "Published", published: true})
       |> Repo.insert!()
@@ -2153,7 +2161,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       assert [%Post{title: "Published", published: true}] =
-               Actions.all(Post, published: true)
+               Actions.all(Post, %{published: true})
     end
   end
 
@@ -2648,8 +2656,8 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
   end
 
-  describe "all/2 with Source and keyword opts" do
-    test "resolves the source and returns matching records when opts is a keyword list" do
+  describe "all/2 with Source and params map" do
+    test "resolves the source and returns matching records when params is a map" do
       alias EctoShorts.Actions.Source
 
       %Post{}
@@ -2658,15 +2666,21 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       source = Source.new(store: [posts: Post])
 
-      result = Actions.all(source, from: :posts, title: "SourceKeyword")
+      result = Actions.all(source, %{from: :posts, title: "SourceKeyword"})
       assert [%Post{title: "SourceKeyword"}] = result
     end
   end
 
-  describe "all/2 ArgumentError" do
-    test "raises ArgumentError when the second argument is not a map or keyword list" do
-      assert_raise ArgumentError, fn ->
+  describe "all/2 non-map argument" do
+    test "raises FunctionClauseError when the second argument is not a map" do
+      assert_raise FunctionClauseError, fn ->
         Actions.all(Post, :not_a_valid_arg)
+      end
+    end
+
+    test "raises FunctionClauseError when the second argument is a keyword list" do
+      assert_raise FunctionClauseError, fn ->
+        Actions.all(Post, published: true)
       end
     end
   end
