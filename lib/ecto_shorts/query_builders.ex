@@ -16,7 +16,7 @@ defmodule EctoShorts.QueryBuilders do
   ## Adapter resolution order
 
     1. `opts[:query_builder]` — per-call override
-    2. `config :ecto_shorts, query_builder: MyModule` — application default
+    2. `config :ecto_shorts, query_builder_module: MyModule` — application default
     3. `EctoShorts.CommonFilters.Builder` — framework default
 
   ## Examples
@@ -71,7 +71,7 @@ defmodule EctoShorts.QueryBuilders do
   end
 
   defp adapter(opts) do
-    opts[:query_builder_module] ||
+    opts[:query_builder] ||
       Config.query_builder_module() ||
       @default_adapter
   end
