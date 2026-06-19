@@ -105,4 +105,24 @@ defmodule EctoShorts.CommonParams.TimestampsTest do
       assert Keyword.has_key?(result[:set], :changed_on)
     end
   end
+
+  describe "disable precedence and field-membership admission" do
+    test "updated_at_source: false omits the field despite being an explicit opt (insert)" do
+      result = Timestamps.put_timestamps(%{title: "x"}, @dt, TimestampFree, updated_at_source: false)
+
+      refute Map.has_key?(result, :updated_at)
+    end
+
+    test "updated_at_source: false leaves :set untouched despite being an explicit opt (update)" do
+      result = Timestamps.put_set_updated_at([set: [title: "x"]], @dt, TimestampFree, updated_at_source: false)
+
+      refute Keyword.has_key?(result[:set], :updated_at)
+    end
+
+    test "inserted_at_source: false omits the field despite being an explicit opt (insert)" do
+      result = Timestamps.put_timestamps(%{title: "x"}, @dt, TimestampFree, inserted_at_source: false)
+
+      refute Map.has_key?(result, :inserted_at)
+    end
+  end
 end
