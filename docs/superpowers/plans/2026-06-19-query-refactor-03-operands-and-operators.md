@@ -236,28 +236,32 @@ Expected: FAIL — `shift` unrecognized; resolver lacks date-math.
 
 - [ ] **Step 3: Implement the resolver date-math canonicalization**
 
-In `term_resolver.ex`, add date-math handling to `build_single/3` (the operator-map builder from Plan 01). The value is a `%{date | datetime: %{dt_op: %{count:, unit:, field:}}}` shape:
+In `term_resolver.ex`, add a date-math clause to `build_one/3` (Plan 01's per-operator builder, which returns a **list**). The RHS of a comparison is a date wrapper `%{date | datetime: %{dt_op => %{count:, unit:, field:}}}`. **Recognize the wrapper by key access** (not a singleton `Map.to_list` match), and **reduce** over the inner map for the date op:
 
 ```elixir
 @date_units ~w(second minute hour day week month year)
-@dt_ops [:ago, :from_now, :shift]
 
-defp build_single(op, %{} = inner, _type) when op in @comparison_ops do
-  case Map.to_list(inner) do
-    [{wrapper, %{} = w}] when wrapper in [:date, :datetime] ->
-      [{dt_op_raw, params}] = Map.to_list(w)
-      dt_op = canonical_op(dt_op_raw)
-      {op, {wrapper, {dt_op, dt_keyword(params)}}}
+# date-math RHS: a wrapper map carrying exactly one of :date / :datetime.
+defp build_one(op, %{date: w}, _type) when op in @comparison_ops, do: dt_term(op, :date, w)
+defp build_one(op, %{datetime: w}, _type) when op in @comparison_ops, do: dt_term(op, :datetime, w)
 
-    _ ->
-      # falls through to transform / other handling already defined in Plan 01
-      build_single_transform(op, inner)
-  end
+defp dt_term(op, wrapper, w) do
+  # w is %{ago | from_now | shift => params}; reduce so multiple/zero entries
+  # don't crash — each recognized dt op yields one tidied term.
+  Enum.reduce(w, [], fn {raw_dt_op, params}, acc ->
+    case canonical_op(raw_dt_op) do
+      dt_op when dt_op in [:ago, :from_now, :shift] ->
+        acc ++ [{op, {wrapper, {dt_op, dt_keyword(params)}}}]
+
+      _ ->
+        (warn_skip("Unknown date-math op, skipping"); acc)
+    end
+  end)
 end
 
 defp dt_keyword(%{} = p) do
   unit = p[:unit] || p["unit"]
-  unless to_string(unit) in @date_units, do: raise(ArgumentError, "unknown date unit #{inspect(unit)}")
+  unless to_string(unit) in @date_units, do: raise(EctoShorts.FilterError, "unknown date unit #{inspect(unit)}")
   kw = [count: p[:count] || p["count"], interval: to_string(unit)]
   case p[:field] || p["field"] do
     nil -> kw
@@ -266,7 +270,7 @@ defp dt_keyword(%{} = p) do
 end
 ```
 
-> `canonical_op/1` must map `"shift"`/`:shift`, `"ago"`, `"from_now"` to themselves (add them to the `@operator_atoms` set in Plan 01's compile-time map). `build_single_transform/2` is the existing transform/like branch from Plan 01 (factor it out so date-math can fall through to it).
+> These `build_one/3` clauses sit **before** the generic transform/scalar clauses from Plan 01 (so a date wrapper isn't mistaken for a transform). `canonical_op/1` must map `"shift"`/`:shift`, `"ago"`, `"from_now"` to themselves (add them to the `@operator_atoms` set in Plan 01's compile-time map). No `Map.to_list` singleton match — the wrapper is matched by key and the inner op map is **reduced** (per the project convention: never assume a single key/value pair).
 
 - [ ] **Step 4: Implement `shift` in ScalarExpr**
 
@@ -303,17 +307,17 @@ git commit -m "feat(date-math): shift word + unit key; resolver canonicalizes to
 
 ```elixir
 test "field operand on the current binding" do
-  assert {:ok, %{term: {:>, {:field, :b}}}} =
+  assert {:ok, [%{term: {:>, {:field, :b}}}]} =
            TermResolver.canonicalize(Post, :views, %{gt: %{field: :b}}, [])
 end
 
 test "field operand with a sibling binding records {binding, field}" do
-  assert {:ok, %{term: {:>, {:field, {:author, :age}}}}} =
+  assert {:ok, [%{term: {:>, {:field, {:author, :age}}}}]} =
            TermResolver.canonicalize(Post, :views, %{gt: %{field: :age, as: :author}}, [])
 end
 
 test "value operand is always a single literal (cast), never membership" do
-  assert {:ok, %{term: {:==, {:value, [1, 2]}}}} =
+  assert {:ok, [%{term: {:==, {:value, [1, 2]}}}]} =
            TermResolver.canonicalize(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
 end
 ```
@@ -323,27 +327,25 @@ end
 Run: `mix test test/ecto_shorts/query_builder/term_resolver_test.exs -k operand`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement operand parsing in `build_single`**
+- [ ] **Step 3: Implement operand parsing as `build_one/3` clauses**
 
-Add operand recognition for the RHS when it is a map with a single reserved key:
+These are `build_one/3` clauses (Plan 01's per-operator builder, which returns a
+**list**). Recognize the operand kind by **key access** — not a singleton match:
 
 ```elixir
-defp build_single(op, %{field: f} = m, _type) when op in @comparison_ops do
-  resolved =
-    case m do
-      %{as: binding} -> {binding, f}
-      _ -> f
-    end
-
-  {op, {:field, resolved}}
+defp build_one(op, %{value: v}, type) when op in @comparison_ops do
+  [{op, {:value, cast(type, v)}}]
 end
 
-defp build_single(op, %{value: v}, type) when op in @comparison_ops do
-  {op, {:value, cast(type, v)}}
+defp build_one(op, %{field: _} = m, _type) when op in @comparison_ops do
+  [{op, {:field, field_ref(m)}}]
 end
+
+defp field_ref(%{field: f, as: b}), do: {b, f}
+defp field_ref(%{field: f}), do: f
 ```
 
-> Place these **before** the generic transform/scalar clauses so an operand map isn't mistaken for a transform. (String JSON keys `"field"`/`"value"`/`"as"` are normalized to atoms by the wire decoder per D-WIRE; the resolver sees atom keys here.)
+> Place these **before** the generic transform/scalar clauses (so an operand map isn't mistaken for a transform) and **after** the date-math clauses from Task 3 (so `%{date: …}` is matched first). String JSON keys `"field"`/`"value"`/`"as"` are normalized to atoms by the wire decoder (D-WIRE); the resolver sees atom keys. (Task 5 adds the arithmetic `build_one` clause and reuses `field_ref/1`.)
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -377,12 +379,12 @@ git commit -m "feat(resolver): value/field operands + sibling-as reference (pure
 ```elixir
 # resolver: arithmetic ordered-array, binary only
 test "binary arithmetic operand" do
-  assert {:ok, %{term: {:>, {:+, [{:field, :base}, {:value, 5}]}}}} =
+  assert {:ok, [%{term: {:>, {:+, [{:field, :base}, {:value, 5}]}}}]} =
            TermResolver.canonicalize(Post, :views, %{gt: %{add: [%{field: :base}, %{value: "5"}]}}, [])
 end
 
 test "arithmetic with 3 operands raises (binary only)" do
-  assert_raise ArgumentError, fn ->
+  assert_raise EctoShorts.FilterError, fn ->
     TermResolver.canonicalize(Post, :views, %{gt: %{add: [%{field: :a}, %{field: :b}, %{value: 1}]}}, [])
   end
 end
@@ -410,26 +412,46 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement arithmetic in the resolver**
 
+The RHS of a comparison may be an **operand map** (`%{value:}`/`%{field:}`/a single
+arithmetic key). Match the operand kinds by **key** (not a singleton `Map.to_list`),
+and reduce the arithmetic key's list. These are `build_one/3` clauses (returning a
+list), placed before the generic transform/scalar clauses:
+
+The `value`/`field` operand clauses are already added in Task 4 (and `field_ref/1`).
+Here add **only** the arithmetic operand clause — recognize the single arithmetic
+key by an explicit `Enum.filter` (not a singleton `Map.to_list` match), and reduce
+nothing-or-one-or-many to a clear outcome:
+
 ```elixir
 @arith %{add: :+, subtract: :-, multiply: :*, divide: :/}
 
-defp build_single(op, %{} = m, type) when op in @comparison_ops do
-  case Map.to_list(m) do
-    [{arith, operands}] when is_map_key(@arith, arith) and is_list(operands) ->
-      case operands do
-        [a, b] -> {op, {Map.fetch!(@arith, arith), [operand(a, type), operand(b, type)]}}
-        _ -> raise ArgumentError, "arithmetic takes exactly two operands"
+# arithmetic operand: exactly one arith key whose value is a 2-element operand list.
+# Placed AFTER the value/field/date-math build_one clauses, BEFORE the transform/scalar ones.
+defp build_one(op, %{} = m, type) when op in @comparison_ops do
+  case Enum.filter(Map.keys(@arith), &Map.has_key?(m, &1)) do
+    [arith] ->
+      case Map.fetch!(m, arith) do
+        [a, b] -> [{op, {Map.fetch!(@arith, arith), [operand(a, type), operand(b, type)]}}]
+        _ -> raise EctoShorts.FilterError, "arithmetic takes exactly two operands"
       end
 
-    _ ->
-      build_single_operand_or_transform(op, m, type)  # value/field/transform/date-math branches
+    [] ->
+      build_one_transform(op, m, type)  # transform branch (Task 2); date-math handled by its own clauses (Task 3)
+
+    _many ->
+      raise EctoShorts.FilterError, "expected a single arithmetic operator, got: #{inspect(Map.keys(m))}"
   end
 end
 
-defp operand(%{field: f, as: b}, _type), do: {:field, {b, f}}
-defp operand(%{field: f}, _type), do: {:field, f}
+# operand/2 reuses field_ref/1 from Task 4
+defp operand(%{field: _} = m, _type), do: {:field, field_ref(m)}
 defp operand(%{value: v}, type), do: {:value, cast(type, v)}
 ```
+
+> No singleton `Map.to_list` match: operand kinds are recognized by key, and the
+> "which arithmetic key is present" check is an explicit `Enum.filter` over the
+> known arith keys (zero → fall through; one → use it; many → raise a clear error,
+> not a `MatchError`). Per the project convention, we never assume a single pair.
 
 - [ ] **Step 4: Implement emission in ScalarExpr**
 
@@ -474,6 +496,6 @@ git commit -m "feat: binary arithmetic operands + column/sibling field compariso
 ## Self-Review (done while writing)
 
 - **Spec coverage:** D-LIST `overlaps` + `:in`-on-array → Task 1; D-TRIM → Task 2; D-ADD-SHIFT + D-WIRE `unit`/date-math → Task 3; D-OPERAND `value`/`field` + D-SIBLING → Task 4; D-OPERAND arithmetic (binary, ordered) + sibling emission → Task 5. **Subquery operands (`from`/`all`/`any`/`exists`/`parent`) are explicitly deferred to Plan 04** (index updated).
-- **Placeholders:** none for the in-scope tasks. Date-math/arithmetic resolver code factors through `build_single_operand_or_transform/3` / `build_single_transform/2`, which are the Plan 01 transform/like branches refactored into named helpers (a real, named extraction, not "similar to").
+- **Placeholders:** none for the in-scope tasks. Every map is processed with `Enum.reduce` / key access (no singleton `Map.to_list` match); the date-math/operand/arithmetic clauses are `build_one/3` heads that return lists and fall through to `build_one_transform/3` (the Plan 01 transform branch factored into a named helper).
 - **Type consistency:** operand shapes (`{:field, atom}`, `{:field, {binding, atom}}`, `{:value, v}`, `{arith_sym, [op, op]}`) are produced by `TermResolver` (Tasks 4–5) and consumed by ScalarExpr `operand_dyn/2`/`comparison_rhs/2` (Task 5) with matching names; `@arith` maps words→symbols consistently with §2.2's `:+ :- :* :/`.
 - **Carried to Plan 04:** sibling-`as:` *validation* (post-build, unknown/ambiguous → raise — §3.11) is recorded by the resolver here but enforced in Plan 04/05 where the full query (and its bindings) exists; subquery operands; the D-NULL/D-RAISE/D-ONE-WAY/D-PROVIDER behavior changes.
