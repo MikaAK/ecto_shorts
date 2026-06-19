@@ -71,7 +71,7 @@ defmodule EctoShorts.CommonFilters.OrderBy do
     if schema_field?(effective_source, field_name) do
       {:ok, field_name}
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(effective_source))}, skipping field reference"
       )

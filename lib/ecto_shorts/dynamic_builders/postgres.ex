@@ -469,7 +469,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   defp dispatch_field_expr(source, selected_binding, key, negated, term, opts) do
     cond do
       invalid_schema_field?(source, key) ->
-        EctoShorts.Logger.warning(
+        EctoShorts.LogUtils.warning(
           @logger_prefix,
           "Field \"#{key}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
         )
@@ -548,7 +548,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
 
       Select.build_query(:select, source, inner_query, {:as, nil}, select_term, opts)
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Expected a map or keyword list, got: #{inspect(params)}"
       )
@@ -760,7 +760,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
         if MapSet.member?(string_fields, field_name) do
           String.to_existing_atom(field_name)
         else
-          EctoShorts.Logger.warning(
+          EctoShorts.LogUtils.warning(
             @logger_prefix,
             "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
           )
@@ -777,7 +777,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
           if MapSet.member?(allowed_set, field_name) do
             String.to_atom(field_name)
           else
-            EctoShorts.Logger.warning(
+            EctoShorts.LogUtils.warning(
               @logger_prefix,
               "Field \"#{field_name}\" is not in the :allowed_keys list, skipping field reference"
             )
@@ -785,7 +785,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
             nil
           end
         else
-          EctoShorts.Logger.warning(
+          EctoShorts.LogUtils.warning(
             @logger_prefix,
             "Field \"#{field_name}\" cannot be resolved: no schema or :allowed_keys available, skipping field reference"
           )

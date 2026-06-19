@@ -16,7 +16,7 @@ defmodule EctoShorts.CommonFilters.ReverseOrder do
         Query.reverse_order(query)
 
       _ ->
-        EctoShorts.Logger.warning(
+        EctoShorts.LogUtils.warning(
           @logger_prefix,
           "Expected :reverse_order value to be true, got: #{inspect(value)}"
         )

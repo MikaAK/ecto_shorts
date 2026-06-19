@@ -429,7 +429,7 @@ defmodule EctoShorts.CommonFilters do
         if params?(params) do
           apply_assoc_filters(filter, source, query, key, params, opts)
         else
-          EctoShorts.Logger.warning(
+          EctoShorts.LogUtils.warning(
             @logger_prefix,
             "Expected association filter value to be a map or keyword list, got: #{inspect(params)}"
           )
@@ -495,7 +495,7 @@ defmodule EctoShorts.CommonFilters do
     if position >= 1 and position <= max do
       {:ok, {:at, position}}
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Positional binding :at position #{position} is out of range " <>
           "(compiled max: #{max}). Filter skipped."

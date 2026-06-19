@@ -18,7 +18,7 @@ defmodule EctoShorts.CommonFilters.Lock do
         name -> lock_expr(query, selected_binding, name, params, opts)
       end
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Expected :lock value to be a map or keyword list with a :name key (e.g. %{name: :for_update}), got: #{inspect(params)}"
       )
@@ -50,7 +50,7 @@ defmodule EctoShorts.CommonFilters.Lock do
     query_provider_module = query_provider_module(opts)
 
     if is_nil(query_provider_module) do
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "No query provider module configured for lock filter"
       )
@@ -74,7 +74,7 @@ defmodule EctoShorts.CommonFilters.Lock do
                 next_query
 
               other ->
-                EctoShorts.Logger.warning(
+                EctoShorts.LogUtils.warning(
                   @logger_prefix,
                   "Expected lock expression callback to return an Ecto.Query, got: #{inspect(other)}"
                 )
@@ -82,7 +82,7 @@ defmodule EctoShorts.CommonFilters.Lock do
                 query
             end
           else
-            EctoShorts.Logger.warning(
+            EctoShorts.LogUtils.warning(
               @logger_prefix,
               "Expected lock expression resolved from QueryProvider to be a 1-arity function, got: #{inspect(callback)}"
             )
@@ -91,7 +91,7 @@ defmodule EctoShorts.CommonFilters.Lock do
           end
 
         {:error, reason} ->
-          EctoShorts.Logger.warning(
+          EctoShorts.LogUtils.warning(
             @logger_prefix,
             "Lock expression callback returned error for #{inspect(custom_name)}: #{inspect(reason)}"
           )
@@ -99,7 +99,7 @@ defmodule EctoShorts.CommonFilters.Lock do
           query
 
         other ->
-          EctoShorts.Logger.warning(
+          EctoShorts.LogUtils.warning(
             @logger_prefix,
             "Expected lock expression resolved from QueryProvider to return {:ok, function} | {:error, reason} | nil, got: #{inspect(other)}"
           )

@@ -30,7 +30,7 @@ defmodule EctoShorts.CommonFilters.Windows do
   end
 
   def build_query(:windows, _source, query, _selected_binding, value, _opts) do
-    EctoShorts.Logger.warning(
+    EctoShorts.LogUtils.warning(
       @logger_prefix,
       "Expected :windows params to be a map or keyword list, got: #{inspect(value)}"
     )
@@ -40,7 +40,7 @@ defmodule EctoShorts.CommonFilters.Windows do
 
   defp expand_window(name, definitions, seen) do
     if MapSet.member?(seen, name) do
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Detected cyclic :windows reference involving #{inspect(name)}"
       )
@@ -89,7 +89,7 @@ defmodule EctoShorts.CommonFilters.Windows do
         query
       end
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Expected :frame for #{inspect(window_name)} to be an Ecto dynamic expression, got: #{inspect(frame)}"
       )

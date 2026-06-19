@@ -23,7 +23,7 @@ defmodule EctoShorts.CommonFilters.WithCte do
   end
 
   defp reduce_params(_schema_source, query, value, _opts) do
-    EctoShorts.Logger.warning(
+    EctoShorts.LogUtils.warning(
       @logger_prefix,
       "Expected :with_cte params to be a map or keyword list, got: #{inspect(value)}"
     )
@@ -41,7 +41,7 @@ defmodule EctoShorts.CommonFilters.WithCte do
   end
 
   defp reduce_entry(_schema_source, query, other, _opts) do
-    EctoShorts.Logger.warning(
+    EctoShorts.LogUtils.warning(
       @logger_prefix,
       "Expected :with_cte params to be a map or keyword list, got: #{inspect(other)}"
     )
@@ -89,7 +89,7 @@ defmodule EctoShorts.CommonFilters.WithCte do
         {:ok, CommonFilters.convert_params_to_filter(from_source, filter_params, opts)}
 
       {:ok, term} ->
-        EctoShorts.Logger.warning(
+        EctoShorts.LogUtils.warning(
           @logger_prefix,
           "Expected CTE :as query params for #{inspect(cte_name)} to be a query, subquery, or keyword/map payload, got: #{inspect(term)}"
         )
@@ -97,7 +97,7 @@ defmodule EctoShorts.CommonFilters.WithCte do
         :error
 
       :error ->
-        EctoShorts.Logger.warning(
+        EctoShorts.LogUtils.warning(
           @logger_prefix,
           "Expected :with_cte params for #{inspect(cte_name)} to include an :as key"
         )
@@ -117,7 +117,7 @@ defmodule EctoShorts.CommonFilters.WithCte do
             {:ok, cast}
 
           other ->
-            EctoShorts.Logger.warning(
+            EctoShorts.LogUtils.warning(
               @logger_prefix,
               "Expected :materialized for #{inspect(cte_name)} to be a boolean, got: #{inspect(other)}"
             )
@@ -136,7 +136,7 @@ defmodule EctoShorts.CommonFilters.WithCte do
         {:ok, operation}
 
       {:ok, operation} ->
-        EctoShorts.Logger.warning(
+        EctoShorts.LogUtils.warning(
           @logger_prefix,
           "Expected :operation for #{inspect(cte_name)} to be one of #{inspect(@cte_operations)}, got: #{inspect(operation)}"
         )

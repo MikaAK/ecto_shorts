@@ -1,4 +1,4 @@
-defmodule EctoShorts.Logger do
+defmodule EctoShorts.LogUtils do
   @moduledoc since: "3.0.0"
   @moduledoc """
   Prefixed logging wrapper used internally by EctoShorts modules.
@@ -13,7 +13,7 @@ defmodule EctoShorts.Logger do
 
   ## Examples
 
-      iex> EctoShorts.Logger.debug("MyApp.SomeModule", "hello")
+      iex> EctoShorts.LogUtils.debug("MyApp.SomeModule", "hello")
   """
   @spec debug(prefix :: String.t(), message :: String.t()) :: :ok
   def debug(prefix, message) do
@@ -27,7 +27,7 @@ defmodule EctoShorts.Logger do
 
   ## Examples
 
-      iex> EctoShorts.Logger.info("MyApp.SomeModule", "hello")
+      iex> EctoShorts.LogUtils.info("MyApp.SomeModule", "hello")
   """
   @spec info(prefix :: String.t(), message :: String.t()) :: :ok
   def info(prefix, message) do
@@ -41,7 +41,7 @@ defmodule EctoShorts.Logger do
 
   ## Examples
 
-      iex> EctoShorts.Logger.error("MyApp.SomeModule", "hello")
+      iex> EctoShorts.LogUtils.error("MyApp.SomeModule", "hello")
   """
   @spec error(prefix :: String.t(), message :: String.t()) :: :ok
   def error(prefix, message) do
@@ -55,7 +55,7 @@ defmodule EctoShorts.Logger do
 
   ## Examples
 
-      iex> EctoShorts.Logger.warning("MyApp.SomeModule", "hello")
+      iex> EctoShorts.LogUtils.warning("MyApp.SomeModule", "hello")
   """
   @spec warning(prefix :: String.t(), message :: String.t()) :: :ok
   def warning(prefix, message) do

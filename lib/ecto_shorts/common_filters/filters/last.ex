@@ -56,7 +56,7 @@ defmodule EctoShorts.CommonFilters.Last do
         build_query(:last, source, query_acc, selected_binding, entry, opts)
       end)
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Expected :last value to be an integer, a {sort_key, limit} tuple, or a map/keyword list of such pairs, got: #{inspect(term)}"
       )

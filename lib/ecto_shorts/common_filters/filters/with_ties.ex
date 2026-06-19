@@ -27,7 +27,7 @@ defmodule EctoShorts.CommonFilters.WithTies do
     if Keyword.keyword?(params) or is_boolean(params) do
       apply_params(source, query, selected_binding, params, opts)
     else
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Expected :with_ties value to be a boolean or keyword/map payload, got: #{inspect(params)}"
       )
@@ -49,7 +49,7 @@ defmodule EctoShorts.CommonFilters.WithTies do
     unknown_keys = params |> Keyword.keys() |> Enum.reject(&(&1 === :limit))
 
     if unknown_keys !== [] do
-      EctoShorts.Logger.warning(
+      EctoShorts.LogUtils.warning(
         @logger_prefix,
         "Expected :with_ties params to only include :limit, got unsupported keys: #{inspect(unknown_keys)}"
       )
@@ -76,7 +76,7 @@ defmodule EctoShorts.CommonFilters.WithTies do
         |> with_ties_expr(selected_binding, true)
 
       other ->
-        EctoShorts.Logger.warning(
+        EctoShorts.LogUtils.warning(
           @logger_prefix,
           "Expected :with_ties :limit to be an integer or nil, got: #{inspect(other)}"
         )

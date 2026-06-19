@@ -56,7 +56,7 @@ defmodule EctoShorts.QueryBuilders do
         if function_exported?(module, :build_query, 6) do
           module.build_query(filter, source, query, selected_binding, term, opts)
         else
-          EctoShorts.Logger.warning(
+          EctoShorts.LogUtils.warning(
             "EctoShorts.QueryBuilders",
             "Module does not export the required function build_query/6: #{inspect(module)}"
           )
