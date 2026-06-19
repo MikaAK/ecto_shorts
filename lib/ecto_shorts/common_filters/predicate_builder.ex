@@ -177,7 +177,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         predicates =
           exprs
           |> Enum.map(&resolve_expr_fields(&1, source, opts))
-          |> Enum.reject(&(&1 == :skip))
+          |> Enum.reject(&(&1 === :skip))
           |> Enum.map(&%Predicate{field: field, routing: routing, negated: negated, expr: &1})
 
         {:ok, predicates}
@@ -194,11 +194,11 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
     cond do
       (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) ->
-        cond do
-          Enum.any?(inner, fn {raw_op, _v} -> raw_op == :elements end) -> :array
-          Enum.any?(inner, fn {raw_op, _v} -> canonical_op(raw_op) in @array_operators end) -> :array
-          true -> nil
-        end
+        if Enum.any?(inner, fn {raw_op, _v} ->
+             raw_op === :elements or canonical_op(raw_op) in @array_operators
+           end),
+           do: :array,
+           else: nil
 
       true ->
         nil
@@ -304,7 +304,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
           op = canonical_op(raw_op)
           cond do
             op in @comparison_ops -> acc ++ [{q, {op, cast(type, v)}}]
-            op == :in and is_list(v) -> acc ++ [{q, {:in, cast(type, v)}}]
+            op === :in and is_list(v) -> acc ++ [{q, {:in, cast(type, v)}}]
             true -> (warn_skip("Unknown quantifier comparison, skipping"); acc)
           end
         end)
