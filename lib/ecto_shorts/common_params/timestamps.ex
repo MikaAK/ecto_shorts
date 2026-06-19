@@ -98,6 +98,9 @@ defmodule EctoShorts.CommonParams.Timestamps do
       value === false ->
         input
 
+      not include_timestamp?(schema, source_key, explicit_updated_at?(opts)) ->
+        input
+
       true ->
         value = prepare_timestamp_updated_at(value || datetime, source_key, schema, opts)
         Map.put(input, source_key, value)
