@@ -83,6 +83,22 @@ clauses/      sorting, order_modifier, first, last, limit, offset, page, with_ti
 The three families are the contract. A borderline file (e.g. `having`) may shift
 bucket during execution; the bucketing is a starting map, not a frozen index.
 
+### Naming: "integration" / "end-to-end" reserved for DB tests
+
+"Integration" and "end-to-end" are synonyms — both connote exercising the whole
+stack, including a real database. They apply **only** to DB-hitting tests under
+`actions/` (`DataCase`, sandbox, `async: false`).
+
+Filter tests assert the `convert_params_to_filter` pipeline *output* (an `Ecto.Query`
+AST) and never touch the DB; they are **feature tests**, not integration tests, and
+must not be named `end_to_end` / `integration`.
+
+Consequence: the existing `common_filters_plan03_04_end_to_end_test.exs` is **not** a
+layer of its own. Its cases are distributed into the feature files they actually
+exercise (`overlaps` → `predicates/`, `trim` → `predicates/string_transformations`,
+etc.). A filename derived from a release-plan number is itself a "hard to find"
+symptom and is removed.
+
 ## Mechanisms
 
 ### Cross-adapter contract (data, not macro)
