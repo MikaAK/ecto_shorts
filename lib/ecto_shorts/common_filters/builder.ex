@@ -233,7 +233,9 @@ defmodule EctoShorts.CommonFilters.Builder do
     apply_having(query, aggs, selected_binding, opts)
   end
 
-  defp aggregate_predicate?(%EctoShorts.CommonFilters.Predicate{expr: {agg, _}})
+  # Only scalar-routed aggregate comparisons are SQL aggregates that belong in
+  # HAVING. On an array field, :count means array_length (a row-level WHERE).
+  defp aggregate_predicate?(%EctoShorts.CommonFilters.Predicate{routing: :scalar, expr: {agg, _}})
        when agg in [:avg, :count, :max, :min, :sum],
        do: true
 

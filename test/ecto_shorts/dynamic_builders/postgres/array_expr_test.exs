@@ -2,7 +2,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
   use ExUnit.Case, async: true
   use EctoShorts.Testing
 
-  alias EctoShorts.DynamicBuilders.Postgres
+  alias EctoShorts.CommonFilters
   alias EctoShorts.DynamicBuilders.Postgres.ArrayExpr
 
   import Ecto.Query
@@ -467,63 +467,57 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
 
   describe ":elements wrapper routes to ArrayExpr for schemaless sources" do
     test ":in list produces array overlap regardless of schema" do
-      expected = dynamic([q], fragment("? && ?", field(q, :tags), ^["elixir", "ecto"]))
+      expected = from(p in "posts", where: fragment("? && ?", p.tags, ^["elixir", "ecto"]))
 
       actual =
-        Postgres.build_dynamic(
+        CommonFilters.convert_params_to_filter(
           "posts",
-          {:as, nil},
-          {:tags, %{elements: %{in: ["elixir", "ecto"]}}},
+          %{tags: %{elements: %{in: ["elixir", "ecto"]}}},
           []
         )
 
-      assert_dynamic(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "scalar value produces element membership" do
-      expected = dynamic([q], ^"elixir" in field(q, :tags))
-      actual = Postgres.build_dynamic("posts", {:as, nil}, {:tags, %{elements: "elixir"}}, [])
+      expected = from(p in "posts", where: ^"elixir" in p.tags)
+      actual = CommonFilters.convert_params_to_filter("posts", %{tags: %{elements: "elixir"}}, [])
 
-      assert_dynamic(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "nil produces IS NULL" do
-      expected = dynamic([q], is_nil(field(q, :tags)))
-      actual = Postgres.build_dynamic("posts", {:as, nil}, {:tags, %{elements: nil}}, [])
+      expected = from(p in "posts", where: is_nil(p.tags))
+      actual = CommonFilters.convert_params_to_filter("posts", %{tags: %{elements: nil}}, [])
 
-      assert_dynamic(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "count with > produces array_length comparison" do
-      expected = dynamic([q], fragment("array_length(?, 1)", field(q, :tags)) > ^3)
+      expected = from(p in "posts", where: fragment("array_length(?, 1)", p.tags) > ^3)
 
       actual =
-        Postgres.build_dynamic("posts", {:as, nil}, {:tags, %{elements: %{count: %{>: 3}}}}, [])
+        CommonFilters.convert_params_to_filter("posts", %{tags: %{elements: %{count: %{>: 3}}}}, [])
 
-      assert_dynamic(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "count == 0 uses coalesce" do
-      expected = dynamic([q], fragment("coalesce(array_length(?, 1), 0)", field(q, :tags)) == ^0)
+      expected = from(p in "posts", where: fragment("coalesce(array_length(?, 1), 0)", p.tags) == ^0)
 
       actual =
-        Postgres.build_dynamic("posts", {:as, nil}, {:tags, %{elements: %{count: %{==: 0}}}}, [])
+        CommonFilters.convert_params_to_filter("posts", %{tags: %{elements: %{count: %{==: 0}}}}, [])
 
-      assert_dynamic(expected, actual)
+      assert_query(expected, actual)
     end
 
     test "list value produces array equality" do
-      expected = dynamic([q], field(q, :tags) == ^["elixir", "erlang"])
+      expected = from(p in "posts", where: p.tags == ^["elixir", "erlang"])
 
       actual =
-        Postgres.build_dynamic(
-          "posts",
-          {:as, nil},
-          {:tags, %{elements: ["elixir", "erlang"]}},
-          []
-        )
+        CommonFilters.convert_params_to_filter("posts", %{tags: %{elements: ["elixir", "erlang"]}}, [])
 
-      assert_dynamic(expected, actual)
+      assert_query(expected, actual)
     end
   end
 

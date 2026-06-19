@@ -273,7 +273,18 @@ defmodule EctoShorts.CommonFilters.Join do
     effective_source = resolve_source(schema_source, query, selected_binding)
 
     Enum.reduce(entries, nil, fn {key, value}, acc ->
-      dyn = DynamicBuilders.build_dynamic(effective_source, selected_binding, {key, value}, opts)
+      dyn =
+        case EctoShorts.CommonFilters.PredicateBuilder.build(effective_source, key, value, opts) do
+          :skip ->
+            nil
+
+          {:ok, predicates} ->
+            predicates
+            |> Enum.map(&DynamicBuilders.build_dynamic(&1, selected_binding, opts))
+            |> Enum.reject(&is_nil/1)
+            |> Enum.reduce(nil, &merge_dynamic(&2, :and, &1))
+        end
+
       merge_dynamic(acc, :and, dyn)
     end)
   end

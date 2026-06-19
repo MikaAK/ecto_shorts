@@ -24,25 +24,32 @@ defmodule EctoShorts.DynamicBuildersTest do
     def __adapter__, do: SomeOtherAdapter
   end
 
-  # A minimal custom DynamicBuilder adapter for testing the override path.
+  # A minimal custom DynamicBuilder adapter for testing the override path. As of
+  # v3.0.0 the callback consumes a resolved %Predicate{}.
   defmodule CustomDynamicBuilder do
     @behaviour EctoShorts.DynamicBuilder
 
     @impl true
-    def build_dynamic(_source, _selected_binding, {_key, value}, _opts) do
+    def build_dynamic(%EctoShorts.CommonFilters.Predicate{expr: {_op, value}}, _selected_binding, _opts) do
       dynamic([q], q.id == ^value)
     end
   end
 
-  describe "build_dynamic/4 adapter override" do
+  describe "build_dynamic/3 adapter override" do
     test "uses the :dynamic_builder opt at call time to bypass repo-based resolution" do
       expected = dynamic([q], q.id == ^42)
 
+      predicate = %EctoShorts.CommonFilters.Predicate{
+        field: :id,
+        routing: :scalar,
+        negated: false,
+        expr: {:==, 42}
+      }
+
       actual =
         DynamicBuilders.build_dynamic(
-          Post,
+          predicate,
           {:as, nil},
-          {:id, 42},
           dynamic_builder: CustomDynamicBuilder
         )
 

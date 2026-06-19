@@ -194,9 +194,11 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
     cond do
       (is_map(inner) and not is_struct(inner)) or Keyword.keyword?(inner) ->
-        if Enum.any?(inner, fn {raw_op, _v} -> canonical_op(raw_op) in @array_operators end),
-          do: :array,
-          else: nil
+        cond do
+          Enum.any?(inner, fn {raw_op, _v} -> raw_op == :elements end) -> :array
+          Enum.any?(inner, fn {raw_op, _v} -> canonical_op(raw_op) in @array_operators end) -> :array
+          true -> nil
+        end
 
       true ->
         nil
@@ -265,6 +267,17 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   # `lower(col) == x`; ArrayExpr unnests and lower()-compares each element.
   defp build_one(t, value, _type) when t in [:lower, :upper] and is_binary(value),
     do: [{:==, {t, value}}]
+
+  # `:elements` wrapper forces array semantics (used on schemaless sources with
+  # no type info). It unwraps to the inner operator term(s) consumed by ArrayExpr.
+  defp build_one(:elements, nil, _type), do: [{:==, nil}]
+
+  defp build_one(:elements, %{} = inner, type) when not is_struct(inner) do
+    Enum.reduce(inner, [], fn {raw_op, v}, acc -> acc ++ elements_term(canonical_op(raw_op), v, type) end)
+  end
+
+  defp build_one(:elements, list, type) when is_list(list), do: [{:==, cast(type, list)}]
+  defp build_one(:elements, scalar, type), do: [{:in, cast(type, scalar)}]
 
   # Quantified subquery, default equality: %{all: %{from: Src, where: ...}} →
   # {:==, {:all, {:subquery, src, select, where}}}. Select defaults to the outer
@@ -465,6 +478,22 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         warn_skip("Aggregate expects a comparison map, skipping")
         []
     end
+  end
+
+  # One inner :elements operator entry → an ArrayExpr-consumable term.
+  defp elements_term(:in, list, type) when is_list(list), do: [{:in, cast(type, list)}]
+  defp elements_term(:in, scalar, type), do: [{:in, cast(type, scalar)}]
+
+  defp elements_term(:count, inner, type), do: Enum.map(compares(inner, type), &{:count, &1})
+
+  defp elements_term(op, list, type) when op in [:==, :!=] and is_list(list),
+    do: [{op, cast(type, list)}]
+
+  defp elements_term(op, v, type) when op in @comparison_ops, do: [{op, cast(type, v)}]
+
+  defp elements_term(_op, _v, _type) do
+    warn_skip("Unsupported :elements operator, skipping")
+    []
   end
 
   # Carry a quantified-subquery spec for the adapter to build. The select field
