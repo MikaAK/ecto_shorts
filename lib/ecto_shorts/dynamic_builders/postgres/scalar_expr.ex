@@ -28,11 +28,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   defp nil_field_dyn?(binding, key), do: dynamic([], is_nil(^field_dyn(binding, key)))
   defp not_nil_dyn(binding, key), do: dynamic([], not is_nil(^field_dyn(binding, key)))
   defp date_field_dyn(binding, key), do: dynamic([], fragment("date(?)", ^field_dyn(binding, key)))
-  defp avg_field_dyn(binding, key), do: dynamic([], avg(^field_dyn(binding, key)))
-  defp count_field_dyn(binding, key), do: dynamic([], count(^field_dyn(binding, key)))
-  defp max_field_dyn(binding, key), do: dynamic([], max(^field_dyn(binding, key)))
-  defp min_field_dyn(binding, key), do: dynamic([], min(^field_dyn(binding, key)))
-  defp sum_field_dyn(binding, key), do: dynamic([], sum(^field_dyn(binding, key)))
   # ── Non-generated dispatch: compiled once regardless of binding count ──────
 
   defp dispatch_expr(binding, key, negated, {op, value}) do
@@ -51,7 +46,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     cond do
       nil_or_scalar?(term) -> scalar_comparison(binding, key, term)
       quantified?(term) -> quantified_comparison(binding, key, term)
-      aggregate?(term) -> aggregate_comparison(binding, key, term)
+      aggregate?(term) -> Scalar.Aggregate.build(binding, key, term)
       datetime?(term) -> datetime_comparison(binding, key, term)
       arithmetic?(term) -> arithmetic_comparison(binding, key, term)
       operand?(term) -> operand_comparison(binding, key, term)
@@ -333,96 +328,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
     dynamic([], not (^f <= any(qv)))
   end
 
-  # Aggregate: nil checks
-  defp aggregate_comparison(binding, key, {helper, {:==, nil}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], is_nil(^f))
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:==, nil}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], not is_nil(^f))
-  end
-
-  defp aggregate_comparison(binding, key, {helper, {:!=, nil}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], not is_nil(^f))
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:!=, nil}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], is_nil(^f))
-  end
-
-  # Aggregate: value comparisons
-  defp aggregate_comparison(binding, key, {helper, {:==, v}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f == ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:==, v}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f != ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {helper, {:!=, v}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f != ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:!=, v}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f == ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {helper, {:>, v}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f > ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:>, v}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], not (^f > ^v))
-  end
-
-  defp aggregate_comparison(binding, key, {helper, {:>=, v}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f >= ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:>=, v}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], not (^f >= ^v))
-  end
-
-  defp aggregate_comparison(binding, key, {helper, {:<, v}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f < ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:<, v}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], not (^f < ^v))
-  end
-
-  defp aggregate_comparison(binding, key, {helper, {:<=, v}}) when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], ^f <= ^v)
-  end
-
-  defp aggregate_comparison(binding, key, {:not, {helper, {:<=, v}}})
-       when helper in @aggregate_helpers do
-    f = agg_field_dyn(binding, key, helper)
-    dynamic([], not (^f <= ^v))
-  end
-
   # Datetime comparisons - interval is already a ^-pinned runtime var after Phase 1
   defp datetime_comparison(binding, key, {:==, {:date, {:ago, params}}}) do
     count = Keyword.fetch!(params, :count)
@@ -628,12 +533,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   end
 
   defp scalar_value_fallback(_binding, _key, _term), do: nil
-
-  defp agg_field_dyn(binding, key, :avg), do: avg_field_dyn(binding, key)
-  defp agg_field_dyn(binding, key, :count), do: count_field_dyn(binding, key)
-  defp agg_field_dyn(binding, key, :max), do: max_field_dyn(binding, key)
-  defp agg_field_dyn(binding, key, :min), do: min_field_dyn(binding, key)
-  defp agg_field_dyn(binding, key, :sum), do: sum_field_dyn(binding, key)
 
   defp apply_scalar_comparison(:==, f, v, :plain), do: dynamic([], ^f == ^v)
   defp apply_scalar_comparison(:==, f, v, :negated), do: dynamic([], ^f != ^v)
