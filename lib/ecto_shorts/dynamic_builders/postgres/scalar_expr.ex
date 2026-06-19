@@ -11,6 +11,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   @comparison_operators [:>, :>=, :<, :<=, :==, :!=]
   @equality_operators [:==, :!=]
   @string_operators [:like, :ilike]
+  @string_transforms [:lower, :upper, :trim, :ltrim, :rtrim]
 
   context = __MODULE__
   key_var = Macro.var(:key, context)
@@ -65,6 +66,27 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
       dynamic(
         [unquote_splicing(quoted_binding_body)],
         fragment("upper(?)", field(unquote(target_binding_var), ^unquote(key_var)))
+      )
+    end
+
+    defp trim_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
+      dynamic(
+        [unquote_splicing(quoted_binding_body)],
+        fragment("trim(?)", field(unquote(target_binding_var), ^unquote(key_var)))
+      )
+    end
+
+    defp ltrim_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
+      dynamic(
+        [unquote_splicing(quoted_binding_body)],
+        fragment("ltrim(?)", field(unquote(target_binding_var), ^unquote(key_var)))
+      )
+    end
+
+    defp rtrim_field_dyn(unquote(quoted_binding_head), unquote(key_var)) do
+      dynamic(
+        [unquote_splicing(quoted_binding_body)],
+        fragment("rtrim(?)", field(unquote(target_binding_var), ^unquote(key_var)))
       )
     end
 
@@ -201,10 +223,30 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
         f = upper_field_dyn(binding, key)
         dynamic([], ^f != ^v)
 
+      {:not, {:==, {transform, v}}} when transform in [:trim, :ltrim, :rtrim] ->
+        f = transform_field_dyn(binding, key, transform)
+        dynamic([], ^f != ^v)
+
+      {:==, {transform, v}} when transform in [:trim, :ltrim, :rtrim] ->
+        f = transform_field_dyn(binding, key, transform)
+        dynamic([], ^f == ^v)
+
+      {:not, {:!=, {transform, v}}} when transform in [:trim, :ltrim, :rtrim] ->
+        f = transform_field_dyn(binding, key, transform)
+        dynamic([], ^f == ^v)
+
+      {:!=, {transform, v}} when transform in [:trim, :ltrim, :rtrim] ->
+        f = transform_field_dyn(binding, key, transform)
+        dynamic([], ^f != ^v)
+
       _ ->
         nil
     end
   end
+
+  defp transform_field_dyn(binding, key, :trim), do: trim_field_dyn(binding, key)
+  defp transform_field_dyn(binding, key, :ltrim), do: ltrim_field_dyn(binding, key)
+  defp transform_field_dyn(binding, key, :rtrim), do: rtrim_field_dyn(binding, key)
 
   defp string_impl(binding, key, negated, {op, value}) do
     term = if negated === :not, do: {:not, {op, value}}, else: {op, value}
@@ -958,13 +1000,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr do
   end
 
   defp family_for(op, {transform, _term})
-       when op in @comparison_operators and transform in [:lower, :upper] do
+       when op in @comparison_operators and transform in @string_transforms do
     :string_transform
   end
 
   defp family_for(op, term) when op in @string_operators do
     case term do
-      {transform, _term} when transform in [:lower, :upper] ->
+      {transform, _term} when transform in @string_transforms ->
         :string_transform
 
       _ ->
