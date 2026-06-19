@@ -132,4 +132,28 @@ defmodule EctoShorts.CommonFilters.AggregateOperatorsTest do
       assert_sql(expected, actual)
     end
   end
+
+  describe ":aggregate wrapper removed (D-ONE-WAY)" do
+    test "the short aggregate spelling works" do
+      source = from(p in Post, group_by: p.author_id)
+
+      actual =
+        CommonFilters.convert_params_to_filter(source, %{having: %{views: %{avg: %{>: 5}}}}, [])
+
+      assert_sql(from(p in Post, group_by: p.author_id, having: avg(p.views) > ^5), actual)
+    end
+
+    test "the :aggregate wrapper is no longer supported (unrecognized operator is skipped)" do
+      # With the wrapper clauses removed, an :aggregate key is an unrecognized
+      # operator on a valid field, which resolves to no predicate and is skipped.
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{views: %{aggregate: %{fn: :avg, compare: :>, value: 5}}},
+          []
+        )
+
+      assert_sql(from(p in Post), actual)
+    end
+  end
 end

@@ -347,27 +347,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
     ScalarExpr.dynamic_expr(selected_binding, key, negated, canonical, opts)
   end
 
-  defp dispatch_expr(source, selected_binding, key, negated, {:aggregate, params}, opts)
-       when is_map(params) do
-    dispatch_expr(source, selected_binding, key, negated, {:aggregate, Map.to_list(params)}, opts)
-  end
-
-  defp dispatch_expr(source, selected_binding, key, negated, {:aggregate, params}, opts)
-       when is_list(params) do
-    agg_fn = Keyword.fetch!(params, :fn)
-    compare_op = Keyword.fetch!(params, :compare)
-    value = Keyword.fetch!(params, :value)
-
-    dispatch_field_expr(
-      source,
-      selected_binding,
-      key,
-      negated,
-      {agg_fn, {compare_op, value}},
-      opts
-    )
-  end
-
   # Shorthand aggregate form: {agg_fn, map_or_keyword} where agg_fn is one of
   # :avg, :sum, :max, :min, :count and the payload is a single-entry map or
   # keyword list mapping a comparison operator to its value.
