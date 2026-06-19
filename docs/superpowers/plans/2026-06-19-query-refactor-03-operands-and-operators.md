@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the new caller-facing capabilities that don't involve subqueries: the `overlaps` operator, `trim`/`ltrim`/`rtrim` transforms, the `shift` date-math word, binary arithmetic as ordered-array operands, and the `value`/`field`/sibling-`as:` operand forms — extending `TermResolver` (canonical output) and the Expr modules (SQL emission) together.
+**Goal:** Add the new caller-facing capabilities that don't involve subqueries: the `overlaps` operator, `trim`/`ltrim`/`rtrim` transforms, the `shift` date-math word, binary arithmetic as ordered-array operands, and the `value`/`field`/sibling-`as:` operand forms — extending `PredicateBuilder` (canonical output) and the Expr modules (SQL emission) together.
 
-**Architecture:** Each capability is built end-to-end in one task: extend `TermResolver.canonicalize/4` to produce the new canonical shape, and extend the matching Expr module to emit SQL for it. `TermResolver` parts are pure unit tests; Expr parts assert generated SQL through the existing pipeline.
+**Architecture:** Each capability is built end-to-end in one task: extend `PredicateBuilder.build/4` to produce the new canonical shape, and extend the matching Expr module to emit SQL for it. `PredicateBuilder` parts are pure unit tests; Expr parts assert generated SQL through the existing pipeline.
 
-**Tech Stack:** Elixir, Ecto. `TermResolver` unit tests: `ExUnit`. SQL-emitting tests: the existing `assert_sql`/`assert_query` style via `CommonFilters` (or direct Expr calls).
+**Tech Stack:** Elixir, Ecto. `PredicateBuilder` unit tests: `ExUnit`. SQL-emitting tests: the existing `assert_sql`/`assert_query` style via `CommonFilters` (or direct Expr calls).
 
 ## Global Constraints
 
-- Builds on Plan 01 (`TermResolver` comparison family) and Plan 02 (pure Expr, `comparison_impl` family router). Those are merged before this plan starts.
+- Builds on Plan 01 (`PredicateBuilder` comparison family) and Plan 02 (pure Expr, `comparison_impl` family router). Those are merged before this plan starts.
 - **Subquery operands are out of scope** — `from`/`all`/`any`/`exists`/`parent` move to Plan 04. This plan covers `value`, `field` (incl. sibling `as:`), and arithmetic operands only.
 - **Never use `alias Module, as: X`** (project convention).
 - Canonical shapes follow spec §1.5a/§2.2: arithmetic is `{op, {arith_sym, [operand, operand]}}` (binary, ordered); `arith_sym` ∈ `:+ :- :* :/`; operands are `{:field, atom}` / `{:field, {binding, atom}}` / `{:value, cast}`.
@@ -193,9 +193,9 @@ git commit -m "feat(scalar): add trim/ltrim/rtrim text transforms"
 ### Task 3: `shift` date-math word (rename `add`, no SQL change)
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/term_resolver.ex` (date-math canonicalization — added here, since Plan 01 deferred date-math)
+- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex` (date-math canonicalization — added here, since Plan 01 deferred date-math)
 - Modify: `lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex` (`datetime_comparison`/`apply_datetime_comparison` — accept `:shift`)
-- Test: `test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs`, `..._date_wrappers_test.exs`, and `TermResolver` unit test
+- Test: `test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs`, `..._date_wrappers_test.exs`, and `PredicateBuilder` unit test
 
 **Interfaces:**
 - Produces: caller `%{at: %{gt: %{ago: %{count: 1, unit: "day"}}}}` and `%{at: %{gt: %{date: %{shift: %{count: 7, unit: "day"}}}}}` tidy to `{:>, {:datetime, {:ago, [count: 1, interval: "day"]}}}` and `{:>, {:date, {:shift, [count: 7, interval: "day"]}}}`. `shift` emits the same `datetime_add(...)` SQL the old `add` did. `unit` is a closed set (`second minute hour day week month year`).
@@ -203,13 +203,13 @@ git commit -m "feat(scalar): add trim/ltrim/rtrim text transforms"
 - [ ] **Step 1: Write the failing tests (resolver unit + SQL)**
 
 ```elixir
-# TermResolver unit
+# PredicateBuilder unit
 test "date-math: unit map tidies to interval keyword; shift kept" do
   assert {:ok, %{term: {:>, {:datetime, {:ago, [count: 1, interval: "day"]}}}}} =
-           TermResolver.canonicalize(Post, :inserted_at, %{gt: %{ago: %{count: 1, unit: "day"}}}, [])
+           PredicateBuilder.build(Post, :inserted_at, %{gt: %{ago: %{count: 1, unit: "day"}}}, [])
 
   assert {:ok, %{term: {:>=, {:date, {:shift, [count: 7, interval: "day"]}}}}} =
-           TermResolver.canonicalize(Post, :inserted_at, %{gte: %{date: %{shift: %{count: 7, unit: "day"}}}}, [])
+           PredicateBuilder.build(Post, :inserted_at, %{gte: %{date: %{shift: %{count: 7, unit: "day"}}}}, [])
 end
 ```
 
@@ -278,23 +278,23 @@ In `scalar_expr.ex`, the datetime family currently matches `:add`. Add `:shift` 
 
 - [ ] **Step 5: Run to verify pass + full suite**
 
-Run: `mix test test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs test/ecto_shorts/query_builder/term_resolver_test.exs && mix test`
+Run: `mix test test/ecto_shorts/common_filters/common_filters_datetime_wrappers_test.exs test/ecto_shorts/query_builder/predicate_builder_test.exs && mix test`
 Expected: PASS. (The ~21 date/datetime tests are updated from `interval:`/`add` to `unit:`/`shift` as part of this task — they are the reconciliation the audit flagged for D-WIRE/D-ADD-SHIFT.)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/term_resolver.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
+git add lib/ecto_shorts/query_builder/predicate_builder.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
 git commit -m "feat(date-math): shift word + unit key; resolver canonicalizes to interval kw"
 ```
 
 ---
 
-### Task 4: `value` / `field` operands + sibling `as:` (TermResolver, pure)
+### Task 4: `value` / `field` operands + sibling `as:` (PredicateBuilder, pure)
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/term_resolver.ex`
-- Test: `test/ecto_shorts/query_builder/term_resolver_test.exs`
+- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex`
+- Test: `test/ecto_shorts/query_builder/predicate_builder_test.exs`
 
 **Interfaces:**
 - Produces: the RHS of a comparison may be an **operand map**:
@@ -308,23 +308,23 @@ git commit -m "feat(date-math): shift word + unit key; resolver canonicalizes to
 ```elixir
 test "field operand on the current binding" do
   assert {:ok, [%{term: {:>, {:field, :b}}}]} =
-           TermResolver.canonicalize(Post, :views, %{gt: %{field: :b}}, [])
+           PredicateBuilder.build(Post, :views, %{gt: %{field: :b}}, [])
 end
 
 test "field operand with a sibling binding records {binding, field}" do
   assert {:ok, [%{term: {:>, {:field, {:author, :age}}}}]} =
-           TermResolver.canonicalize(Post, :views, %{gt: %{field: :age, as: :author}}, [])
+           PredicateBuilder.build(Post, :views, %{gt: %{field: :age, as: :author}}, [])
 end
 
 test "value operand is always a single literal (cast), never membership" do
   assert {:ok, [%{term: {:==, {:value, [1, 2]}}}]} =
-           TermResolver.canonicalize(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
+           PredicateBuilder.build(Post, :views, %{eq: %{value: ["1", "2"]}}, [])
 end
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `mix test test/ecto_shorts/query_builder/term_resolver_test.exs -k operand`
+Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs -k operand`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement operand parsing as `build_one/3` clauses**
@@ -349,13 +349,13 @@ defp field_ref(%{field: f}), do: f
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `mix test test/ecto_shorts/query_builder/term_resolver_test.exs`
+Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/term_resolver.ex test/ecto_shorts/query_builder/term_resolver_test.exs
+git add lib/ecto_shorts/query_builder/predicate_builder.ex test/ecto_shorts/query_builder/predicate_builder_test.exs
 git commit -m "feat(resolver): value/field operands + sibling-as reference (pure)"
 ```
 
@@ -364,7 +364,7 @@ git commit -m "feat(resolver): value/field operands + sibling-as reference (pure
 ### Task 5: Emit `field`/sibling operands + binary arithmetic (ScalarExpr)
 
 **Files:**
-- Modify: `lib/ecto_shorts/query_builder/term_resolver.ex` (arithmetic operand)
+- Modify: `lib/ecto_shorts/query_builder/predicate_builder.ex` (arithmetic operand)
 - Modify: `lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex` (emit field/sibling/arithmetic)
 - Test: `test/ecto_shorts/common_filters/common_filters_comparison_operators_test.exs`, `..._parent_as_test.exs` (sibling), `..._arithmetic` cases
 
@@ -380,12 +380,12 @@ git commit -m "feat(resolver): value/field operands + sibling-as reference (pure
 # resolver: arithmetic ordered-array, binary only
 test "binary arithmetic operand" do
   assert {:ok, [%{term: {:>, {:+, [{:field, :base}, {:value, 5}]}}}]} =
-           TermResolver.canonicalize(Post, :views, %{gt: %{add: [%{field: :base}, %{value: "5"}]}}, [])
+           PredicateBuilder.build(Post, :views, %{gt: %{add: [%{field: :base}, %{value: "5"}]}}, [])
 end
 
 test "arithmetic with 3 operands raises (binary only)" do
   assert_raise EctoShorts.FilterError, fn ->
-    TermResolver.canonicalize(Post, :views, %{gt: %{add: [%{field: :a}, %{field: :b}, %{value: 1}]}}, [])
+    PredicateBuilder.build(Post, :views, %{gt: %{add: [%{field: :a}, %{field: :b}, %{value: 1}]}}, [])
   end
 end
 ```
@@ -407,7 +407,7 @@ end
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `mix test test/ecto_shorts/query_builder/term_resolver_test.exs test/ecto_shorts/common_filters/common_filters_comparison_operators_test.exs -k "arithmetic"`
+Run: `mix test test/ecto_shorts/query_builder/predicate_builder_test.exs test/ecto_shorts/common_filters/common_filters_comparison_operators_test.exs -k "arithmetic"`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement arithmetic in the resolver**
@@ -487,7 +487,7 @@ Expected: PASS. The legacy positional arithmetic shape (`{:value, {arith_op, {{:
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lib/ecto_shorts/query_builder/term_resolver.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
+git add lib/ecto_shorts/query_builder/predicate_builder.ex lib/ecto_shorts/dynamic_builders/postgres/scalar_expr.ex test/
 git commit -m "feat: binary arithmetic operands + column/sibling field comparisons"
 ```
 
@@ -497,5 +497,5 @@ git commit -m "feat: binary arithmetic operands + column/sibling field compariso
 
 - **Spec coverage:** D-LIST `overlaps` + `:in`-on-array → Task 1; D-TRIM → Task 2; D-ADD-SHIFT + D-WIRE `unit`/date-math → Task 3; D-OPERAND `value`/`field` + D-SIBLING → Task 4; D-OPERAND arithmetic (binary, ordered) + sibling emission → Task 5. **Subquery operands (`from`/`all`/`any`/`exists`/`parent`) are explicitly deferred to Plan 04** (index updated).
 - **Placeholders:** none for the in-scope tasks. Every map is processed with `Enum.reduce` / key access (no singleton `Map.to_list` match); the date-math/operand/arithmetic clauses are `build_one/3` heads that return lists and fall through to `build_one_transform/3` (the Plan 01 transform branch factored into a named helper).
-- **Type consistency:** operand shapes (`{:field, atom}`, `{:field, {binding, atom}}`, `{:value, v}`, `{arith_sym, [op, op]}`) are produced by `TermResolver` (Tasks 4–5) and consumed by ScalarExpr `operand_dyn/2`/`comparison_rhs/2` (Task 5) with matching names; `@arith` maps words→symbols consistently with §2.2's `:+ :- :* :/`.
+- **Type consistency:** operand shapes (`{:field, atom}`, `{:field, {binding, atom}}`, `{:value, v}`, `{arith_sym, [op, op]}`) are produced by `PredicateBuilder` (Tasks 4–5) and consumed by ScalarExpr `operand_dyn/2`/`comparison_rhs/2` (Task 5) with matching names; `@arith` maps words→symbols consistently with §2.2's `:+ :- :* :/`.
 - **Carried to Plan 04:** sibling-`as:` *validation* (post-build, unknown/ambiguous → raise — §3.11) is recorded by the resolver here but enforced in Plan 04/05 where the full query (and its bindings) exists; subquery operands; the D-NULL/D-RAISE/D-ONE-WAY/D-PROVIDER behavior changes.

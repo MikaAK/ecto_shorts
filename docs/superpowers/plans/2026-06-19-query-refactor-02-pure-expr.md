@@ -14,7 +14,7 @@
 - **The existing suite is the contract for this plan.** Each task ends with `mix test` fully green. (Per spec §5, the suite is reconciled to the spec in later plans; in *this* plan we preserve current behavior so the refactor is provably safe.)
 - **Never use `alias Module, as: X`** — use the plain alias and the module's last segment. (Project convention.)
 - **TDD note:** because this is a refactor, the cycle is *establish green → refactor → re-verify green → commit*, not *write failing test → implement*. Where a family currently lacks a focused test, add a characterization test (real `assert_sql`) capturing today's SQL **before** moving its clauses.
-- The "shrink `build_dynamic` to a thin adapter over `TermResolver` output" work is **not** here — it is Plan 05 (wiring), because it only makes sense once `TermResolver` feeds the adapter.
+- The "shrink `build_dynamic` to a thin adapter over `PredicateBuilder` output" work is **not** here — it is Plan 05 (wiring), because it only makes sense once `PredicateBuilder` feeds the adapter.
 
 ---
 
@@ -242,7 +242,7 @@ git commit -m "refactor(scalar_expr): comparison_impl is now a family router (no
 **Interfaces:**
 - Consumes: a `field` resolved by the caller.
 - Produces: `CommonExpr.dynamic_expr(selected_binding, operator, field, negated, term, opts)` — the operator's target column arrives as `field` (e.g. `:id` for `:ids`/`:before`/…, `:inserted_at` for `:start_date`/…); `CommonExpr` no longer contains any column literal. `:exists` ignores `field` (passes `nil`).
-- New caller helper: `EctoShorts.DynamicBuilders.Postgres.common_field_for(operator) :: atom() | nil` — maps the operator to its column (`:id` / `:inserted_at` / `nil` for `:exists`). (In Plan 05 this mapping moves into `TermResolver`; here it lives at the caller so the behavior is unchanged.)
+- New caller helper: `EctoShorts.DynamicBuilders.Postgres.common_field_for(operator) :: atom() | nil` — maps the operator to its column (`:id` / `:inserted_at` / `nil` for `:exists`). (In Plan 05 this mapping moves into `PredicateBuilder`; here it lives at the caller so the behavior is unchanged.)
 
 - [ ] **Step 1: Write the failing test (characterization, now isolatable because CommonExpr takes the field)**
 
@@ -367,5 +367,5 @@ git commit -m "refactor(common_expr): pass the column in; remove hardcoded :id/:
 - **Spec coverage:** D1 (decompose `comparison_impl` + family functions) → Tasks 1–4; D-CommonExpr-FIELD / B1–B2 (pure `CommonExpr`) → Task 5. The scalar leaf-matrix stays as the existing `apply_scalar_comparison/4` (already a clean 12-clause matrix); the larger `apply_arith_comparison` (48) collapse rides with Plan 03, where arithmetic is reshaped to the operand convention — collapsing it here would risk an SQL change with no behavioral payoff.
 - **Placeholders:** none. Bulk verbatim clause relocations are given as exact line ranges + the destination function and the routing predicate, which is a precise mechanical instruction (not "similar to Task N").
 - **Type consistency:** `CommonExpr.dynamic_expr/6` (added `field` arg) is matched by the single caller change in `postgres.ex`; `common_field_for/1` returns the column the old hardcoded clauses used. The family-function names (`scalar_comparison`, `quantified_comparison`, `aggregate_comparison`, `datetime_comparison`, `arithmetic_comparison`, `parent_as_comparison`, `scalar_value_fallback`) are introduced once and reused by the `comparison_impl` router.
-- **Carried to Plan 03:** the datetime/arithmetic/parent_as families still hold the `Keyword.fetch!`/`Keyword.get(:field)` impurities; Plan 03 removes them when `TermResolver` supplies pre-resolved operands (`shift`, sibling `as:`, ordered-array arithmetic).
-- **Carried to Plan 05:** `common_field_for/1` moves into `TermResolver` (the field is filled in upstream per D-CommonExpr-FIELD); `CommonExpr` stays pure.
+- **Carried to Plan 03:** the datetime/arithmetic/parent_as families still hold the `Keyword.fetch!`/`Keyword.get(:field)` impurities; Plan 03 removes them when `PredicateBuilder` supplies pre-resolved operands (`shift`, sibling `as:`, ordered-array arithmetic).
+- **Carried to Plan 05:** `common_field_for/1` moves into `PredicateBuilder` (the field is filled in upstream per D-CommonExpr-FIELD); `CommonExpr` stays pure.

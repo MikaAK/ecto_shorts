@@ -15,7 +15,7 @@ have:
 - **implicit AND across keys; explicit `or`/`and` as a list of sub-maps**
 - **a small, closed operator set**
 - **a dumb decoder + schema-driven casting** (values stay strings off the wire;
-  the schema decides types) — exactly what our `TermResolver` does
+  the schema decides types) — exactly what our `PredicateBuilder` does
 - **an allowlist of filterable fields** for safety (we have `:allowed_keys`)
 - **JSON body as the primary transport; query-string brackets for the simple
   flat-AND subset**

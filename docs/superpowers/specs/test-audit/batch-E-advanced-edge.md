@@ -287,7 +287,7 @@ Out-of-range / zero / negative `:at` positions are explicitly called out in §3.
 
 Tests `EctoShorts.CommonFilters.Parser.normalize/1,2,3` — an internal tidying helper. §0.1/§2.3 say
 the multi-pass "tidy everything first" Parser is being **removed**: tidying moves into the per-filter
-`TermResolver.canonicalize`, and §6 lists no `Parser` module in the post-refactor module set. These
+`PredicateBuilder.canonicalize`, and §6 lists no `Parser` module in the post-refactor module set. These
 tests couple directly to `Parser`'s internal name and its pair-list/fan-out output shape, which is
 exactly the "depend only on public contract" violation. `Parser` is internal (**D-INTERNAL** —
 "`build_dynamic`, `apply_expr`, … free to change"). The doctest (line 6) will also vanish with the module.

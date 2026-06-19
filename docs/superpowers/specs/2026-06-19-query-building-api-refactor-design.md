@@ -585,7 +585,7 @@ A few naming notes about the tidied form:
   `multiply`→`:*`, `divide`→`:/`.
 
 ### 2.3 The translator (the "resolver") — one place, no SQL, no database brand
-A new piece — `EctoShorts.QueryBuilder.TermResolver` — does all the tidying. It
+A new piece — `EctoShorts.QueryBuilder.PredicateBuilder` — does all the tidying. It
 contains no SQL and knows nothing about any specific database. It only knows how to
 convert values and read the schema.
 
@@ -1017,7 +1017,7 @@ Because the tests are not the source of truth (this document is), the order is:
 |---|---|
 | `EctoShorts.CommonFilters` | filter-ordering becomes one pass; the main loop sends column conditions through the translator, then the adapter. Caller-mistake cases raise from Elixir (D-RAISE). |
 | validate step (HTTP entry, §1.7) | checks request params against allowed columns/operators, casts values, and returns errors as data so a bad request is a 4xx (D-WIRE, D-RAISE). Where field/operator allow-listing and request limits live. |
-| `EctoShorts.QueryBuilder.TermResolver` *(new, no database brand)* | the translator. Holds the tidying scattered across the PostgreSQL builder today, plus: the operand convention (D-OPERAND), string-operator decoding via a closed safe list and date-math maps (D-WIRE), the null rule (D-NULL), list-routing-from-type-only (D-LIST), and the operator-vs-column rule (D-COLLISION). |
+| `EctoShorts.QueryBuilder.PredicateBuilder` *(new, no database brand)* | the translator. Holds the tidying scattered across the PostgreSQL builder today, plus: the operand convention (D-OPERAND), string-operator decoding via a closed safe list and date-math maps (D-WIRE), the null rule (D-NULL), list-routing-from-type-only (D-LIST), and the operator-vs-column rule (D-COLLISION). |
 | `EctoShorts.DynamicBuilders.Postgres` | shrinks to a thin adapter: take a tidied filter, pick the helper by `routing`, apply the "not." No tidying. |
 | `EctoShorts.DynamicBuilders.Postgres.ScalarExpr` | becomes pure; the giant function is broken up (§3.7); the tiny builders collapse into one table; arithmetic operands become ordered lists (D-OPERAND); the null padding on list `!=` is removed (D-NULL). |
 | `…ArrayExpr`, `…MapExpr` | already pure; now receive tidied filters only. `:elements` entry path is gone (D-LIST); list overlap is the explicit `overlaps` operator. |
