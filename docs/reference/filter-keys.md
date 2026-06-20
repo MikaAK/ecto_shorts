@@ -43,7 +43,6 @@ dedicated filter sub-module under `EctoShorts.CommonFilters.Filters`.
 | `:union` | `Ecto.Query.t` | `UNION` | Combines result sets; removes duplicates |
 | `:union_all` | `Ecto.Query.t` | `UNION ALL` | Combines result sets; keeps duplicates |
 | `:update` | keyword list | `UPDATE SET ...` | Update expressions for `update_all` |
-| `:update_expr` | keyword list | `UPDATE SET ...` | Raw update expression; lower-level than `:update` |
 | `:windows` | keyword list | `WINDOW ...` | Window function definitions |
 | `:with_cte` | keyword list | `WITH name AS (...)` | Common table expression definitions |
 | `:with_named_binding` | keyword list | (binding alias) | Attaches a named binding to the query for later reference |

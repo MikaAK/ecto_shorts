@@ -237,7 +237,6 @@ equivalents, see [Filter Key Reference](filter-keys.md#structural-filter-keys).
 | `:except_all` | `Ecto.Query.t` | EXCEPT ALL set operation |
 | `:subquery` | `Ecto.Query.t` | Wrap current query as subquery (terminal) |
 | `:update` | keyword list | Update expressions for `update_all` |
-| `:update_expr` | keyword list | Raw update expression |
 | `:put_query_prefix` | string | Set the query prefix (schema/tenant) |
 | `:as` | map | Retarget subsequent filters to named binding |
 | `:at` | map | Retarget subsequent filters to positional binding |
