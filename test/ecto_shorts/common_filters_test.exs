@@ -85,6 +85,17 @@ defmodule EctoShorts.CommonFiltersTest do
     end
   end
 
+  describe "convert_params_to_filter/3 last: nil" do
+    test "returns query unchanged when last: value is nil" do
+      expected = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{last: nil}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe "convert_params_to_filter/3 as:/at: nil" do
     test "returns query unchanged when as: value is nil" do
       expected = from(p in Post)

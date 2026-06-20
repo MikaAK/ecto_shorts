@@ -11,6 +11,8 @@ defmodule EctoShorts.CommonFilters.Last do
 
   @logger_prefix "EctoShorts.CommonFilters.Last"
 
+  def build_query(:last, _source, query, _selected_binding, nil, _opts), do: query
+
   def build_query(:last, source, query, _selected_binding, {sort_key, limit}, _opts)
       when is_integer(limit) do
     sort_keys =
