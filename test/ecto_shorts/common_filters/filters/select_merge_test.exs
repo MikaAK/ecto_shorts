@@ -10,6 +10,17 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
   import Ecto.Query
 
 
+  describe "select_merge nil" do
+    test "keeps the query unchanged when select_merge value is nil" do
+      expected = from(p in Post, select: %{})
+      source = from(p in Post, select: %{})
+
+      actual = CommonFilters.convert_params_to_filter(source, %{select_merge: nil}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe "select_merge shapes" do
     test "matches Ecto.Query for a root select_merge map tuple alias mapping" do
       source = from(p in Post, select: %{})

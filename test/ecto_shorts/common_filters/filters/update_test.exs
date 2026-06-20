@@ -10,6 +10,16 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
   import Ecto.Query
 
 
+  describe "update nil" do
+    test "keeps the query unchanged when update value is nil" do
+      expected = from(p in Post)
+
+      actual = CommonFilters.convert_params_to_filter(Post, %{update: nil}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe "subquery shapes" do
     test "wraps the filtered query in a subquery when given a map filter" do
       actual =

@@ -8,6 +8,8 @@ defmodule EctoShorts.CommonFilters.Update do
   alias Ecto.Query
   require Ecto.Query
 
+  def build_query(:update, _source, query, _selected_binding, nil, _opts), do: query
+
   def build_query(:update, source, query, selected_binding, map, opts)
       when is_map(map) and not is_struct(map) do
     build_query(:update, source, query, selected_binding, Map.to_list(map), opts)

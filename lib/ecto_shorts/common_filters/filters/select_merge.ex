@@ -7,6 +7,8 @@ defmodule EctoShorts.CommonFilters.SelectMerge do
   alias Ecto.Query
   require Ecto.Query
 
+  def build_query(:select_merge, _source, query, _selected_binding, nil, _opts), do: query
+
   def build_query(:select_merge, source, query, selected_binding, term, opts) do
     apply_select_merge(query, source, selected_binding, term, opts)
   end
