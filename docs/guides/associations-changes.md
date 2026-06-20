@@ -89,6 +89,46 @@ Options:
   that field is `nil` in both changes and data.
 - `:repo` — the `Ecto.Repo` to use for the preload query.
 
+### `preload_changeset_assoc/3` — preload an association onto changeset data
+
+This is the lower-level preload step extracted from `preload_change_assoc/3`.
+It mutates `changeset.data` so that the named association is populated before
+any cast or put step runs. Unlike `preload_change_assoc/3`, it does **not**
+inspect `changeset.params` or call `put_or_cast_assoc` — it only ensures the
+association is loaded.
+
+Use this directly when you need fine-grained control over preloading — for
+example, when you want to preload a specific subset of records by id before
+applying your own association logic.
+
+Two loading strategies are available:
+
+| Option | Behaviour |
+|---|---|
+| `:ids` list provided | Queries the association schema for records with those ids via `EctoShorts.Actions.all/3` and sets them on `changeset.data` |
+| No `:ids` | Calls `repo.preload/3` on `changeset.data` for the given key |
+
+```elixir
+# Preload :comments from the database (repo.preload path)
+changeset =
+  %MyApp.Post{id: 1, comments: []}
+  |> Ecto.Changeset.change(%{})
+  |> EctoShorts.CommonChanges.preload_changeset_assoc(:comments)
+
+# changeset.data.comments is now populated from the DB
+
+# Preload only specific comment records by id
+changeset =
+  %MyApp.Post{id: 1, comments: []}
+  |> Ecto.Changeset.change(%{})
+  |> EctoShorts.CommonChanges.preload_changeset_assoc(:comments, ids: [4, 7])
+
+# changeset.data.comments => [%MyApp.Comment{id: 4, ...}, %MyApp.Comment{id: 7, ...}]
+```
+
+In most changesets you should call `preload_change_assoc/3` instead, which
+combines this preload step with `put_or_cast_assoc/3` automatically.
+
 ---
 
 ## Changeset mutation helpers
