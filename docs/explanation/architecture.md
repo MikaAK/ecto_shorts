@@ -183,7 +183,7 @@ Both `:where` and `:order_by` above are applied to the `:comments` binding.
 
 ## Cross-References
 
-- [Codebase Summary](codebase-summary.md) -- directory layout and key file index
-- [API Reference](api-reference.md) -- complete function signatures
-- [Configuration Guide](configuration-guide.md) -- adapter and repo configuration
-- [Code Standards](code-standards.md) -- how to add new filters and adapters
+- [Codebase Summary](../codebase-summary.md) -- directory layout and key file index
+- [API Reference](../reference/api-reference.md) -- complete function signatures
+- [Configuration Guide](../reference/configuration.md) -- adapter and repo configuration
+- [Code Standards](../code-standards.md) -- how to add new filters and adapters

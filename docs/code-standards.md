@@ -146,5 +146,5 @@ See [Testing Guide](testing-guide.md) for full detail. Summary:
 ## Cross-References
 
 - [Testing Guide](testing-guide.md) -- test setup, DataCase, coverage
-- [System Architecture](system-architecture.md) -- how QueryBinding generates compile-time clauses
-- [Configuration Guide](configuration-guide.md) -- adapter registration
+- [System Architecture](explanation/architecture.md) -- how QueryBinding generates compile-time clauses
+- [Configuration Guide](reference/configuration.md) -- adapter registration

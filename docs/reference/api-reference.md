@@ -346,6 +346,6 @@ refute_dynamic(expr, unexpected) :: :ok | no_return
 
 ## Cross-References
 
-- [System Architecture](system-architecture.md) -- filter pipeline and adapter extension points
-- [Configuration Guide](configuration-guide.md) -- repo, replica, adapter configuration
-- [Testing Guide](testing-guide.md) -- EctoShorts.Testing usage in tests
+- [System Architecture](../explanation/architecture.md) -- filter pipeline and adapter extension points
+- [Configuration Guide](configuration.md) -- repo, replica, adapter configuration
+- [Testing Guide](../testing-guide.md) -- EctoShorts.Testing usage in tests

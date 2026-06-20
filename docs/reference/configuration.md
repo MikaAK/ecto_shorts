@@ -181,6 +181,6 @@ Do not set `:hints` in `runtime.exs` or via `Application.put_env/3` at runtime.
 
 ## Cross-References
 
-- [System Architecture](system-architecture.md) -- adapter extension point diagrams, replica routing diagram
+- [System Architecture](../explanation/architecture.md) -- adapter extension point diagrams, replica routing diagram
 - [API Reference](api-reference.md) -- per-call option overrides in function signatures
-- [Code Standards](code-standards.md) -- implementing custom adapters step by step
+- [Code Standards](../code-standards.md) -- implementing custom adapters step by step

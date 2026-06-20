@@ -220,4 +220,4 @@ Coverage output is written to `cover/`. The HTML report is at `cover/excoveralls
 
 - [Code Standards](code-standards.md) -- adding filter tests, naming conventions
 - [Codebase Summary](codebase-summary.md) -- test directory layout
-- [API Reference](api-reference.md) -- EctoShorts.Testing function signatures
+- [API Reference](reference/api-reference.md) -- EctoShorts.Testing function signatures

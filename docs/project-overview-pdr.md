@@ -104,8 +104,8 @@ Before reduction, params are sorted into a deterministic order: `:where` clauses
 ## Cross-References
 
 - [Codebase Summary](codebase-summary.md) -- directory layout, module inventory, key file index
-- [System Architecture](system-architecture.md) -- component diagrams, filter pipeline, adapter extension points
-- [API Reference](api-reference.md) -- complete function signatures for all public modules
-- [Configuration Guide](configuration-guide.md) -- repo, replica, and adapter configuration
+- [System Architecture](explanation/architecture.md) -- component diagrams, filter pipeline, adapter extension points
+- [API Reference](reference/api-reference.md) -- complete function signatures for all public modules
+- [Configuration Guide](reference/configuration.md) -- repo, replica, and adapter configuration
 - [Testing Guide](testing-guide.md) -- test setup, DataCase, dual-file pattern
 - [Code Standards](code-standards.md) -- adding filters, Credo, Dialyzer
