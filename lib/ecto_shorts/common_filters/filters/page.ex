@@ -11,7 +11,7 @@ defmodule EctoShorts.CommonFilters.Page do
 
   # Shape 1 — offset-based: %{index: N, size: M}
   def build_query(:page, source, query, selected_binding, %{index: index, size: size}, opts) do
-    offset = (Types.cast(:integer, index) - 1) * Types.cast(:integer, size)
+    offset = max(0, (Types.cast(:integer, index) - 1) * Types.cast(:integer, size))
     limit = Types.cast(:integer, size)
 
     query

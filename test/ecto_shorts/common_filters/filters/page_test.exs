@@ -20,6 +20,15 @@ defmodule EctoShorts.CommonFilters.PageTest do
       assert_query(expected, actual)
     end
 
+    test "page 0 is treated as page 1 (clamps offset to 0)" do
+      expected = from(p in Post, limit: ^5, offset: ^0)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{page: %{index: 0, size: 5}}, [])
+
+      assert_query(expected, actual)
+    end
+
     test "page 2, size 5 applies LIMIT 5 OFFSET 5" do
       expected = from(p in Post, limit: ^5, offset: ^5)
 
