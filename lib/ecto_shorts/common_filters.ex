@@ -90,6 +90,8 @@ defmodule EctoShorts.CommonFilters do
     when you want to include only rows that match specific conditions.
   - `:and` and `:or` are used to group boolean expressions. Use them when you
     need to control how multiple filter conditions are combined.
+  - `:all` is an alias for `:and` — all given conditions are ANDed together.
+  - `:any` is an alias for `:or` — conditions are combined with OR.
 
   ### Bindings
 
@@ -229,7 +231,9 @@ defmodule EctoShorts.CommonFilters do
   alias EctoShorts.QueryBuilders
 
   @type filters ::
-          :distinct
+          :all
+          | :any
+          | :distinct
           | :except
           | :except_all
           | :exclude
@@ -427,10 +431,10 @@ defmodule EctoShorts.CommonFilters do
                 "association filter #{inspect(key)} expects a map or keyword list, got: #{inspect(params)}"
         end
 
-      key === :and ->
+      key in [:and, :all] ->
         reduce_filters(filter, source, query, selected_binding, params, opts)
 
-      key === :or ->
+      key in [:or, :any] ->
         if list_of_params?(params) do
           reduce_filters(:or_where, source, query, selected_binding, params, opts)
         else

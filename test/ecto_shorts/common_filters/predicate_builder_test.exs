@@ -836,6 +836,56 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     end
   end
 
+  # ---- :all / :any boolean grouper aliases (schemaless) ----
+  describe ":all / :any boolean grouper aliases (schemaless)" do
+    @describetag feature: :boolean_composition
+    @describetag schema_mode: :schemaless
+
+    test ":all with a single field produces the same where clause as :and" do
+      expected = from(p in "posts", where: p.views == ^15)
+      actual = CommonFilters.convert_params_to_filter("posts", %{all: %{views: 15}}, [])
+
+      assert_query(expected, actual)
+    end
+
+    test ":all with multiple fields ANDs the conditions together" do
+      expected = from(p in "posts", where: p.published == ^true, where: p.views == ^5)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{all: %{published: true, views: 5}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test ":any with a single field produces the same or_where clause as :or" do
+      expected = from(p in "posts", or_where: p.views == ^15)
+      actual = CommonFilters.convert_params_to_filter("posts", %{any: %{views: 15}}, [])
+
+      assert_query(expected, actual)
+    end
+
+    test ":any with a list of param maps reduces as or_where for each entry" do
+      expected =
+        from(p in "posts",
+          or_where: p.views == ^15,
+          or_where: p.views == ^20
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          "posts",
+          %{any: [%{views: 15}, %{views: 20}]},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
   # ---- merged from field_types_opt (schemaless) ----
   describe "field_types: opt (schemaless)" do
     @describetag feature: :field_types_opt
