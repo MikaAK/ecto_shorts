@@ -318,7 +318,26 @@ defmodule EctoShorts.CommonFilters do
     :with_ties
   ]
 
-  @doc false
+  @doc """
+  Returns the list of recognized structural filter keys.
+
+  These are the atoms that `convert_params_to_filter/3` treats as named query
+  clauses rather than direct field comparisons. Any key not in this list (and
+  not matching a schema association) is treated as a field-level predicate
+  against the primary source.
+
+  ## Examples
+
+      iex> :last in EctoShorts.CommonFilters.filters()
+      true
+
+      iex> :order_by in EctoShorts.CommonFilters.filters()
+      true
+
+      iex> :nonexistent_key in EctoShorts.CommonFilters.filters()
+      false
+
+  """
   @spec filters() :: list(filters())
   def filters, do: @filters
 
@@ -561,7 +580,35 @@ defmodule EctoShorts.CommonFilters do
   defp list_of_params?([head | _]), do: params?(head)
   defp list_of_params?(_), do: false
 
-  @doc false
+  @doc """
+  Sorts a params map or keyword list into the standard evaluation order.
+
+  The order produced is:
+
+  1. `:where` entries — applied first so regular predicates narrow the result set.
+  2. All other filter entries — structural filters, ordering, joins, etc.
+  3. `:or_where` entries — applied after `WHERE` clauses so OR logic is not
+     accidentally hoisted above normal predicates.
+  4. Terminal entries (`:last`, `:subquery`) — applied last because they
+     depend on the fully-built query.
+
+  When `params` is a map, it is converted to a keyword list before sorting.
+  Original key order within each group is preserved.
+
+  `convert_params_to_filter/3` calls this automatically. Pass a custom
+  `:sorter` option to that function if you need a different order.
+
+  ## Examples
+
+      iex> EctoShorts.CommonFilters.sort_filter_params([
+      ...>   last: 5,
+      ...>   or_where: %{published: false},
+      ...>   where: %{active: true},
+      ...>   limit: 10
+      ...> ])
+      [where: %{active: true}, limit: 10, or_where: %{published: false}, last: 5]
+
+  """
   def sort_filter_params(params) do
     {where, ors, terminal, other} =
       Enum.reduce(params, {[], [], [], []}, fn {key, _} = entry, {w, o, t, rest} ->
