@@ -9,6 +9,8 @@ defmodule EctoShorts.CommonFilters.Page do
   alias Ecto.Query
   require Ecto.Query
 
+  def build_query(:page, _source, query, _selected_binding, nil, _opts), do: query
+
   # Shape 1 — offset-based: %{index: N, size: M}
   def build_query(:page, source, query, selected_binding, %{index: index, size: size}, opts) do
     offset = max(0, (Types.cast(:integer, index) - 1) * Types.cast(:integer, size))

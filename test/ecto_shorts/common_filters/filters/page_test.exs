@@ -10,6 +10,16 @@ defmodule EctoShorts.CommonFilters.PageTest do
   import Ecto.Query
 
 
+  describe ":page nil" do
+    test "keeps the query unchanged when page value is nil" do
+      expected = from(p in Post)
+
+      actual = CommonFilters.convert_params_to_filter(Post, %{page: nil}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe ":page with index/size (offset-based)" do
     test "page 1, size 5 applies LIMIT 5 OFFSET 0" do
       expected = from(p in Post, limit: ^5, offset: ^0)
