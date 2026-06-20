@@ -23,6 +23,13 @@ defmodule EctoShorts.Types do
   """
   def cast(nil, value), do: value
 
+  def cast(:binary_id, value) do
+    case Ecto.UUID.dump(value) do
+      {:ok, dumped} -> dumped
+      :error -> value
+    end
+  end
+
   def cast(type, value) do
     with {:ok, cast} <- Type.cast(type, value),
          {:ok, dumped} <- Type.dump(type, cast) do
