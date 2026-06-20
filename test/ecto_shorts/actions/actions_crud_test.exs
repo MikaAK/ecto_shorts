@@ -1960,6 +1960,15 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert %Post{title: "After"} = Repo.get!(Post, post.id)
     end
 
+    test "updates the record when params is a keyword list" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "Before"})
+        |> Repo.insert!()
+
+      assert {:ok, %Post{title: "KwAfter"}} = Actions.update(Post, post, [title: "KwAfter"])
+    end
+
     test "returns a not_found error when the id does not exist" do
       assert {:error, %{code: :not_found, message: "record not found.", details: details}} =
                Actions.update(Post, -1, %{title: "Ignored"})
