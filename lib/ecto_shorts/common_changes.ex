@@ -737,7 +737,7 @@ defmodule EctoShorts.CommonChanges do
 
     opts = Keyword.put(opts, :required, required?)
 
-    if Map.has_key?(changeset.params, Atom.to_string(key)) do
+    if changeset.params && Map.has_key?(changeset.params, Atom.to_string(key)) do
       changeset
       |> preload_changeset_assoc(key, opts)
       |> put_or_cast_assoc(key, opts)

@@ -684,6 +684,15 @@ defmodule EctoShorts.CommonChangesTest do
                valid?: true
              } = changeset
     end
+
+    test "does not crash when changeset was built with Ecto.Changeset.change/2 (nil params)" do
+      changeset =
+        %Post{}
+        |> Ecto.Changeset.change(%{})
+        |> CommonChanges.preload_change_assoc(:comments)
+
+      assert %Changeset{valid?: true} = changeset
+    end
   end
 
   describe "preload_changeset_assoc: " do
