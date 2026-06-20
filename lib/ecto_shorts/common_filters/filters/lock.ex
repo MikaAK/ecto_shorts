@@ -12,6 +12,8 @@ defmodule EctoShorts.CommonFilters.Lock do
 
   @logger_prefix "EctoShorts.CommonFilters.Lock"
 
+  def build_query(:lock, _source, query, _selected_binding, nil, _opts), do: query
+
   def build_query(:lock, _source, query, selected_binding, params, opts) do
     if (is_map(params) and not is_struct(params)) or Keyword.keyword?(params) do
       case params[:name] do

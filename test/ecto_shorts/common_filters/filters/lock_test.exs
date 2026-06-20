@@ -183,6 +183,15 @@ defmodule EctoShorts.CommonFilters.LockTest do
   end
 
   describe "lock extended paths" do
+    test "keeps the query unchanged when lock value is nil" do
+      expected = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{lock: nil}, [])
+
+      assert_query(expected, actual)
+    end
+
     test "keeps the query unchanged when lock params map has no :name key" do
       expected = from(p in Post)
 
