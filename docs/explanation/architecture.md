@@ -1,5 +1,15 @@
 # EctoShorts System Architecture
 
+This document describes EctoShorts' internal component layout, the data flow
+through the filter pipeline, the extension points that let you replace or
+augment any part of the system, and several secondary subsystems (read/write
+routing, compile-time binding generation, and association shorthand). For the
+filter evaluation sequence in detail, see the
+[Filter Pipeline](filter-pipeline.md). For every recognized filter key, see
+the [Filter Key Reference](../reference/filter-keys.md).
+
+---
+
 ## Component Relationships
 
 ```mermaid
@@ -181,9 +191,27 @@ This allows applying multiple filters to a joined binding without repeating the 
 
 Both `:where` and `:order_by` above are applied to the `:comments` binding.
 
+## Adapter Extension Points — Quick Reference
+
+EctoShorts exposes three extension behaviours. Each can be set globally via
+`config :ecto_shorts` or overridden per-call via the matching runtime option.
+The runtime option key is the bare name (no `_module` suffix); the app-config
+key uses the `_module` suffix.
+
+| Behaviour | App-config key | Runtime option key | Purpose |
+|---|---|---|---|
+| `EctoShorts.QueryBuilder` | `:query_builder_module` | `:query_builder` | Replace how a filter key is applied to the query |
+| `EctoShorts.DynamicBuilder` | `:dynamic_builder_module` | `:dynamic_builder` | Replace dynamic expression compilation (e.g. different DB dialect) |
+| `EctoShorts.QueryProvider` | `:query_provider_module` | `:query_provider` | Supply named query fragments used by structural filters like `:lock` |
+
+Today only `Ecto.Adapters.Postgres` is a supported `DynamicBuilder` adapter.
+Do not imply other adapters ship.
+
 ## Cross-References
 
 - [Codebase Summary](../codebase-summary.md) -- directory layout and key file index
 - [API Reference](../reference/api-reference.md) -- complete function signatures
 - [Configuration Guide](../reference/configuration.md) -- adapter and repo configuration
 - [Code Standards](../code-standards.md) -- how to add new filters and adapters
+- [Filter Pipeline](filter-pipeline.md) -- detailed evaluation flow
+- [Filter Key Reference](../reference/filter-keys.md) -- every recognized key
