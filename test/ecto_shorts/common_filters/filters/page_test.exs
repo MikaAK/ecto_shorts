@@ -10,6 +10,21 @@ defmodule EctoShorts.CommonFilters.PageTest do
   import Ecto.Query
 
 
+  describe ":page with keyword list value" do
+    test "accepts keyword list index/size and applies same offset-based pagination" do
+      expected =
+        from(p in Post,
+          limit: ^5,
+          offset: ^0
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{page: [index: 1, size: 5]}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe ":page nil" do
     test "keeps the query unchanged when page value is nil" do
       expected = from(p in Post)
