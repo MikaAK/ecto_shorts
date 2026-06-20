@@ -432,15 +432,17 @@ defmodule EctoShorts.CommonFilters do
         end
 
       key in [:and, :all] ->
-        reduce_filters(filter, source, query, selected_binding, params, opts)
+        if is_nil(params), do: query, else: reduce_filters(filter, source, query, selected_binding, params, opts)
 
       key in [:or, :any] ->
-        if list_of_params?(params) do
-          reduce_filters(:or_where, source, query, selected_binding, params, opts)
-        else
-          Enum.reduce(params, query, fn {inner_key, inner_value}, query_acc ->
-            or_entries(source, query_acc, selected_binding, inner_key, inner_value, opts)
-          end)
+        cond do
+          is_nil(params) -> query
+          list_of_params?(params) ->
+            reduce_filters(:or_where, source, query, selected_binding, params, opts)
+          true ->
+            Enum.reduce(params, query, fn {inner_key, inner_value}, query_acc ->
+              or_entries(source, query_acc, selected_binding, inner_key, inner_value, opts)
+            end)
         end
 
       key in @filters ->
