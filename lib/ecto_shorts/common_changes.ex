@@ -812,7 +812,7 @@ defmodule EctoShorts.CommonChanges do
   @spec put_or_cast_assoc(Changeset.t(), atom) :: Changeset.t()
   @spec put_or_cast_assoc(Changeset.t(), atom, Keyword.t()) :: Changeset.t()
   def put_or_cast_assoc(changeset, key, opts \\ []) do
-    params_data = Map.get(changeset.params, Atom.to_string(key))
+    params_data = changeset.params && Map.get(changeset.params, Atom.to_string(key))
 
     find_method_and_put_or_cast(changeset, key, params_data, opts)
   end

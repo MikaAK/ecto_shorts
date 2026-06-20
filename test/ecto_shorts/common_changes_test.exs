@@ -1001,6 +1001,15 @@ defmodule EctoShorts.CommonChangesTest do
       assert %Changeset{valid?: true} = changeset
     end
 
+    test "does not crash when changeset was built with Ecto.Changeset.change/2 (nil params)" do
+      changeset =
+        %Post{}
+        |> Ecto.Changeset.change(%{})
+        |> CommonChanges.put_or_cast_assoc(:comments)
+
+      assert %Changeset{valid?: true} = changeset
+    end
+
     test "raises when the key does not exist on the schema" do
       expected_error_message =
         "The key :invalid_association is not an association for the queryable EctoShorts.Schema.Comment."
