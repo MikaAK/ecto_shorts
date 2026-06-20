@@ -1,185 +1,124 @@
-# EctoShorts Testing Guide
+# Testing Your EctoShorts Code
 
-## Prerequisites
+When you build queries with `EctoShorts.CommonFilters` (or call `EctoShorts.Actions`),
+you often want a test that proves a given set of params produces the query you
+expect — *before* it ever hits the database. `EctoShorts.Testing` gives you
+assertion helpers to do exactly that.
 
-A running PostgreSQL instance is required. The test database is:
+This guide shows how to use those helpers in **your own** application's test
+suite. It assumes you already have EctoShorts installed and configured (see
+[Getting Started](getting-started.md)).
 
-| Setting | Value |
-|---|---|
-| Host | `localhost` |
-| Port | `5432` |
-| User | `postgres` |
-| Password | (none by default) |
-| Database | `ecto_shorts_test` |
+## Why these helpers
 
-Create and migrate the test database:
+A filter call like `convert_params_to_filter(Post, %{age: %{gte: 18}})` returns
+an `Ecto.Query`. You *could* test it by converting to a string and matching
+substrings, but that is brittle. `EctoShorts.Testing` compares queries
+structurally at three levels, so your tests stay readable and break only when
+behaviour actually changes:
 
-```bash
-mix ecto.setup
-```
+| Helper | Compares | Needs a repo? | Runs the query? |
+|---|---|---|---|
+| `assert_query/2` | the two `Ecto.Query` structs (inspect form) | No | No |
+| `assert_sql/3,4` | the SQL string each query compiles to | Yes | No |
+| `assert_dynamic/2` | two `Ecto.Query.dynamic/2` expressions (AST) | No | No |
 
-## Running Tests
+Each has a `refute_*` counterpart that asserts the two inputs **differ**.
 
-```bash
-# Run all tests
-mix test
+None of these execute the query, so most of your filter tests need no database
+connection at all — only `assert_sql` needs a repo (to compile SQL), and even
+then it never runs the statement.
 
-# Run a single test file
-mix test test/ecto_shorts/common_filters/join_test.exs
+## Setup
 
-# Run a single test by line number
-mix test test/ecto_shorts/common_filters/join_test.exs:42
-
-# Run all filter tests (schema-backed)
-mix test test/ecto_shorts/common_filters/
-
-# Run all schemaless filter tests
-mix test test/ecto_shorts/common_filters_schemaless/
-```
-
-## EctoShorts.DataCase
-
-All tests that touch the database use `EctoShorts.DataCase` as their base case:
+Add `use EctoShorts.Testing, repo: MyApp.Repo` to your test module. This imports
+the assertion helpers and binds your repo at compile time, so the `assert_sql` /
+`refute_sql` helpers don't need a repo argument on every call:
 
 ```elixir
-defmodule EctoShorts.SomeTest do
-  use EctoShorts.DataCase
-
-  # Each test runs inside a transaction that rolls back after the test.
-  # No data persists between tests.
-end
-```
-
-`DataCase` sets up `Ecto.Adapters.SQL.Sandbox` in checkout mode. Each test gets its own isolated transaction. Rollback is automatic -- no teardown is required.
-
-For tests that spawn processes (e.g. `Task`, `GenServer`), switch to shared mode:
-
-```elixir
-setup do
-  :ok = Ecto.Adapters.SQL.Sandbox.checkout(EctoShorts.Test.Repo)
-  Ecto.Adapters.SQL.Sandbox.mode(EctoShorts.Test.Repo, {:shared, self()})
-end
-```
-
-## EctoShorts.Testing Module
-
-`EctoShorts.Testing` provides assertion helpers for verifying query
-construction without executing queries against a live database. It operates
-at three levels:
-
-- **Query structure** (`assert_query/2`) — compares two `Ecto.Query` structs
-  by their inspect output. No database connection required.
-- **SQL text** (`assert_sql/3,4`) — compiles two queries to SQL via
-  `Ecto.Adapters.SQL.to_sql/3` and compares the SQL strings. Requires a repo
-  but does not execute the query.
-- **Dynamic expressions** (`assert_dynamic/2`) — compares two
-  `Ecto.Query.dynamic/2` expressions by their AST string via
-  `Macro.to_string/1`. No database connection required.
-
-### Setup
-
-Add `use EctoShorts.Testing, repo: MyApp.Repo` to bind the repo at compile
-time. This injects two-argument forms of `assert_sql/2,3` and
-`refute_sql/2,3` that forward to the full `assert_sql/4` / `refute_sql/4`
-with the bound repo.
-
-```elixir
-defmodule MyApp.QueryTest do
+defmodule MyApp.PostQueryTest do
   use ExUnit.Case
   use EctoShorts.Testing, repo: MyApp.Repo
 
-  alias EctoShorts.CommonFilters
-  alias EctoShorts.Schema.Post
-
   import Ecto.Query
 
-  test "age filter builds a gte predicate" do
+  alias EctoShorts.CommonFilters
+  alias MyApp.Post
+
+  test "age filter builds a >= predicate" do
     expected = from p in Post, where: p.age >= ^18
     actual = CommonFilters.convert_params_to_filter(Post, %{age: %{gte: 18}})
-    assert_query(expected, actual)
-  end
 
-  test "age filter generates correct SQL" do
-    expected = from p in Post, where: p.age >= ^18
-    actual = CommonFilters.convert_params_to_filter(Post, %{age: %{gte: 18}})
-    assert_sql(expected, actual)
+    assert_query(expected, actual)
   end
 end
 ```
 
-### Available assertions
+You write the query you *expect* by hand with `Ecto.Query`, build the `actual`
+query through EctoShorts, and assert they match.
 
-| Function | Arguments | Description |
-|---|---|---|
-| `assert_query/2` | `(query_a, query_b)` | Assert two queries have the same inspect output |
-| `refute_query/2` | `(query_a, query_b)` | Assert two queries differ |
-| `assert_sql/3` | `(repo, query_a, query_b)` | Assert both queries produce the same SQL string |
-| `assert_sql/4` | `(repo, query_a, query_b, kind)` | Same, with explicit SQL kind (`:all`, `:update_all`, `:delete_all`) |
-| `refute_sql/3` | `(repo, query_a, query_b)` | Assert both queries produce different SQL |
-| `refute_sql/4` | `(repo, query_a, query_b, kind)` | Same, with explicit kind |
-| `assert_dynamic/2` | `(expr_a, expr_b)` | Assert two dynamic expressions have the same AST string |
-| `refute_dynamic/2` | `(expr_a, expr_b)` | Assert two dynamic expressions differ |
+## Strategy 1 — check query structure (`assert_query/2`)
 
-When using `use EctoShorts.Testing, repo: MyRepo`, the injected helpers
-accept `(query_a, query_b)` for `assert_sql` / `refute_sql` — the repo
-argument is filled in from the compile-time binding.
-
-### Runnable examples
-
-#### assert_query/2 — structure check without database
+The fastest check, and no database required. Use it when you care about how the
+query is *built* — predicates, limits, joins, ordering:
 
 ```elixir
-defmodule MyApp.StructureTest do
-  use ExUnit.Case
-  use EctoShorts.Testing, repo: MyApp.Repo
+test "ilike filter wraps the value in % automatically" do
+  expected = from p in Post, where: ilike(p.title, ^"%hello%")
+  actual = CommonFilters.convert_params_to_filter(Post, %{title: %{ilike: "hello"}})
 
-  alias EctoShorts.CommonFilters
-  alias EctoShorts.Schema.Post
+  assert_query(expected, actual)
+end
 
-  import Ecto.Query
+test "page params set limit and offset" do
+  expected = from p in Post, limit: ^20, offset: ^20
+  actual = CommonFilters.convert_params_to_filter(Post, %{page: %{index: 2, size: 20}})
 
-  test "ilike filter wraps value in % automatically" do
-    expected = from p in Post, where: ilike(p.title, ^"%hello%")
-    actual = CommonFilters.convert_params_to_filter(Post, %{title: %{ilike: "hello"}})
-    assert_query(expected, actual)
-  end
-
-  test "pagination sets correct limit and offset" do
-    expected = from p in Post, limit: ^20, offset: ^20
-    actual = CommonFilters.convert_params_to_filter(Post, %{page: %{index: 2, size: 20}})
-    assert_query(expected, actual)
-  end
+  assert_query(expected, actual)
 end
 ```
 
-#### assert_sql/3 — SQL text comparison
+## Strategy 2 — check SQL output (`assert_sql/3,4`)
+
+Use this when you want to verify the *generated SQL*, e.g. for PostgreSQL-specific
+features (array operators, JSONB). It compiles both queries to SQL through your
+repo but does **not** execute them.
+
+With `use EctoShorts.Testing, repo: MyApp.Repo`, call the two-argument form:
 
 ```elixir
-defmodule MyApp.SqlTest do
-  use ExUnit.Case
-  use EctoShorts.Testing, repo: MyApp.Repo
+test "in filter produces a SQL IN clause" do
+  expected = from p in Post, where: p.status in ^[:active, :pending]
+  actual = CommonFilters.convert_params_to_filter(Post, %{status: %{in: [:active, :pending]}})
 
-  alias EctoShorts.CommonFilters
-  alias EctoShorts.Schema.Post
-
-  import Ecto.Query
-
-  test "in filter generates SQL IN clause" do
-    expected = from p in Post, where: p.status in ^[:active, :pending]
-    actual = CommonFilters.convert_params_to_filter(Post, %{status: %{in: [:active, :pending]}})
-    assert_sql(expected, actual)
-  end
-
-  test "update_all SQL is correct" do
-    expected = from p in Post, where: p.published == ^false, update: [set: [published: true]]
-    actual = CommonFilters.convert_params_to_filter(Post, %{published: false,
-      update: [set: [published: true]]})
-    assert_sql(expected, actual, :update_all)
-  end
+  assert_sql(expected, actual)
 end
 ```
 
-#### assert_dynamic/2 — dynamic expression builder test
+For non-`SELECT` statements, pass the SQL kind as a third argument
+(`:all` (default), `:update_all`, or `:delete_all`):
+
+```elixir
+test "update params compile to the right UPDATE" do
+  expected =
+    from p in Post, where: p.published == ^false, update: [set: [published: true]]
+
+  actual =
+    CommonFilters.convert_params_to_filter(Post, %{
+      published: false,
+      update: [set: [published: true]]
+    })
+
+  assert_sql(expected, actual, :update_all)
+end
+```
+
+## Strategy 3 — check dynamic expressions (`assert_dynamic/2`)
+
+Use this when you build `Ecto.Query.dynamic/2` fragments directly — most often
+when writing a custom `EctoShorts.DynamicBuilder` (see the
+[Extending guide](guides/extending.md)). It compares the two expressions by
+their AST, so no repo or database is involved:
 
 ```elixir
 defmodule MyApp.DynamicTest do
@@ -187,171 +126,77 @@ defmodule MyApp.DynamicTest do
 
   import Ecto.Query
 
-  test "dynamic expressions are structurally equal" do
-    expr_a = dynamic([p], p.published == ^true)
-    expr_b = dynamic([p], p.published == ^true)
-    EctoShorts.Testing.assert_dynamic(expr_a, expr_b)
+  test "two equal dynamic expressions match" do
+    a = dynamic([p], p.published == ^true)
+    b = dynamic([p], p.published == ^true)
+
+    EctoShorts.Testing.assert_dynamic(a, b)
   end
 
-  test "different dynamic expressions are not equal" do
-    expr_a = dynamic([p], p.published == ^true)
-    expr_b = dynamic([p], p.published == ^false)
-    EctoShorts.Testing.refute_dynamic(expr_a, expr_b)
+  test "different dynamic expressions are refuted" do
+    a = dynamic([p], p.published == ^true)
+    b = dynamic([p], p.published == ^false)
+
+    EctoShorts.Testing.refute_dynamic(a, b)
   end
 end
 ```
 
-#### Without use — passing repo explicitly
+## Choosing the right assertion
 
-When you cannot use the `use` macro (e.g. in library tests), pass the repo
-as the first argument:
+| If you want to… | Use |
+|---|---|
+| Verify query construction quickly, no DB | `assert_query/2` |
+| Verify the exact SQL (e.g. array/JSONB operators) | `assert_sql/3,4` |
+| Verify a hand-built or custom-adapter dynamic expression | `assert_dynamic/2` |
+| Prove two queries / SQL / expressions are **not** the same | the matching `refute_*` |
+
+## Calling without `use`
+
+If you can't add `use EctoShorts.Testing` to a module, call the functions
+directly and pass the repo explicitly as the first argument to `assert_sql` /
+`refute_sql`:
 
 ```elixir
-defmodule EctoShorts.CommonFilters.MyTest do
+defmodule MyApp.PlainTest do
   use ExUnit.Case
-
-  alias EctoShorts.CommonFilters
-  alias EctoShorts.Schema.Post
 
   import Ecto.Query
 
-  test "filter generates expected SQL" do
+  alias EctoShorts.CommonFilters
+  alias MyApp.Post
+
+  test "filter generates the expected SQL" do
     expected = from p in Post, where: p.title == ^"Hello"
     actual = CommonFilters.convert_params_to_filter(Post, %{title: "Hello"})
-    EctoShorts.Testing.assert_sql(EctoShorts.Test.Repo, expected, actual)
+
+    EctoShorts.Testing.assert_sql(MyApp.Repo, expected, actual)
   end
 end
 ```
 
-## Test Schemas
+`assert_query/2` and `assert_dynamic/2` never take a repo, so they are identical
+with or without `use`.
 
-Test schemas are defined in `test/support/schema/`. They are minimal schemas used across all tests -- do not add application logic to them.
+## Function reference
 
-### Post
+| Function | Arguments | Asserts |
+|---|---|---|
+| `assert_query/2` | `(query_a, query_b)` | same query structure |
+| `refute_query/2` | `(query_a, query_b)` | queries differ |
+| `assert_sql/3` | `(repo, query_a, query_b)` | same SQL (kind `:all`) |
+| `assert_sql/4` | `(repo, query_a, query_b, kind)` | same SQL for `kind` (`:all`/`:update_all`/`:delete_all`) |
+| `refute_sql/3,4` | `(repo, query_a, query_b[, kind])` | SQL differs |
+| `assert_dynamic/2` | `(expr_a, expr_b)` | same dynamic AST |
+| `refute_dynamic/2` | `(expr_a, expr_b)` | dynamic expressions differ |
 
-```elixir
-# belongs_to :author (User)
-# many_to_many :authors, User (via PostAuthor join table)
-# has_many :comments
-# has_many :composite_primary_keys
-# field :title, :string
-# field :body, :string
-# field :notes, :string          # source: :custom_string_field (custom column name)
-# field :permalink, :string
-# field :published_at, :utc_datetime
-# field :published, :boolean
-# field :tags, {:array, :string} # used for array filter tests
-# field :views, :integer
-```
-
-### User
-
-```elixir
-# has_many :posts
-# has_many :comments
-# has_many :books
-# many_to_many :posts, Post (via PostAuthor join table)
-# field :first_name, :string
-# field :last_name, :string
-# field :age, :integer
-# field :email, :string
-```
-
-### Comment
-
-```elixir
-# belongs_to :author (User)
-# belongs_to :post
-# field :body, :string
-# field :published, :boolean
-# field :published_at, :utc_datetime
-# field :replies, :integer
-# field :tags, {:array, :string}
-```
-
-### Book
-
-```elixir
-# belongs_to :author (User)
-# No :id primary key
-# field :title, :string
-```
-
-### UserData (`EctoShorts.Schema.UserData`)
-
-Used for JSONB/map filter tests:
-
-```elixir
-# field :data, :map
-# field :typed_map, {:map, :string}
-# field :creator_id, :integer
-# belongs_to :creator, User
-# table: "data_stores"
-```
-
-### PostWithLock (`EctoShorts.Schema.PostWithLock`)
-
-Used for optimistic locking and `:lock` filter tests:
-
-```elixir
-# field :title, :string
-# field :lock_version, :integer
-# table: "posts_with_lock"
-```
-
-## Dual-File Test Pattern
-
-Every filter module has two test files:
-
-| Directory | Purpose |
-|---|---|
-| `test/ecto_shorts/common_filters/` | Schema-backed tests -- use schema modules (`Post`, `User`, etc.) |
-| `test/ecto_shorts/common_filters_schemaless/` | Schemaless tests -- use `{"posts", Post}` tuple sources |
-
-Both files must cover the same filter behavior. This ensures filters work correctly whether or not a compiled schema is available.
-
-When adding a new filter, create both files:
-
-```
-test/ecto_shorts/common_filters/my_filter_test.exs
-test/ecto_shorts/common_filters_schemaless/my_filter_test.exs
-```
-
-### Why Schemaless Tests Matter
-
-For array fields, the routing differs between schema-backed and schemaless sources:
-
-- **Schema-backed**: field type is inferred from the schema, so `%{tags: %{in: [...]}}` routes to `ArrayExpr` automatically.
-- **Schemaless**: no type information is available, so `%{tags: %{in: [...]}}` routes to `ScalarExpr` (scalar `IN`). To force array routing, use the `:array` wrapper: `%{tags: %{array: %{in: [...]}}}`.
-
-The schemaless test file verifies that the `:array` wrapper works and that scalar routing is the default.
-
-## Test Data Factories
-
-Use `factory_ex` for creating test fixtures. Do not write raw `Repo.insert!/1` calls in test files.
-
-```elixir
-# In a test
-post = build(:post, title: "Hello")
-{:ok, post} = insert(:post, title: "Hello")
-```
-
-Factory definitions live alongside the schema definitions in `test/support/`.
-
-## Code Coverage
-
-```bash
-# Console coverage report
-mix coveralls
-
-# HTML coverage report (opens in browser)
-mix coveralls.html
-```
-
-Coverage output is written to `cover/`. The HTML report is at `cover/excoveralls.html`. The project targets above 90% coverage. New filter modules and their tests must maintain this threshold.
+With `use EctoShorts.Testing, repo: MyApp.Repo`, the repo-bound forms drop the
+first argument: `assert_sql(query_a, query_b)` and
+`assert_sql(query_a, query_b, kind)`.
 
 ## Cross-References
 
-- [Code Standards](https://github.com/MikaAK/ecto_shorts/blob/main/docs/code-standards.md) -- adding filter tests, naming conventions
-- [Codebase Summary](https://github.com/MikaAK/ecto_shorts/blob/main/docs/codebase-summary.md) -- test directory layout
-- [API Reference](reference/api-reference.md) -- EctoShorts.Testing function signatures
+- [Getting Started](getting-started.md) — install and configure EctoShorts
+- [Filtering Guide](guides/filtering.md) — the filter params these tests assert on
+- [Extending Guide](guides/extending.md) — writing the custom builders `assert_dynamic/2` helps test
+- `EctoShorts.Testing` — full function docs
