@@ -2,8 +2,10 @@ defmodule EctoShorts.CommonFilters.Select do
   @moduledoc since: "3.0.0"
   @moduledoc false
 
-  alias EctoShorts.QueryBinding
+  alias EctoShorts.{LogUtils, QueryBinding}
   alias EctoShorts.CommonFilters.SelectMerge
+
+  @logger_prefix "EctoShorts.CommonFilters.Select"
 
   alias Ecto.Query
   require Ecto.Query
@@ -63,8 +65,13 @@ defmodule EctoShorts.CommonFilters.Select do
     select_field_expr(query, selected_binding, field_name)
   end
 
+  defp apply_select(query, _source, _selected_binding, %Ecto.Query.DynamicExpr{} = expr, _opts) do
+    Query.select(query, ^expr)
+  end
+
   defp apply_select(query, _source, _selected_binding, term, _opts) do
-    Query.select(query, ^term)
+    LogUtils.warning(@logger_prefix, "Expected :select to be an atom, list, map, tuple, or DynamicExpr, got: #{inspect(term)}")
+    query
   end
 
   defp apply_select_merge(query, selected_binding, entries) do
