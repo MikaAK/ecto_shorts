@@ -77,6 +77,22 @@ defmodule EctoShorts.Actions.BulkTest do
       assert %Post{title: "Updated"} = Repo.get!(Post, existing_post.id)
     end
 
+    test "on_conflict_replace: :none does not raise and leaves the existing row unchanged" do
+      existing_post =
+        %Post{}
+        |> Post.changeset(%{title: "Original"})
+        |> Repo.insert!()
+
+      assert {:ok, {0, nil}} =
+               Actions.insert_all(
+                 Post,
+                 [%{id: existing_post.id, title: "Ignored"}],
+                 on_conflict_replace: :none
+               )
+
+      assert %Post{title: "Original"} = Repo.get!(Post, existing_post.id)
+    end
+
     test "respects a caller-provided on_conflict option over the default" do
       existing_post =
         %Post{}
