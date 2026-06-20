@@ -31,8 +31,8 @@ defmodule EctoShorts do
 
   Fetch all users aged 18 or older:
 
-      iex> EctoShorts.Actions.all(User, %{age: %{gte: 18}})
-      [%User{id: 1, age: 22, ...}, %User{id: 4, age: 34, ...}]
+      EctoShorts.Actions.all(User, %{age: %{gte: 18}})
+      #=> [%User{id: 1, age: 22}, %User{id: 4, age: 34}]
 
   The return value is a plain list of structs — the same as calling
   `MyApp.Repo.all(query)` after building the query by hand.
