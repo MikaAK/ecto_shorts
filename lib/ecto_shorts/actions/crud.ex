@@ -121,7 +121,7 @@ defmodule EctoShorts.Actions.CRUD do
     {:error,
      Error.call(
        :not_found,
-       "record not found.",
+       "no records found",
        %{
          query: query,
          params: params
@@ -145,7 +145,7 @@ defmodule EctoShorts.Actions.CRUD do
         {:error,
          Error.call(
            :not_found,
-           "record not found.",
+           "no records found",
            %{
              query: source,
              params: params

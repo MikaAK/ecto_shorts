@@ -1895,14 +1895,14 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
 
     test "returns a not_found error when no match exists" do
-      assert {:error, %{code: :not_found, message: "record not found.", details: details}} =
+      assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.find(Post, %{id: -1}, [])
 
       assert details.params === %{id: -1}
     end
 
     test "returns a not_found error immediately when the params map is empty" do
-      assert {:error, %{code: :not_found, message: "record not found."}} =
+      assert {:error, %{code: :not_found, message: "no records found"}} =
                Actions.find(Post, %{}, [])
     end
 
@@ -1911,7 +1911,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "Existing"})
       |> Repo.insert!()
 
-      assert {:error, %{code: :not_found, message: "record not found."}} =
+      assert {:error, %{code: :not_found, message: "no records found"}} =
                Actions.find(Post, [], [])
     end
 
@@ -1979,7 +1979,7 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
 
     test "returns a not_found error when the id does not exist" do
-      assert {:error, %{code: :not_found, message: "record not found.", details: details}} =
+      assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.update(Post, -1, %{title: "Ignored"})
 
       assert details.params === %{id: -1}
@@ -2018,7 +2018,7 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
 
     test "returns a not_found error when the id does not exist for delete" do
-      assert {:error, %{code: :not_found, message: "record not found.", details: details}} =
+      assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.delete(Post, -1, [])
 
       assert details.params === %{id: -1}
@@ -2229,7 +2229,7 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
 
     test "returns a not_found error when no match exists" do
-      assert {:error, %{code: :not_found, message: "record not found."}} =
+      assert {:error, %{code: :not_found, message: "no records found"}} =
                Actions.find_and_update(Post, %{title: "Missing"}, %{title: "Updated"})
     end
   end
@@ -2265,7 +2265,7 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
 
     test "returns a not_found error when no match exists" do
-      assert {:error, %{code: :not_found, message: "record not found."}} =
+      assert {:error, %{code: :not_found, message: "no records found"}} =
                Actions.find_and_delete(Post, %{title: "Missing"})
     end
   end

@@ -92,7 +92,7 @@ defmodule EctoShorts.Actions.MultiTest do
       assert {:error,
               %{
                 code: :not_found,
-                message: "record not found.",
+                message: "no records found",
                 details: %{
                   schema: Post,
                   action: :find,
@@ -175,7 +175,7 @@ defmodule EctoShorts.Actions.MultiTest do
         %{id: 999_999, title: "Not Found"}
       ]
 
-      assert {:error, %{code: :not_found, message: "record not found.", details: details}} =
+      assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.update_many(Post, params)
 
       assert details.index === 1

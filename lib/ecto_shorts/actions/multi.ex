@@ -182,7 +182,7 @@ defmodule EctoShorts.Actions.Multi do
     case repo_one(repo, schema, params, opts) do
       nil ->
         {:error,
-         {:not_found, "record not found.",
+         {:not_found, "no records found",
           %{
             schema: schema,
             action: :find,
