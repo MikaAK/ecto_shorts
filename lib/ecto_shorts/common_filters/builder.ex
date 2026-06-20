@@ -218,6 +218,10 @@ defmodule EctoShorts.CommonFilters.Builder do
     Query.or_where(query, ^dyn)
   end
 
+  # Nil or any other non-applicable term — skip silently.
+  defp apply_filter(:where, _source, query, _selected_binding, _term, _opts), do: query
+  defp apply_filter(:or_where, _source, query, _selected_binding, _term, _opts), do: query
+
   # Place predicates produced for a :where. Aggregate predicates always land in
   # HAVING (with an auto GROUP BY on the primary key when none is present);
   # plain predicates go to WHERE.

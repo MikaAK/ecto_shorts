@@ -74,6 +74,34 @@ defmodule EctoShorts.CommonFiltersTest do
     end
   end
 
+  describe "convert_params_to_filter/3 where: nil" do
+    test "returns query unchanged when where value is nil" do
+      expected = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{where: nil},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "returns query unchanged when or_where value is nil" do
+      expected = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{or_where: nil},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+  end
+
   # ---- merged from association_filter ----
   describe "association filter shorthand" do
   @describetag feature: :association_filter
