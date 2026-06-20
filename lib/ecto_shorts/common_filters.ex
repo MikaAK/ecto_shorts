@@ -233,6 +233,16 @@ defmodule EctoShorts.CommonFilters do
 
   @logger_prefix "EctoShorts.CommonFilters"
 
+  @typedoc """
+  The set of top-level filter keys understood by `convert_params_to_filter/3`.
+
+  Each atom is a key you can use in your filter params map or keyword list.
+  Keys not listed here (and not matching a schema association name) are treated
+  as direct field comparisons against the primary source.
+
+  See the "Filter Keys" section of `EctoShorts.CommonFilters` for a description
+  of what each key does and when to use it.
+  """
   @type filters ::
           :all
           | :any

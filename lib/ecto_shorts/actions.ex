@@ -88,6 +88,21 @@ defmodule EctoShorts.Actions do
 
   @typedoc """
   Keyword options accepted by Actions helpers.
+
+  Common options available on most helpers:
+
+  * `:repo` — the `Ecto.Repo` module to use for write operations. Overrides the
+    value from `EctoShorts.Config`.
+  * `:replica` — the `Ecto.Repo` module to use for read operations. Overrides
+    the value from `EctoShorts.Config`.
+  * `:preload` — an association or list of associations to load after the main
+    operation completes. Accepts the same shapes as `c:Ecto.Repo.preload/3`.
+  * `:dynamic_builder` — a custom `EctoShorts.DynamicBuilder` module.
+  * `:query_builder` — a custom `EctoShorts.QueryBuilder` module.
+  * `:query_provider` — a custom `EctoShorts.QueryProvider` module.
+
+  Additional options specific to individual helpers are documented on each
+  function.
   """
   @type opts :: keyword()
 
@@ -218,8 +233,10 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.create(EctoShorts.Schema.Post, %{title: "Hello", body: "World"}, repo: EctoShorts.Repo)
-      {:ok, %EctoShorts.Schema.Post{title: "Hello", body: "World", ...}}
+      {:ok, post} = EctoShorts.Actions.create(
+        EctoShorts.Schema.Post,
+        %{title: "Hello", body: "World"}
+      )
 
   See also `find/3`, `update/4`, and `EctoShorts.CommonChanges`.
   """
@@ -271,11 +288,11 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      iex> EctoShorts.Actions.find(EctoShorts.Schema.Post, %{id: 1})
-      {:ok, %EctoShorts.Schema.Post{id: 1, ...}}
+      # Returns the record when found:
+      {:ok, post} = EctoShorts.Actions.find(EctoShorts.Schema.Post, %{id: 1})
 
-      iex> EctoShorts.Actions.find(EctoShorts.Schema.Post, %{})
-      {:error, %ErrorMessage{code: :not_found, message: "record not found."}}
+      # Returns a not-found error when no record matches:
+      {:error, error} = EctoShorts.Actions.find(EctoShorts.Schema.Post, %{})
 
   See also `all/3`, `create/3`, and `find_or_create/3`.
   """
@@ -322,14 +339,10 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
-      {:ok, post} =
-        EctoShorts.Actions.update(
-          EctoShorts.Schema.Post,
-          1,
-          %{title: "New"},
-          repo: EctoShorts.Repo
-        )
+      # Update by id — fetches the record then applies the change:
+      {:ok, post} = EctoShorts.Actions.update(EctoShorts.Schema.Post, 1, %{title: "New"})
 
+      # Update an already-loaded struct directly:
       {:ok, post} = EctoShorts.Actions.update(EctoShorts.Schema.Post, post, %{title: "New"})
 
   See also `find_and_update/4`, `create/3`, and `EctoShorts.CommonChanges`.
@@ -464,6 +477,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Finds by title; creates with both title and body when not found:
       {:ok, post} = EctoShorts.Actions.find_and_create(
         EctoShorts.Schema.Post,
         %{title: "Hello"},
@@ -490,6 +504,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Find the post with id 1, then change its title:
       {:ok, post} = EctoShorts.Actions.find_and_update(
         EctoShorts.Schema.Post,
         %{id: 1},
@@ -516,6 +531,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Find by title; update the body if found, create the full record if not:
       {:ok, post} = EctoShorts.Actions.find_and_upsert(
         EctoShorts.Schema.Post,
         %{title: "Hello"},
@@ -540,6 +556,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Find the post with this title and delete it:
       {:ok, deleted} = EctoShorts.Actions.find_and_delete(EctoShorts.Schema.Post, %{title: "Hello"})
 
   See also `delete/1`, `delete_all/3`, and `find/3`.
@@ -558,6 +575,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Returns the existing post if one matches; inserts a new one otherwise:
       {:ok, post} = EctoShorts.Actions.find_or_create(
         EctoShorts.Schema.Post,
         %{title: "Hello", body: "World"}
@@ -856,6 +874,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Each record is inserted individually; the whole batch rolls back on error:
       {:ok, posts} = EctoShorts.Actions.create_many(EctoShorts.Schema.Post, [
         %{title: "Post 1", body: "Body 1"},
         %{title: "Post 2", body: "Body 2"}
@@ -883,6 +902,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Both lookups run inside one transaction; a missing record rolls back:
       {:ok, posts} = EctoShorts.Actions.find_many(EctoShorts.Schema.Post, [%{id: 1}, %{id: 2}])
 
   ## Options
@@ -907,6 +927,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Each pair is {find_params, update_params}; all updates roll back on error:
       {:ok, posts} = EctoShorts.Actions.update_many(EctoShorts.Schema.Post, [
         {%{id: 1}, %{title: "Updated 1"}},
         {%{id: 2}, %{title: "Updated 2"}}
@@ -933,6 +954,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Delete two already-loaded structs; rolls back if any deletion fails:
       {:ok, deleted} = EctoShorts.Actions.delete_many(EctoShorts.Schema.Post, [post1, post2])
 
   ## Options
@@ -957,6 +979,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Each entry is found or created individually; all run in one transaction:
       {:ok, posts} = EctoShorts.Actions.find_or_create_many(EctoShorts.Schema.Post, [
         %{title: "Post 1", body: "Body 1"},
         %{title: "Post 2", body: "Body 2"}
@@ -985,6 +1008,7 @@ defmodule EctoShorts.Actions do
 
   ## Examples
 
+      # Finds and updates existing records, or creates missing ones:
       {:ok, posts} = EctoShorts.Actions.find_and_upsert_many(EctoShorts.Schema.Post, [
         {%{id: 1}, %{title: "Updated"}},
         {%{title: "New"}, %{body: "New body"}}

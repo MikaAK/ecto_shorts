@@ -162,3 +162,20 @@ Without schema type information, `%{tags: %{in: ["a", "b"]}}` on a schemaless so
    ```
    Place it before the final `@predicate_filters` clause.
 5. Add tests in `test/ecto_shorts/common_filters/filters/my_filter_test.exs` (mirroring `lib/ecto_shorts/common_filters/filters/my_filter.ex`). Put schema-backed and schemaless cases in the same file; tag the schemaless ones with `@describetag schema_mode: :schemaless`. If the new key is an adapter-agnostic behaviour, also add a row to `EctoShorts.FilterContract.cases/0`.
+
+## Sub-directory context files
+
+Each sub-directory has an AGENTS.md with more specific context for that area. When working inside one of these directories, those files provide additional detail beyond what is in this file.
+
+| Directory | AGENTS.md | What it covers |
+|---|---|---|
+| `lib/ecto_shorts/` | [lib/ecto_shorts/AGENTS.md](lib/ecto_shorts/AGENTS.md) | Module map — public API, behaviours, and internal helpers |
+| `lib/ecto_shorts/actions/` | [lib/ecto_shorts/actions/AGENTS.md](lib/ecto_shorts/actions/AGENTS.md) | CRUD/Bulk/Multi/Batch/Transaction split, repo selection, error shapes |
+| `lib/ecto_shorts/common_filters/` | [lib/ecto_shorts/common_filters/AGENTS.md](lib/ecto_shorts/common_filters/AGENTS.md) | Filter pipeline step-by-step, design rules |
+| `lib/ecto_shorts/common_filters/filters/` | [lib/ecto_shorts/common_filters/filters/AGENTS.md](lib/ecto_shorts/common_filters/filters/AGENTS.md) | Filter key → module map, QueryBinding pattern |
+| `lib/ecto_shorts/dynamic_builders/` | [lib/ecto_shorts/dynamic_builders/AGENTS.md](lib/ecto_shorts/dynamic_builders/AGENTS.md) | Adapter dispatcher and Postgres adapter structure |
+| `lib/ecto_shorts/dynamic_builders/postgres/` | [lib/ecto_shorts/dynamic_builders/postgres/AGENTS.md](lib/ecto_shorts/dynamic_builders/postgres/AGENTS.md) | Postgres sub-modules and routing logic |
+| `lib/ecto_shorts/dynamic_builders/postgres/scalar_expr/` | [lib/ecto_shorts/dynamic_builders/postgres/scalar_expr/AGENTS.md](lib/ecto_shorts/dynamic_builders/postgres/scalar_expr/AGENTS.md) | Scalar expression sub-modules (comparison, membership, string, aggregate) |
+| `lib/ecto_shorts/common_params/` | [lib/ecto_shorts/common_params/AGENTS.md](lib/ecto_shorts/common_params/AGENTS.md) | Timestamps and placeholders helpers |
+| `test/` | [test/AGENTS.md](test/AGENTS.md) | Test structure, tags, DataCase, invalid-field pattern |
+| `test/support/` | [test/support/AGENTS.md](test/support/AGENTS.md) | Test schemas, repo, filter contract, test helpers |

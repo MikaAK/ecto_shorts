@@ -716,11 +716,15 @@ defmodule EctoShorts.CommonParams do
 
   ## Examples
 
-      iex> EctoShorts.CommonParams.convert_to_update_params(
-      ...>   EctoShorts.Schema.Post,
-      ...>   %{title: "Updated", views: {:inc, 1}}
-      ...> )
-      [inc: [views: 1], set: [title: "Updated", updated_at: ...]]
+  A mix of a plain value (`:set`) and an increment operation:
+
+      updates = EctoShorts.CommonParams.convert_to_update_params(
+        EctoShorts.Schema.Post,
+        %{title: "Updated", views: {:inc, 1}}
+      )
+      # => [inc: [views: 1], set: [title: "Updated", updated_at: <current utc time>]]
+
+  An empty params map returns an empty list:
 
       iex> EctoShorts.CommonParams.convert_to_update_params(EctoShorts.Schema.Post, %{})
       []

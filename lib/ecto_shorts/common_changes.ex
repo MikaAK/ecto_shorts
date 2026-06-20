@@ -693,36 +693,61 @@ defmodule EctoShorts.CommonChanges do
 
   @doc group: "Association management"
   @doc """
-  Preloads a changeset association if needed, then puts or casts it.
+  Preloads a changeset association from the database if needed, then puts or
+  casts it.
 
   This is the primary helper for managing associations in `changeset/2`
-  functions. When the association key is present in `changeset.params`,
-  it preloads the existing data so `cast_assoc/3` can diff correctly.
-  When absent, falls back to `Ecto.Changeset.cast_assoc/3`.
+  functions. When the association key is present in `changeset.params`, it
+  queries the database to load the existing association data so that
+  `Ecto.Changeset.cast_assoc/3` can compute a diff correctly. When the key is
+  absent from params, it falls back to `Ecto.Changeset.cast_assoc/3` without
+  querying the database.
 
-  Internally this function preloads the association data, then calls
-  `put_or_cast_assoc/3` when the association is present in params. For most
-  use cases this is the only function you need.
+  Internally, this function preloads the association data and then calls
+  `put_or_cast_assoc/3`. For most use cases this is the only association
+  helper you need.
+
+  ## Side effects
+
+  When the association key is present in params and the association is not yet
+  loaded, this function issues a database query to load the existing records.
 
   ## Options
 
-  * `:required_when_missing` - sets `:required` to `true` when the given
-    field is `nil` in both changes and data. Use this to require that either
-    an association or its foreign key is provided.
-  * `:required` - when `true`, validates that the association is present.
-    For one-to-one associations a non-nil value suffices; for many associations
+  * `:required_when_missing` - requires the association when the given field is
+    `nil` in both changes and data. Use this when either an association or its
+    foreign key must be provided.
+  * `:required` - when `true`, validates that the association is present. For
+    one-to-one associations a non-nil value is required; for many associations
     a non-empty list is required. See `Ecto.Changeset.cast_assoc/3` for details.
     Defaults to `false`.
-  * `:repo` - the `Ecto.Repo` to use for the preload query. Defaults to
+  * `:repo` - the `Ecto.Repo` module to use for the preload query. Defaults to
     `EctoShorts.Config.repo/0`.
 
   ## Examples
 
-      iex> EctoShorts.CommonChanges.preload_change_assoc(changeset, :comments)
-      iex> EctoShorts.CommonChanges.preload_change_assoc(changeset, :comments, required: true)
-      iex> EctoShorts.CommonChanges.preload_change_assoc(changeset, :comments,
-      ...>   required_when_missing: :author_id
-      ...> )
+      # Preload and cast the :comments association
+      def changeset(post, params) do
+        post
+        |> Ecto.Changeset.cast(params, [:title])
+        |> EctoShorts.CommonChanges.preload_change_assoc(:comments)
+      end
+
+      # Require the association to be present
+      def changeset(post, params) do
+        post
+        |> Ecto.Changeset.cast(params, [:title])
+        |> EctoShorts.CommonChanges.preload_change_assoc(:comments, required: true)
+      end
+
+      # Require the association when its foreign key is absent
+      def changeset(order, params) do
+        order
+        |> Ecto.Changeset.cast(params, [:total, :user_id])
+        |> EctoShorts.CommonChanges.preload_change_assoc(:user,
+          required_when_missing: :user_id
+        )
+      end
 
   See also `put_or_cast_assoc/3`.
   """

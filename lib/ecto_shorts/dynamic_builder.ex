@@ -1,89 +1,127 @@
 defmodule EctoShorts.DynamicBuilder do
   @moduledoc """
-  Behaviour for dynamic expression adapters.
+  A contract for building database-specific filter expressions.
 
-  A dynamic expression adapter translates a filter key-value pair into an
-  `Ecto.Query.DynamicExpr` for a specific database dialect. The adapter is
-  responsible for all dialect-specific expression building - operator dispatch,
-  value normalization, and Ecto `dynamic/2` macro calls.
+  When you call `EctoShorts.CommonFilters.convert_params_to_filter/3`, each
+  filter condition in your params — for example `%{published: true}` or
+  `%{views: %{>: 100}}` — eventually needs to be turned into a real Ecto
+  `WHERE` clause. The job of turning a single condition into that clause belongs
+  to a module that implements this behaviour.
 
-  The following adapters are available out of the box:
+  In Ecto, a `WHERE` clause is represented as a `DynamicExpr` — a small
+  data structure created by the `Ecto.Query.dynamic/2` macro. This behaviour
+  defines one callback, `build_dynamic/3`, which receives a description of a
+  single filter condition and must return a `DynamicExpr`.
 
-  * `EctoShorts.DynamicBuilders.Postgres` - Postgres-specific expression
-    building including scalar comparisons, array operations, quantified
-    subqueries, and datetime arithmetic.
+  ## You probably do not need to implement this
 
-  ## How adapters are selected
+  EctoShorts ships with a built-in implementation for PostgreSQL:
+  `EctoShorts.DynamicBuilders.Postgres`. When your application connects to
+  a PostgreSQL database, EctoShorts detects this automatically and uses that
+  implementation.
 
-  The active adapter is resolved in order:
+  You only need to write a custom implementation if you are using a database
+  that EctoShorts does not support yet, or if you need to change how a
+  specific filter operator is compiled.
 
-    1. The `:dynamic_builder` option passed at call time.
-    2. `EctoShorts.Config.dynamic_builder_module/0` (configured in application env).
-    3. Auto-detected from the configured repo's database adapter (Postgres
-      only, out of the box).
+  ## How EctoShorts picks an implementation
 
-  ## Implementing a custom adapter
+  EctoShorts resolves the implementation in this order:
 
-  Define a module that implements this behaviour:
+    1. The `:dynamic_builder` option passed directly to the function call.
+    2. The `:dynamic_builder_module` key in your application config.
+    3. Auto-detected from the database your repo is connected to (PostgreSQL
+       is the only database supported out of the box).
 
-      defmodule MyApp.CustomAdapter do
+  ## Writing a custom implementation
+
+  Declare the behaviour in your module and implement the required callback:
+
+      defmodule MyApp.CustomDynamicBuilder do
         @behaviour EctoShorts.DynamicBuilder
 
         @impl true
         def build_dynamic(predicate, selected_binding, opts) do
-          # Build and return an Ecto.Query.DynamicExpr (or nil)
+          # Return an Ecto.Query.DynamicExpr or nil
         end
       end
 
-  Then configure it:
+  Then tell EctoShorts to use it. Either configure it globally in
+  `config/config.exs`:
 
-      # config/config.exs
-      config :ecto_shorts, dynamic_builder_module: MyApp.CustomAdapter
+      config :ecto_shorts, dynamic_builder_module: MyApp.CustomDynamicBuilder
 
-  Or pass it at runtime:
+  Or pass it at the call site:
 
-      EctoShorts.Actions.all(Post, %{published: true}, dynamic_builder: MyApp.CustomAdapter)
+      EctoShorts.Actions.all(Post, %{published: true},
+        dynamic_builder: MyApp.CustomDynamicBuilder
+      )
 
-  ## Callback
-
-  > #### v3.0.0 migration note {: .info}
+  > #### Upgrading from v2 {: .info}
   >
-  > As of v3.0.0 the callback consumes a resolved
-  > `EctoShorts.CommonFilters.Predicate` struct rather than a raw `{key, term}`
-  > filter pair. All field resolution, type casting, operator canonicalization
-  > and negation lifting now happen upstream in
-  > `EctoShorts.CommonFilters.PredicateBuilder`; the adapter only dispatches the
-  > already-tidied predicate to the dialect's expression builders. Custom-dialect
-  > implementers must update their `build_dynamic/3` accordingly. Only the
-  > Postgres adapter ships in-tree.
-
-  The single required callback is `build_dynamic/3`. It receives:
-
-    * `predicate` - a resolved `EctoShorts.CommonFilters.Predicate` struct with a
-      `:field` (already a checked atom), a `:routing` family
-      (`:scalar | :array | :map | :common`), a `:negated` boolean, and a tidied
-      `:expr` operator-expression.
-
-    * `selected_binding` - the binding selector: `{:as, atom()}` for named
-      bindings or `{:at, pos_integer()}` for positional bindings.
-
-    * `opts` - keyword options forwarded from the call site.
-
-  It must return an `Ecto.Query.DynamicExpr` (the result of `Ecto.Query.dynamic/2`)
-  or `nil` when the predicate contributes no clause.
+  > In v3.0.0 the callback receives an `EctoShorts.CommonFilters.Predicate`
+  > struct instead of a raw `{key, value}` pair. Field resolution, type
+  > casting, and operator normalization now happen before your callback is
+  > called. Update your `build_dynamic/3` implementation to accept the new
+  > struct.
   """
 
+  @typedoc """
+  An Ecto dynamic expression produced by the `dynamic/2` macro.
+
+  This is what `build_dynamic/3` must return. Ecto combines these expressions
+  into `WHERE` clauses. When the predicate contributes no clause (for example,
+  because the value is ignored), return `nil` instead.
+  """
   @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
 
+  @typedoc """
+  A fully resolved filter predicate passed to `build_dynamic/3`.
+
+  See `EctoShorts.CommonFilters.Predicate` for a description of each field.
+  """
   @type predicate :: EctoShorts.CommonFilters.Predicate.t()
+
+  @typedoc """
+  Identifies which binding in the query a filter applies to.
+
+  * `{:as, name}` — a named binding. For example, `{:as, :author}` targets the
+    binding added by `join: ..., as: :author`.
+  * `{:at, position}` — a positional binding, where `1` is the from-binding
+    (the primary source). Positions are 1-based.
+  """
   @type selected_binding :: {:as, atom()} | {:at, pos_integer()}
+
+  @typedoc """
+  Keyword options forwarded from the original call site.
+
+  These are the same options the caller passed to
+  `EctoShorts.CommonFilters.convert_params_to_filter/3`. Use them to support
+  runtime overrides in your adapter.
+  """
   @type opts :: keyword()
 
   @doc """
-  Builds a dynamic expression for one resolved predicate and binding.
+  Converts one resolved filter predicate into an Ecto dynamic expression.
 
-  Receives a `EctoShorts.CommonFilters.Predicate` struct, a binding selector, and
-  options. Must return an `Ecto.Query.DynamicExpr` or `nil`.
+  This is the only callback you must implement. It receives a fully resolved
+  `EctoShorts.CommonFilters.Predicate` struct — the field name, expression
+  family, whether the condition is negated, and the operator-value pair — and
+  must return either an `Ecto.Query.DynamicExpr` (from `Ecto.Query.dynamic/2`)
+  or `nil`.
+
+  ## Arguments
+
+  * `predicate` — the resolved predicate. See `t:predicate/0` and
+    `EctoShorts.CommonFilters.Predicate` for field descriptions.
+  * `selected_binding` — which binding in the query this filter targets. See
+    `t:selected_binding/0`.
+  * `opts` — keyword options forwarded from the call site.
+
+  ## Return value
+
+  Return an `Ecto.Query.DynamicExpr` when the predicate produces a WHERE
+  clause. Return `nil` when the predicate should contribute nothing.
   """
   @callback build_dynamic(predicate, selected_binding, opts) :: dynamic_expr() | nil
 end
