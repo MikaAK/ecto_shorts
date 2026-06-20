@@ -74,6 +74,17 @@ defmodule EctoShorts.CommonFiltersTest do
     end
   end
 
+  describe "convert_params_to_filter/3 join: nil" do
+    test "returns query unchanged when join: value is nil" do
+      expected = from(p in Post)
+
+      actual =
+        CommonFilters.convert_params_to_filter(Post, %{join: nil}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
   describe "convert_params_to_filter/3 as:/at: nil" do
     test "returns query unchanged when as: value is nil" do
       expected = from(p in Post)
