@@ -82,6 +82,7 @@ defmodule EctoShorts.MixProject do
   defp docs do
     [
       main: "EctoShorts",
+      extra_section: "Guides",
       source_url: "https://github.com/MikaAK/ecto_shorts",
       api_reference: false,
       before_closing_body_tag: &before_closing_body_tag/1,
