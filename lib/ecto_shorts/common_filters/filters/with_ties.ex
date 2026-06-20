@@ -1,6 +1,20 @@
 defmodule EctoShorts.CommonFilters.WithTies do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:with_ties` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds `WITH TIES` to the query's `FETCH FIRST` / `LIMIT` clause, ensuring that
+  rows tied on the last ordering key are included even when they exceed the
+  limit. Requires a `LIMIT` and an `ORDER BY`; both are auto-applied when absent
+  (defaults: 1 000-row limit, ascending primary-key order). Accepts `true`,
+  `false`, or a keyword list with an optional `:limit` key. Used via params, not
+  called directly:
+
+      EctoShorts.Actions.all(Post, %{order_by: :score, limit: 10, with_ties: true})
+      EctoShorts.Actions.all(Post, %{with_ties: [limit: 5]})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.{
     CommonFilters.Limit,

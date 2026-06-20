@@ -1,6 +1,26 @@
 defmodule EctoShorts.CommonFilters.UpdateExpr do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Helper module for building Ecto `UPDATE` expressions used by `EctoShorts.CommonFilters.Update`.
+
+  Provides two internal functions consumed by the `:update` filter:
+
+  - `build_update_operations/3` — converts a params map or keyword list into a
+    flat list of `{op, field, value}` triples (operators: `:set`, `:inc`,
+    `:push`, `:pull`) filtered to schema fields. Casts values against the
+    schema type; validates `:inc` requires integer fields and `:push`/`:pull`
+    require array fields.
+  - `build_update_expr/2` — normalises a map or keyword list into the form
+    expected by `Ecto.Query.update/3`, handling the full operator keyword
+    syntax (`[set: [field: value], inc: [count: 1]]`).
+
+  This module is not called directly. Use the `:update` params key via
+  `EctoShorts.Actions` instead:
+
+      EctoShorts.Actions.update_all(Post, %{status: :archived}, %{views: 0})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonSchema
   alias EctoShorts.LogUtils

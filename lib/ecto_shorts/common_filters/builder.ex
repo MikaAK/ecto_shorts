@@ -1,6 +1,21 @@
 defmodule EctoShorts.CommonFilters.Builder do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Default `EctoShorts.QueryBuilder` implementation for `EctoShorts.CommonFilters`.
+
+  Dispatches every structural filter key (`:distinct`, `:join`, `:order_by`,
+  `:limit`, `:last`, `:union`, etc.) to the appropriate filter module, and
+  handles `:where` / `:or_where` predicate resolution including automatic
+  `HAVING` promotion for aggregate comparisons.
+
+  This module is used internally and is not called directly. Filters are applied
+  by passing a params map to `EctoShorts.Actions` or
+  `EctoShorts.CommonFilters.convert_params_to_filter/3`:
+
+      EctoShorts.Actions.all(Post, %{order_by: :inserted_at, limit: 10})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias Ecto.Query
   alias EctoShorts.CommonQuery

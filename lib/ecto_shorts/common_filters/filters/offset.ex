@@ -1,6 +1,15 @@
 defmodule EctoShorts.CommonFilters.Offset do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:offset` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds an `OFFSET` clause to the query. Accepts an integer or a string that can
+  be cast to an integer. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{limit: 20, offset: 40})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.QueryBinding
   alias EctoShorts.Types

@@ -1,6 +1,21 @@
 defmodule EctoShorts.CommonFilters.Join do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:join` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds one or more joins to the query. Supports join types `:association`,
+  `:schema`, `:table`, `:query`, `:subquery`, and `:fragment`. Each join entry
+  is a keyword list with at minimum a `:source` key; optional keys include
+  `:qualifier` (default `:inner`), `:on`, `:as`, `:prefix`, and `:hints`.
+  Fragment joins require a configured `EctoShorts.QueryProvider`. Used via
+  params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{
+        join: [association: [source: :comments, qualifier: :left]]
+      })
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   compiled_hints =
     case Application.compile_env(:ecto_shorts, :hints) do

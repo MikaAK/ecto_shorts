@@ -1,6 +1,18 @@
 defmodule EctoShorts.CommonFilters.PrependOrderBy do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:prepend_order_by` structural filter for `EctoShorts.CommonFilters`.
+
+  Prepends sort expressions to the front of the query's existing `ORDER BY`
+  clause (unlike `:order_by` which replaces it). Accepts a field atom (defaults
+  to `:desc`), a `{direction, field}` tuple, a list of such atoms or tuples, or
+  a map. Unknown schema fields are skipped with a warning. Used via params, not
+  called directly:
+
+      EctoShorts.Actions.all(Post, %{prepend_order_by: {:desc, :pinned_at}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema

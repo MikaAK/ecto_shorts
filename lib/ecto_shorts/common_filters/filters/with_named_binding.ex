@@ -1,6 +1,21 @@
 defmodule EctoShorts.CommonFilters.WithNamedBinding do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:with_named_binding` structural filter for `EctoShorts.CommonFilters`.
+
+  Conditionally applies additional filter params to the query only when a named
+  binding is not already present. Accepts a map or keyword list of
+  `{binding_name, filter_params}` pairs; for each entry the params are applied
+  via `EctoShorts.CommonFilters.convert_params_to_filter/3` and the result is
+  kept only if it produced the expected named binding. Used via params, not
+  called directly:
+
+      EctoShorts.Actions.all(Post, %{
+        with_named_binding: [comments: [join: [association: [source: :comments, as: :comments]]]]
+      })
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonFilters
   alias EctoShorts.LogUtils

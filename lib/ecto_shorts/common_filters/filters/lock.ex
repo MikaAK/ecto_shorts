@@ -1,6 +1,18 @@
 defmodule EctoShorts.CommonFilters.Lock do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:lock` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds a row-level lock to the query. Built-in lock names `:for_update` and
+  `:for_share` are applied directly; any other name is resolved through a
+  configured `EctoShorts.QueryProvider` which must return a 1-arity function
+  that receives the query and returns an updated `Ecto.Query`. The value must be
+  a map or keyword list with a `:name` key. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{lock: %{name: :for_update}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.Config
   alias EctoShorts.{FilterError, LogUtils}

@@ -1,6 +1,17 @@
 defmodule EctoShorts.CommonFilters.Having do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:having` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds a `HAVING` clause to the query for filtering on aggregate values. Accepts
+  a `{field, op_map}` tuple, an `Ecto.Query.DynamicExpr`, or `nil` (no-op).
+  Automatically adds a `GROUP BY` on the primary key when none is already
+  present. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{having: {:comment_count, %{gte: 5}}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonFilters.Builder

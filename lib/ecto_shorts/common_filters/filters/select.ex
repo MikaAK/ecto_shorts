@@ -1,6 +1,19 @@
 defmodule EctoShorts.CommonFilters.Select do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:select` structural filter for `EctoShorts.CommonFilters`.
+
+  Replaces the query's `SELECT` clause entirely (any previous select is
+  excluded first). Accepts a field atom, a list of field atoms, a map or
+  keyword list of `{alias, field}` pairs, a `{:map, fields}` shape, a
+  `{:struct, fields}` shape, `true` (selects the full binding), or an
+  `Ecto.Query.DynamicExpr`. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{select: [:id, :title]})
+      EctoShorts.Actions.all(Post, %{select: {:map, [:id, :title]}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.{LogUtils, QueryBinding}
   alias EctoShorts.CommonFilters.SelectMerge

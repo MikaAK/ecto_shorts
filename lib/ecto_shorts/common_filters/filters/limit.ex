@@ -1,6 +1,17 @@
 defmodule EctoShorts.CommonFilters.Limit do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:limit` (and `:first`) structural filter for `EctoShorts.CommonFilters`.
+
+  Adds a `LIMIT` clause to the query. Both `:limit` and `:first` params keys
+  route here. Accepts an integer or a string that can be cast to an integer.
+  Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{limit: 20})
+      EctoShorts.Actions.all(Post, %{first: 5})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.QueryBinding
   alias EctoShorts.Types

@@ -1,6 +1,19 @@
 defmodule EctoShorts.CommonFilters.Preload do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:preload` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds Ecto preload instructions to the query. Accepts an association atom, a
+  list of atoms, or a nested map/keyword list for deep preloads. When a named
+  binding is active the preload is scoped to that binding. Used via params, not
+  called directly:
+
+      EctoShorts.Actions.all(Post, %{preload: :comments})
+      EctoShorts.Actions.all(Post, %{preload: [:comments, :tags]})
+      EctoShorts.Actions.all(Post, %{preload: %{comments: :author}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.{LogUtils, QueryBinding}
 

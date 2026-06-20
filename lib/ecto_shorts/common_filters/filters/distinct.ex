@@ -1,6 +1,18 @@
 defmodule EctoShorts.CommonFilters.Distinct do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:distinct` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds a `DISTINCT ON` clause to the query. Accepts `true` (plain DISTINCT), a
+  field atom, a list of `{direction, field}` tuples, or an
+  `Ecto.Query.DynamicExpr`. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{distinct: true})
+      EctoShorts.Actions.all(Post, %{distinct: :title})
+      EctoShorts.Actions.all(Post, %{distinct: [asc: :inserted_at, asc: :id]})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema

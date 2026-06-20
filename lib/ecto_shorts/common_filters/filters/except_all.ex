@@ -1,6 +1,18 @@
 defmodule EctoShorts.CommonFilters.ExceptAll do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:except_all` structural filter for `EctoShorts.CommonFilters`.
+
+  Combines the current query with a second query using SQL `EXCEPT ALL` (returns
+  all rows from the first query that are not in the second, preserving
+  duplicates). The value may be a pre-built `Ecto.Query`, a params map, or a
+  keyword list that is converted via `EctoShorts.CommonFilters.convert_params_to_filter/3`.
+  Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{except_all: %{status: :draft}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.{CommonFilters, LogUtils}
 

@@ -1,6 +1,17 @@
 defmodule EctoShorts.CommonFilters.OrHaving do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:or_having` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds an `OR HAVING` clause to the query, combining with any existing `HAVING`
+  conditions using `OR`. Accepts a `{field, op_map}` tuple, an
+  `Ecto.Query.DynamicExpr`, or `nil` (no-op). Automatically adds a `GROUP BY`
+  on the primary key when none is present. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{or_having: {:comment_count, %{gte: 5}}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonFilters.Builder

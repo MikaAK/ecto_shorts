@@ -1,6 +1,21 @@
 defmodule EctoShorts.CommonFilters.WithCte do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:with_cte` structural filter for `EctoShorts.CommonFilters`.
+
+  Defines Common Table Expressions (CTEs) on the query. Accepts a map or
+  keyword list of `{cte_name, cte_definition}` pairs. Each definition must
+  include an `:as` key whose value is either a pre-built `Ecto.Query`, a params
+  map with an optional `:from` key, or a keyword list. Optional keys per CTE:
+  `:materialized` (boolean) and `:operation` (one of `:all`, `:update_all`,
+  `:delete_all`). Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{
+        with_cte: [active_authors: [as: %{from: Author, status: :active}]]
+      })
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonFilters
   alias EctoShorts.LogUtils

@@ -1,6 +1,18 @@
 defmodule EctoShorts.CommonFilters.Update do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:update` structural filter for `EctoShorts.CommonFilters`.
+
+  Adds an Ecto `UPDATE` expression to the query (used with `update_all` style
+  operations). Accepts a keyword list of update operators (`:set`, `:inc`,
+  `:push`, `:pull`) or a plain map of field-value pairs (treated as `:set`).
+  Value casting and field validation are delegated to
+  `EctoShorts.CommonFilters.UpdateExpr`. Used via params, not called directly:
+
+      EctoShorts.Actions.update_all(Post, %{status: :draft}, %{update: [set: [status: :archived]]})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonFilters.UpdateExpr
   alias EctoShorts.QueryBinding

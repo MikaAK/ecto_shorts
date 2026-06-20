@@ -1,6 +1,20 @@
 defmodule EctoShorts.CommonFilters.Windows do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:windows` structural filter for `EctoShorts.CommonFilters`.
+
+  Defines named window specifications for SQL window functions. Accepts a map
+  or keyword list of `{window_name, window_definition}` pairs where each
+  definition may include `:partition_by`, `:order_by`, `:frame`, and `:window`
+  (to inherit from another named window). Cyclic `:window` references are
+  detected and warned. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{
+        windows: [row_num: [partition_by: :author_id, order_by: :inserted_at]]
+      })
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.LogUtils
   alias EctoShorts.QueryBinding

@@ -1,6 +1,20 @@
 defmodule EctoShorts.CommonFilters.Last do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:last` structural filter for `EctoShorts.CommonFilters`.
+
+  Limits the query to the last N records (a terminal filter — it runs after all
+  other filters). Wraps the query in a subquery ordered descending by the
+  primary key (or a supplied sort key), applies the limit, then re-orders
+  ascending so results are returned in natural order. Accepts an integer, a
+  `{sort_key, limit}` tuple, or a map/keyword list of such pairs. Used via
+  params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{last: 5})
+      EctoShorts.Actions.all(Post, %{last: {:inserted_at, 10}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonSchema
   alias EctoShorts.LogUtils

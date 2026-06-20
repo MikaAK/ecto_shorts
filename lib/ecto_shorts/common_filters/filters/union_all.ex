@@ -1,6 +1,18 @@
 defmodule EctoShorts.CommonFilters.UnionAll do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:union_all` structural filter for `EctoShorts.CommonFilters`.
+
+  Combines the current query with a second query using SQL `UNION ALL` (returns
+  all rows from both queries, preserving duplicates). The value may be a
+  pre-built `Ecto.Query`, a params map, or a keyword list converted via
+  `EctoShorts.CommonFilters.convert_params_to_filter/3`. Used via params, not
+  called directly:
+
+      EctoShorts.Actions.all(Post, %{union_all: %{status: :archived}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.{CommonFilters, LogUtils}
 

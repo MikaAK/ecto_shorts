@@ -1,6 +1,23 @@
 defmodule EctoShorts.CommonFilters.Page do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:page` structural filter for `EctoShorts.CommonFilters`.
+
+  Applies pagination to the query. Supports two shapes:
+
+  - **Offset-based**: `%{index: page_number, size: page_size}` — computes
+    `LIMIT size OFFSET (index - 1) * size`.
+  - **Cursor-based**: `%{after: cursor, by: field, size: N}` or
+    `%{before: cursor, by: field, size: N}` — adds a `WHERE` on the cursor
+    field, an `ORDER BY`, and a `LIMIT`.
+
+  Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{page: %{index: 2, size: 20}})
+      EctoShorts.Actions.all(Post, %{page: %{after: last_id, by: :id, size: 10}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonFilters.{Limit, Offset, OrderBy}
   alias EctoShorts.QueryBinding

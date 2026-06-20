@@ -1,6 +1,21 @@
 defmodule EctoShorts.CommonFilters.OrderBy do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Implements the `:order_by` structural filter for `EctoShorts.CommonFilters`.
+
+  Sets the `ORDER BY` clause on the query (replacing any existing order).
+  Accepts a field atom (defaults to `:asc`), a `{direction, field}` tuple, a
+  list of such atoms or tuples, an `Ecto.Query.DynamicExpr`, or a map that is
+  converted to a keyword list. Direction atoms: `:asc`, `:desc`,
+  `:asc_nulls_last`, `:asc_nulls_first`, `:desc_nulls_last`, `:desc_nulls_first`.
+  Unknown schema fields are skipped with a warning. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{order_by: :inserted_at})
+      EctoShorts.Actions.all(Post, %{order_by: {:desc, :inserted_at}})
+      EctoShorts.Actions.all(Post, %{order_by: [asc: :title, desc: :inserted_at]})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema
