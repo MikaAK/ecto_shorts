@@ -398,18 +398,22 @@ defmodule EctoShorts.CommonFilters do
   defp apply_filter(filter, source, query, selected_binding, {key, params}, opts) do
     cond do
       key in [:as, :at] ->
-        Enum.reduce(params, query, fn {next_key, next_value}, query_acc ->
-          {:ok, resolved} = resolve_binding_selector(query_acc, key, next_key)
+        if is_nil(params) do
+          query
+        else
+          Enum.reduce(params, query, fn {next_key, next_value}, query_acc ->
+            {:ok, resolved} = resolve_binding_selector(query_acc, key, next_key)
 
-          apply_filter(
-            filter,
-            source,
-            query_acc,
-            resolved,
-            next_value,
-            opts
-          )
-        end)
+            apply_filter(
+              filter,
+              source,
+              query_acc,
+              resolved,
+              next_value,
+              opts
+            )
+          end)
+        end
 
       key in [:having, :or_having, :where, :or_where] ->
         cond do
