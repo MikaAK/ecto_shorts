@@ -227,8 +227,11 @@ defmodule EctoShorts.CommonFilters do
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonSchema
   alias EctoShorts.Config
+  alias EctoShorts.LogUtils
 
   alias EctoShorts.QueryBuilders
+
+  @logger_prefix "EctoShorts.CommonFilters"
 
   @type filters ::
           :all
@@ -392,7 +395,16 @@ defmodule EctoShorts.CommonFilters do
   end
 
   defp reduce_filters(filter, source, query, selected_binding, params, opts) do
-    Enum.reduce(params, query, &apply_filter(filter, source, &2, selected_binding, &1, opts))
+    if (is_map(params) and not is_struct(params)) or is_list(params) do
+      Enum.reduce(params, query, &apply_filter(filter, source, &2, selected_binding, &1, opts))
+    else
+      LogUtils.warning(
+        @logger_prefix,
+        "Expected filter params to be a map or keyword list, got: #{inspect(params)}"
+      )
+
+      query
+    end
   end
 
   defp apply_filter(filter, source, query, selected_binding, {key, params}, opts) do

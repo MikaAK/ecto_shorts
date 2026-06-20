@@ -96,6 +96,24 @@ defmodule EctoShorts.CommonFiltersTest do
     end
   end
 
+  describe "convert_params_to_filter/3 as: with scalar inner value" do
+    test "returns query unchanged and does not crash when as: inner value is a scalar" do
+      import ExUnit.CaptureLog
+
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(Post, %{as: %{title: "A"}}, [])
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
+    end
+  end
+
   describe "convert_params_to_filter/3 as:/at: nil" do
     test "returns query unchanged when as: value is nil" do
       expected = from(p in Post)
