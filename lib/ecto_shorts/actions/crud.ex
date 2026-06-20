@@ -45,6 +45,10 @@ defmodule EctoShorts.Actions.CRUD do
     all(queryable, params, [])
   end
 
+  def all(queryable, params) when is_list(params) do
+    all(queryable, params, [])
+  end
+
   def all(%Source{} = source, params, opts) do
     with {:ok, queryable, input_params} <- resolve_source(source, params, opts) do
       all(queryable, input_params, opts)

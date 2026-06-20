@@ -2702,10 +2702,12 @@ defmodule EctoShorts.Actions.CRUDTest do
       end
     end
 
-    test "raises FunctionClauseError when the second argument is a keyword list" do
-      assert_raise FunctionClauseError, fn ->
-        Actions.all(Post, published: true)
-      end
+    test "accepts a keyword list as params and filters correctly" do
+      %Post{}
+      |> Post.changeset(%{title: "KwAll", published: true})
+      |> Repo.insert!()
+
+      assert [%Post{title: "KwAll"}] = Actions.all(Post, published: true)
     end
   end
 
