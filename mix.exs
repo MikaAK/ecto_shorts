@@ -92,9 +92,12 @@ defmodule EctoShorts.MixProject do
           EctoShorts.CommonParams,
           EctoShorts.Actions.Source
         ],
-        Actions: [
+        "Actions (internal)": [
           EctoShorts.Actions.Batch,
+          EctoShorts.Actions.Bulk,
+          EctoShorts.Actions.CRUD,
           EctoShorts.Actions.Multi,
+          EctoShorts.Actions.Transaction,
           EctoShorts.Actions.Error
         ],
         Testing: [
@@ -105,6 +108,52 @@ defmodule EctoShorts.MixProject do
           EctoShorts.Dynamic,
           EctoShorts.DynamicBuilder,
           EctoShorts.DynamicBuilders.Postgres
+        ],
+        "Postgres Expressions": [
+          EctoShorts.DynamicBuilders.Postgres.ArrayExpr,
+          EctoShorts.DynamicBuilders.Postgres.CommonExpr,
+          EctoShorts.DynamicBuilders.Postgres.FieldAccessors,
+          EctoShorts.DynamicBuilders.Postgres.MapExpr,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Aggregate,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Comparison,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Membership,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.String,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.StringTransform
+        ],
+        "Common Filters": [
+          EctoShorts.CommonFilters.Builder,
+          EctoShorts.CommonFilters.Distinct,
+          EctoShorts.CommonFilters.Except,
+          EctoShorts.CommonFilters.ExceptAll,
+          EctoShorts.CommonFilters.GroupBy,
+          EctoShorts.CommonFilters.Having,
+          EctoShorts.CommonFilters.Intersect,
+          EctoShorts.CommonFilters.IntersectAll,
+          EctoShorts.CommonFilters.Join,
+          EctoShorts.CommonFilters.Last,
+          EctoShorts.CommonFilters.Limit,
+          EctoShorts.CommonFilters.Lock,
+          EctoShorts.CommonFilters.Offset,
+          EctoShorts.CommonFilters.OrHaving,
+          EctoShorts.CommonFilters.OrderBy,
+          EctoShorts.CommonFilters.Page,
+          EctoShorts.CommonFilters.Preload,
+          EctoShorts.CommonFilters.PrependOrderBy,
+          EctoShorts.CommonFilters.PutQueryPrefix,
+          EctoShorts.CommonFilters.RecursiveCtes,
+          EctoShorts.CommonFilters.ReverseOrder,
+          EctoShorts.CommonFilters.Select,
+          EctoShorts.CommonFilters.SelectMerge,
+          EctoShorts.CommonFilters.SubQuery,
+          EctoShorts.CommonFilters.Union,
+          EctoShorts.CommonFilters.UnionAll,
+          EctoShorts.CommonFilters.Update,
+          EctoShorts.CommonFilters.UpdateExpr,
+          EctoShorts.CommonFilters.Windows,
+          EctoShorts.CommonFilters.WithCte,
+          EctoShorts.CommonFilters.WithNamedBinding,
+          EctoShorts.CommonFilters.WithTies
         ],
         "Schema & Query Introspection": [
           EctoShorts.CommonQuery,
@@ -119,6 +168,8 @@ defmodule EctoShorts.MixProject do
           EctoShorts.Config,
           EctoShorts.Logger,
           EctoShorts.QueryProvider,
+          EctoShorts.QueryBuilder,
+          EctoShorts.Types,
           EctoShorts.Utils
         ]
       ]
