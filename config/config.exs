@@ -15,6 +15,7 @@ if Mix.env() === :test do
 
   config :ecto_shorts, EctoShorts.Repo,
     username: "postgres",
+    password: System.get_env("POSTGRES_PASSWORD") || "postgres",
     database: "ecto_shorts_test",
     hostname: "localhost",
     show_sensitive_data_on_connection_error: true,
