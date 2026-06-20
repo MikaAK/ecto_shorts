@@ -2262,6 +2262,11 @@ defmodule EctoShorts.Actions.CRUDTest do
                  %{title: "Created"}
                )
     end
+
+    test "creates the record when no match exists and params is a keyword list" do
+      assert {:ok, %Post{title: "CreatedKw"}} =
+               Actions.find_or_create(Post, [title: "CreatedKw"])
+    end
   end
 
   describe "update/4 optimistic locking via schema callback" do

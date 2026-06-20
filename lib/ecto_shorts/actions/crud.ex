@@ -300,6 +300,8 @@ defmodule EctoShorts.Actions.CRUD do
   end
 
   def find_or_create(source, params, opts) do
+    params = if is_map(params), do: params, else: Map.new(params)
+
     result =
       with {:error, _} <-
              find(
