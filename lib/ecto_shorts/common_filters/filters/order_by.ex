@@ -62,8 +62,17 @@ defmodule EctoShorts.CommonFilters.OrderBy do
     if entries !== [] and exprs === [], do: query, else: order_by_expr(query, exprs)
   end
 
-  def build_query(:order_by, _source, query, _selected_binding, expr, _opts) do
+  def build_query(:order_by, _source, query, _selected_binding, %Ecto.Query.DynamicExpr{} = expr, _opts) do
     order_by_expr(query, expr)
+  end
+
+  def build_query(:order_by, _source, query, _selected_binding, expr, _opts) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Expected :order_by to be an atom, direction tuple, list of fields, or DynamicExpr, got: #{inspect(expr)}"
+    )
+
+    query
   end
 
   defp validate_schema_field(source, query, selected_binding, field_name) do

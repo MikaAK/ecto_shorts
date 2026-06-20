@@ -37,8 +37,17 @@ defmodule EctoShorts.CommonFilters.GroupBy do
     end
   end
 
-  defp reduce_params(_source, query, _selected_binding, expr) do
+  defp reduce_params(_source, query, _selected_binding, %Ecto.Query.DynamicExpr{} = expr) do
     Query.group_by(query, ^expr)
+  end
+
+  defp reduce_params(_source, query, _selected_binding, expr) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Expected :group_by to be an atom, list of atoms, or DynamicExpr, got: #{inspect(expr)}"
+    )
+
+    query
   end
 
   defp reduce_params_exprs(source, query, selected_binding, entries) do
