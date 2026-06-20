@@ -276,10 +276,20 @@ defmodule EctoShorts.Actions.CRUD do
     end
   end
 
+  def find_and_upsert(source, find_params, upsert_params, opts)
+      when is_map(find_params) and not is_struct(find_params) do
+    find_and_upsert(source, Map.to_list(find_params), upsert_params, opts)
+  end
+
+  def find_and_upsert(source, find_params, upsert_params, opts)
+      when is_map(upsert_params) and not is_struct(upsert_params) do
+    find_and_upsert(source, find_params, Map.to_list(upsert_params), opts)
+  end
+
   def find_and_upsert(source, find_params, upsert_params, opts) do
     case find(source, find_params, Keyword.delete(opts, :preload)) do
       {:ok, record} -> update(source, record, upsert_params, opts)
-      {:error, _} -> create(source, params_merge(find_params, upsert_params), opts)
+      {:error, _} -> create(source, Keyword.merge(find_params, upsert_params), opts)
     end
   end
 
@@ -303,15 +313,14 @@ defmodule EctoShorts.Actions.CRUD do
     end
   end
 
+  def find_or_create(source, params, opts)
+      when is_map(params) and not is_struct(params) do
+    find_or_create(source, Map.to_list(params), opts)
+  end
+
   def find_or_create(source, params, opts) do
     fields = CommonSchema.get_query_fields(opts, source)
-
-    find_params =
-      if is_map(params) do
-        Map.take(params, fields)
-      else
-        Keyword.take(params, fields)
-      end
+    find_params = Keyword.take(params, fields)
 
     result =
       with {:error, _} <- find(source, find_params, Keyword.delete(opts, :preload)) do
@@ -369,13 +378,6 @@ defmodule EctoShorts.Actions.CRUD do
          opts
        )}
     end
-  end
-
-  defp params_merge(a, b) when is_map(a) and is_map(b), do: Map.merge(a, b)
-
-  defp params_merge(a, b) do
-    to_kw = fn x -> if is_list(x), do: x, else: Map.to_list(x) end
-    Keyword.merge(to_kw.(a), to_kw.(b))
   end
 
   defp put_param(enum, opts, key) do

@@ -801,13 +801,17 @@ defmodule EctoShorts.CommonSchema do
     create_changeset(schema, put_source(changeset, {source, schema}), params, opts)
   end
 
+  def create_changeset(schema, data_or_changeset, params, opts)
+      when is_map(params) and not is_struct(params) do
+    create_changeset(schema, data_or_changeset, Map.to_list(params), opts)
+  end
+
   def create_changeset(schema, data_or_changeset, params, opts) do
     if Keyword.has_key?(opts, :changeset) do
       apply_changeset!(schema, data_or_changeset, params, opts[:changeset])
     else
       if function_exported?(schema, :changeset, 2) do
-        cast_params = if Keyword.keyword?(params), do: Map.new(params), else: params
-        schema.changeset(data_or_changeset, cast_params)
+        schema.changeset(data_or_changeset, Map.new(params))
       else
         Changeset.change(data_or_changeset, params)
       end
@@ -815,19 +819,21 @@ defmodule EctoShorts.CommonSchema do
   end
 
   defp apply_changeset!(schema, data_or_changeset, params, callback) do
+    cast_params = if is_list(params), do: Map.new(params), else: params
+
     case callback do
       fun when is_function(fun, 3) ->
-        validate_changeset!(fun.(schema, data_or_changeset, params))
+        validate_changeset!(fun.(schema, data_or_changeset, cast_params))
 
       fun when is_function(fun, 2) ->
-        validate_changeset!(fun.(data_or_changeset, params))
+        validate_changeset!(fun.(data_or_changeset, cast_params))
 
       fun when is_function(fun, 1) ->
         changeset =
           if function_exported?(schema, :changeset, 2) do
-            schema.changeset(data_or_changeset, params)
+            schema.changeset(data_or_changeset, cast_params)
           else
-            Changeset.change(data_or_changeset, params)
+            Changeset.change(data_or_changeset, cast_params)
           end
 
         validate_changeset!(fun.(changeset))
