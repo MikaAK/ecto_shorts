@@ -1,5 +1,20 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Comparison do
-  @moduledoc false
+  @moduledoc """
+  Builds dynamic expressions for scalar field comparisons
+  (`=`, `!=`, `<`, `>`, `<=`, `>=`).
+
+  Handles nil checks, quantified comparisons (`ALL`/`ANY`), aggregates
+  (delegated to `EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Aggregate`),
+  datetime arithmetic (`ago`/`from_now`/`add`/`shift`), inter-field arithmetic,
+  sibling/parent binding references, and plain scalar value comparisons.
+  Negation is folded in before dispatch. This module is part of the
+  `Ecto.Adapters.Postgres` dynamic-builder pipeline (the only adapter that
+  ships) and is reached via `EctoShorts.CommonFilters` params, for example:
+
+      EctoShorts.Actions.all(User, %{age: %{gte: 18}})
+
+  rather than being called directly.
+  """
   @moduledoc since: "3.0.0"
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors

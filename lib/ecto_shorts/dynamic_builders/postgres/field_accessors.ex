@@ -1,6 +1,16 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.FieldAccessors do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Compile-time generated field accessors for the Postgres dynamic builder.
+
+  Generates one `field_dyn/2` clause per supported query binding position (and a
+  `known_binding?/1` guard) from `EctoShorts.QueryBinding.query_binding_contracts/1`,
+  so the other Postgres expression modules can resolve a dynamic field reference
+  against the correct binding. This module is internal to the
+  `Ecto.Adapters.Postgres` dynamic-builder pipeline (the only adapter that ships)
+  and is exercised through `EctoShorts.CommonFilters` params rather than called
+  directly.
+  """
 
   alias EctoShorts.QueryBinding
 

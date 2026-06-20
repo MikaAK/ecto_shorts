@@ -1,6 +1,19 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.MapExpr do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Builds Postgres JSONB dynamic expressions for map-typed fields.
+
+  Supports equality (`==`, `!=`), nil checks, JSONB containment (`@>` via
+  `:contains`), contained-by (`<@` via `:contained_by`), and key existence
+  (`jsonb_exists` / `jsonb_exists_any` / `jsonb_exists_all`). This module is
+  part of the `Ecto.Adapters.Postgres` dynamic-builder pipeline (the only
+  adapter that ships) and is reached when a map/JSONB field appears in
+  `EctoShorts.CommonFilters` params, for example:
+
+      EctoShorts.Actions.all(Event, %{metadata: %{contains: %{"source" => "api"}}})
+
+  rather than being called directly.
+  """
 
   alias Ecto.Query
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors

@@ -1,5 +1,17 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Aggregate do
-  @moduledoc false
+  @moduledoc """
+  Builds `HAVING`-style dynamic expressions for SQL aggregate functions.
+
+  Applies an aggregate (`:avg`, `:count`, `:max`, `:min`, `:sum`) to a field and
+  compares the result using any comparison operator (and its negation). This
+  module is part of the `Ecto.Adapters.Postgres` dynamic-builder pipeline (the
+  only adapter that ships) and is reached when an aggregate comparison appears in
+  `EctoShorts.CommonFilters` params, for example:
+
+      EctoShorts.Actions.all(Order, %{total: %{sum: %{gte: 100}}})
+
+  rather than being called directly.
+  """
   @moduledoc since: "3.0.0"
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors

@@ -1,5 +1,18 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.String do
-  @moduledoc false
+  @moduledoc """
+  Builds `LIKE` / `ILIKE` dynamic expressions for scalar string fields.
+
+  Accepts a single pattern or a list (using `LIKE ANY` / `ILIKE ANY`), and
+  automatically wraps a bare value in `%…%` unless it already contains a `%` or
+  `_` wildcard. This module is part of the `Ecto.Adapters.Postgres`
+  dynamic-builder pipeline (the only adapter that ships) and is reached when a
+  `:like`/`:ilike` operator appears in `EctoShorts.CommonFilters` params, for
+  example:
+
+      EctoShorts.Actions.all(User, %{name: %{ilike: "ada"}})
+
+  rather than being called directly.
+  """
   @moduledoc since: "3.0.0"
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors

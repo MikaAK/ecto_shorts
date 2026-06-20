@@ -1,6 +1,14 @@
 defmodule EctoShorts.Actions.Batch do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Normalizes batch lookup params and groups fetched records by their batch key
+  value for the `EctoShorts.Actions` batch operations.
+
+  This module sits behind the `batch`/`batch_find` family in `EctoShorts.Actions`:
+  it expands a set of lookup keys into per-record params, runs the lookups, and
+  zips the results back onto the keys they were requested for. It is internal
+  machinery reached through `EctoShorts.Actions` rather than called directly.
+  """
 
   # Normalizes batch lookup params and groups fetched records by batch key.
   #

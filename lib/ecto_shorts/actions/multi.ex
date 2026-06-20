@@ -1,6 +1,14 @@
 defmodule EctoShorts.Actions.Multi do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Builds `Ecto.Multi` structs for transactional many-record operations.
+
+  Constructs the multi for `create_many`, `find_many`, `update_many`,
+  `delete_many`, `find_or_create`, and upsert flows, then normalizes the multi
+  result into `{:ok, [values]}` or `{:error, reason}`. It sits between the
+  many-record entry points in `EctoShorts.Actions` and `Ecto.Repo.transaction/2`,
+  and is reached through `EctoShorts.Actions` rather than called directly.
+  """
 
   # Builds `Ecto.Multi` structs for transactional batch operations.
   #

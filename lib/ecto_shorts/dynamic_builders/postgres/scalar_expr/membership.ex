@@ -1,5 +1,17 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Membership do
-  @moduledoc false
+  @moduledoc """
+  Builds `IN` / `NOT IN` dynamic expressions for list-valued comparisons.
+
+  Handles `:in`, `:nin`, and equality/inequality against a list
+  (`{:==, list}`, `{:!=, list}`) and their negations. This module is part of the
+  `Ecto.Adapters.Postgres` dynamic-builder pipeline (the only adapter that
+  ships) and is reached when a list value appears in `EctoShorts.CommonFilters`
+  params, for example:
+
+      EctoShorts.Actions.all(User, %{status: [:active, :pending]})
+
+  rather than being called directly.
+  """
   @moduledoc since: "3.0.0"
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors

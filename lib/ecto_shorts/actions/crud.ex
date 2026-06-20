@@ -1,5 +1,15 @@
 defmodule EctoShorts.Actions.CRUD do
-  @moduledoc false
+  @moduledoc """
+  Core single-record CRUD implementation backing `EctoShorts.Actions`.
+
+  Provides the read (`all`, `find`, `get`, `exists?`, `stream`, `aggregate`),
+  single-write (`create`, `update`, `delete`), and compound
+  (`find_and_create`, `find_and_update`, `find_and_upsert`, `find_and_delete`,
+  `find_or_create`) operations. Queries are built through
+  `EctoShorts.CommonFilters` and changesets through `EctoShorts.CommonSchema`.
+  This is internal machinery reached through `EctoShorts.Actions` rather than
+  called directly.
+  """
 
   alias Ecto.Changeset
 

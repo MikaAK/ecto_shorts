@@ -1,5 +1,18 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.StringTransform do
-  @moduledoc false
+  @moduledoc """
+  Builds dynamic expressions that apply a SQL string transform to a field before
+  an equality comparison.
+
+  Supports `:lower`, `:upper`, `:trim`, `:ltrim`, and `:rtrim` applied to the
+  field, then compared with `==` / `!=` — useful for case-insensitive or
+  whitespace-normalized equality checks. This module is part of the
+  `Ecto.Adapters.Postgres` dynamic-builder pipeline (the only adapter that
+  ships) and is reached via `EctoShorts.CommonFilters` params, for example:
+
+      EctoShorts.Actions.all(User, %{email: %{==: %{lower: "ada@example.com"}}})
+
+  rather than being called directly.
+  """
   @moduledoc since: "3.0.0"
 
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors

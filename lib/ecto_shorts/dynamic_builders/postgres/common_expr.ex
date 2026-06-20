@@ -1,6 +1,20 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Builds Postgres dynamic expressions for the temporal and range convenience
+  operators.
+
+  Covers `:ids`, `:before`, `:after`, `:until`, `:since`, `:start_date`,
+  `:end_date`, `:since_date`, `:until_date`, and `:exists`, mapping them to
+  `>`, `<`, `>=`, `<=`, `in`, and `exists()` SQL expressions. This module is
+  part of the `Ecto.Adapters.Postgres` dynamic-builder pipeline (the only
+  adapter that ships) and is reached via `EctoShorts.CommonFilters` params, for
+  example:
+
+      EctoShorts.Actions.all(Post, %{before: ~U[2024-01-01 00:00:00Z]})
+
+  rather than being called directly.
+  """
 
   alias Ecto.Query
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
@@ -20,6 +34,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
     :until_date
   ]
 
+  @doc """
+  Returns the list of temporal/range operator keys this module handles.
+
+      iex> EctoShorts.DynamicBuilders.Postgres.CommonExpr.operators()
+      [:ids, :before, :after, :until, :since, :exists, :start_date, :end_date, :since_date, :until_date]
+  """
   def operators, do: @operators
 
   def dynamic_expr(selected_binding, field, negated, expr, _opts) do

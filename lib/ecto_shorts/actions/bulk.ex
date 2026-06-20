@@ -1,6 +1,14 @@
 defmodule EctoShorts.Actions.Bulk do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Bulk insert, update, and delete operations for Ecto schemas.
+
+  Wraps `c:Ecto.Repo.insert_all/3`, `c:Ecto.Repo.update_all/3`, and
+  `c:Ecto.Repo.delete_all/2`, delegating param conversion to
+  `EctoShorts.CommonParams` and filtering to `EctoShorts.CommonFilters`. It is
+  the engine behind the `insert_all`/`update_all`/`delete_all` entry points in
+  `EctoShorts.Actions` and is reached through them rather than called directly.
+  """
 
   # Bulk insert, update, and delete operations for Ecto schemas.
   #

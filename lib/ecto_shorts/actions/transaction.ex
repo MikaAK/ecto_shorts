@@ -1,6 +1,15 @@
 defmodule EctoShorts.Actions.Transaction do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Wraps `c:Ecto.Repo.transaction/2` for `EctoShorts.Actions.transaction/2` and
+  `EctoShorts.Actions.transact/2`.
+
+  Handles the strict (`transact`) mode — unwrapping `{:ok, {:ok, value}}` and
+  rolling back on an `{:error, reason}` returned by the transaction function —
+  and normalizes the transaction response into the EctoShorts result shape. It
+  is internal machinery reached through `EctoShorts.Actions` rather than called
+  directly.
+  """
 
   alias EctoShorts.Config
 

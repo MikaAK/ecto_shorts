@@ -1,6 +1,22 @@
 defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExpr do
   @moduledoc since: "3.0.0"
-  @moduledoc false
+  @moduledoc """
+  Builds Postgres dynamic expressions for array-typed fields.
+
+  Handles element membership (`in`, array overlap), element comparisons via
+  `ANY`/`ALL`, array length checks, `LIKE`/`ILIKE` matching via `unnest`,
+  `lower`/`upper` case-insensitive matching, and null checks. Unsupported
+  operations on array fields (aggregates, subquery quantifiers, datetime
+  comparisons) log a warning and return `nil`.
+
+  This module is part of the `Ecto.Adapters.Postgres` dynamic-builder pipeline
+  (the only adapter that ships). It is reached when an array-typed field appears
+  in `EctoShorts.CommonFilters` params, for example:
+
+      EctoShorts.Actions.all(Post, %{tags: ["elixir", "ecto"]})
+
+  rather than being called directly.
+  """
 
   alias Ecto.Query
   alias EctoShorts.DynamicBuilders.Postgres.FieldAccessors
