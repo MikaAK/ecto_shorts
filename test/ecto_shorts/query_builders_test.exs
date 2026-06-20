@@ -26,7 +26,6 @@ defmodule EctoShorts.QueryBuildersTest do
 
   # A module that does NOT export build_query/6.
   defmodule BuilderWithoutCallback do
-    @behaviour EctoShorts.QueryBuilder
   end
 
   describe "build_query/6 adapter resolution" do
