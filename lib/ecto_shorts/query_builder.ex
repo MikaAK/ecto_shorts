@@ -49,7 +49,7 @@ defmodule EctoShorts.QueryBuilder do
 
   Or configure it globally in `config/config.exs`:
 
-      config :ecto_shorts, query_builder: MyApp.CustomQueryBuilder
+      config :ecto_shorts, query_builder_module: MyApp.CustomQueryBuilder
   """
 
   @doc """
