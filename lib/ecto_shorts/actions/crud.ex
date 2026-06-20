@@ -337,6 +337,13 @@ defmodule EctoShorts.Actions.CRUD do
     fields = CommonSchema.get_query_fields(opts, source)
     find_params = Keyword.take(params, fields)
 
+    opts =
+      if params[:preload] do
+        Keyword.put(opts, :preload, params[:preload])
+      else
+        opts
+      end
+
     result =
       with {:error, _} <- find(source, find_params, Keyword.delete(opts, :preload)) do
         source

@@ -2553,6 +2553,22 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert {:ok, %Post{title: "I", comments: []}} =
                Actions.find_or_create(Post, %{title: "I"}, preload: [:comments])
     end
+
+    test "preloads associations when :preload is given in params (not opts)" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "PreloadInParams"})
+        |> Repo.insert!()
+
+      %Comment{}
+      |> Comment.changeset(%{body: "a comment", post_id: post.id})
+      |> Repo.insert!()
+
+      assert {:ok, %Post{comments: comments}} =
+               Actions.find_or_create(Post, %{title: "PreloadInParams", preload: [:comments]})
+
+      assert [%Comment{body: "a comment"}] = comments
+    end
   end
 
   describe "find_and_create/4 with :preload" do
