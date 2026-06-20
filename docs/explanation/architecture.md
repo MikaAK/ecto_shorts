@@ -56,7 +56,7 @@ sequenceDiagram
   S->>CF: sorted keyword list
   CF->>B: apply_filters(query, key, value, ...)
   B->>F: build_query(query, binding, key, value, ...)
-  F->>DB: build_dynamic(field, value, binding, opts)
+  F->>DB: build_dynamic(predicate, selected_binding, opts)
   DB->>F: DynamicExpr
   F->>B: updated Ecto.Query
   B->>CF: updated Ecto.Query

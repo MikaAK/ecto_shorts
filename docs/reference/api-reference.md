@@ -32,8 +32,8 @@ all(schema_or_queryable) :: [struct]
 all(schema_or_queryable, params) :: [struct]
 all(schema_or_queryable, params, opts) :: [struct]
 
-get(schema_or_queryable, id) :: {:ok, struct} | {:error, term}
-get(schema_or_queryable, id, opts) :: {:ok, struct} | {:error, term}
+get(schema_or_queryable, id) :: struct() | nil
+get(schema_or_queryable, id, opts) :: struct() | nil
 
 find(schema_or_queryable, params) :: {:ok, struct | nil} | {:error, term}
 find(schema_or_queryable, params, opts) :: {:ok, struct | nil} | {:error, term}
@@ -47,11 +47,18 @@ preload(struct_or_list, preloads, opts) :: struct | [struct]
 stream(schema_or_queryable, params) :: {:ok, Enum.t} | {:error, term}
 stream(schema_or_queryable, params, opts) :: {:ok, Enum.t} | {:error, term}
 
-aggregate(schema_or_queryable, aggregate_fn, field) :: {:ok, term} | {:error, term}
-aggregate(schema_or_queryable, aggregate_fn, field, opts) :: {:ok, term} | {:error, term}
+aggregate(schema_or_queryable) :: term()
+aggregate(schema_or_queryable, params) :: term()
+aggregate(schema_or_queryable, params, opts) :: term()
 ```
 
 `stream/2,3` must be called inside a transaction.
+
+`aggregate/1,2,3` runs an aggregate on filtered records. The aggregate function
+and field are specified via opts: `:aggregate` (default `:count`; accepts `:count`,
+`:sum`, `:avg`, `:min`, `:max`) and `:key` (default `:id`; the field to aggregate).
+`params` is a standard EctoShorts filter params map (same as `all/3`). Returns the
+raw aggregate value (an integer, float, or `nil`).
 
 ### Single-record writes
 
@@ -142,15 +149,23 @@ Batch operations process large result sets in chunks, calling a function on
 each chunk rather than loading everything into memory at once.
 
 ```elixir
-batch(schema, params, batch_size, fun) :: {:ok, term} | {:error, term}
-batch(schema, params, batch_size, fun, opts) :: {:ok, term} | {:error, term}
+batch(schema, params) :: map()
+batch(schema, params, opts) :: map()
 
-batch_find(schema, field, entries, opts) :: {:ok, [struct]} | {:error, term}
+batch_find(schema, entries, keys) :: [map()]
+batch_find(schema, entries, keys, opts) :: [map()]
 ```
 
-`batch/4,5` processes matching records in chunks of `batch_size`, calling
-`fun` on each chunk. `batch_find/4` takes `entries` as a list of maps and
-looks up records matching each map's field value.
+`batch/2,3` fetches records matching each entry in `params` (a list of param maps)
+and groups results by the batch key(s). The aggregate/grouping key is specified via
+the `:batch_keys` option (default `:id`); cardinality (`:one` or `:many`) is set
+via the `:cardinality` option (default `:many`). Returns a map keyed by the matched
+field value(s).
+
+`batch_find/3,4` batch-fetches records and zips them into the original `entries`
+list. `keys` is an atom or list of atoms identifying the lookup field(s). Each
+matched record is zipped into the corresponding entry while preserving list order;
+unmatched entries are returned unchanged.
 
 ### Transaction helpers
 

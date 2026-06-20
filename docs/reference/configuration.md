@@ -18,7 +18,6 @@ config :ecto_shorts,
 | `:query_provider_module` | module | `nil` | Named query-fragment provider for locks and structural filters |
 | `:error_module` | module | `EctoShorts.Actions.Error` | Error-response builder used by `Actions` |
 | `:max_positional_bindings` | integer | `10` | Upper bound for `:at` positional bindings; increasing this increases compile time |
-| `:sql_sandbox` | boolean | `false` | Set to `true` in the test environment to enable `Ecto.Adapters.SQL.Sandbox` mode |
 | `:hints` | list | `[]` | Compile-time index hint strings for joins; see note below -- changes require recompilation |
 
 ## Basic Setup
@@ -80,8 +79,9 @@ The default error module is `EctoShorts.Actions.Error`. To replace the error-res
 defmodule MyApp.ActionsError do
   @behaviour EctoShorts.Actions.Error
 
-  def call(error_type, message, details \\ []) do
-    {:error, %{type: error_type, message: message, details: details}}
+  @impl true
+  def create_error(code, message, details) do
+    {:error, %{code: code, message: message, details: details}}
   end
 end
 ```
@@ -101,10 +101,17 @@ defmodule MyApp.CustomDynamicBuilder do
   @behaviour EctoShorts.DynamicBuilder
 
   @impl true
-  def build_dynamic(field, value, binding, opts) do
-    # Build and return an Ecto.Query.dynamic/1 expression.
-    # binding is either :root, {:named, atom}, or {:positional, integer}.
-    dynamic([{^binding, x}], field(x, ^field) == ^value)
+  def build_dynamic(predicate, selected_binding, opts) do
+    # predicate is a %EctoShorts.CommonFilters.Predicate{} struct.
+    # Delegate to the built-in Postgres builder, or handle custom predicates:
+    case predicate do
+      %{field: :score, operator: :above_threshold, value: threshold} ->
+        import Ecto.Query
+        dynamic([p], p.score > ^threshold and p.active == true)
+
+      _ ->
+        EctoShorts.DynamicBuilders.Postgres.build_dynamic(predicate, selected_binding, opts)
+    end
   end
 end
 ```
@@ -132,7 +139,7 @@ defmodule MyApp.CustomQueryBuilder do
   @behaviour EctoShorts.QueryBuilder
 
   @impl true
-  def build_query(query, binding, key, value, source, opts) do
+  def build_query(filter, source, query, selected_binding, term, opts) do
     # Modify and return the query, or return {:error, reason}.
     {:ok, query}
   end
@@ -156,9 +163,13 @@ defmodule MyApp.QueryProvider do
   @behaviour EctoShorts.QueryProvider
 
   @impl true
-  def query_for(:for_update), do: "FOR UPDATE"
-  def query_for(:for_share), do: "FOR SHARE"
-  def query_for(name), do: raise "Unknown query fragment: #{inspect(name)}"
+  def query_expression(_selected_binding, expression_key, _expression_params, _opts) do
+    case expression_key do
+      :for_update -> {:ok, "FOR UPDATE"}
+      :for_share -> {:ok, "FOR SHARE"}
+      _ -> {:error, :unsupported_expression_key}
+    end
+  end
 end
 ```
 
