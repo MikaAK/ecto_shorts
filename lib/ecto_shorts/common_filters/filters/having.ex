@@ -4,6 +4,9 @@ defmodule EctoShorts.CommonFilters.Having do
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonFilters.Builder
+  alias EctoShorts.LogUtils
+
+  @logger_prefix "EctoShorts.CommonFilters.Having"
 
   def build_query(:having, _source, query, _selected_binding, nil, _opts) do
     query
@@ -16,6 +19,15 @@ defmodule EctoShorts.CommonFilters.Having do
   def build_query(:having, source, query, selected_binding, {key, value}, opts) do
     effective_source = resolve_source(source, query, selected_binding)
     Builder.having_from_params(query, effective_source, key, value, selected_binding, opts)
+  end
+
+  def build_query(:having, _source, query, _selected_binding, term, _opts) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Expected :having value to be a {field, op} tuple, DynamicExpr, or nil, got: #{inspect(term)}"
+    )
+
+    query
   end
 
   defp resolve_source(source, _query, {:as, nil}), do: source

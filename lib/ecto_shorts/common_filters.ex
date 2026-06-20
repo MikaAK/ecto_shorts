@@ -410,21 +410,31 @@ defmodule EctoShorts.CommonFilters do
   defp apply_filter(filter, source, query, selected_binding, {key, params}, opts) do
     cond do
       key in [:as, :at] ->
-        if is_nil(params) do
-          query
-        else
-          Enum.reduce(params, query, fn {next_key, next_value}, query_acc ->
-            {:ok, resolved} = resolve_binding_selector(query_acc, key, next_key)
+        cond do
+          is_nil(params) ->
+            query
 
-            apply_filter(
-              filter,
-              source,
-              query_acc,
-              resolved,
-              next_value,
-              opts
+          (is_map(params) and not is_struct(params)) or is_list(params) ->
+            Enum.reduce(params, query, fn {next_key, next_value}, query_acc ->
+              {:ok, resolved} = resolve_binding_selector(query_acc, key, next_key)
+
+              apply_filter(
+                filter,
+                source,
+                query_acc,
+                resolved,
+                next_value,
+                opts
+              )
+            end)
+
+          true ->
+            LogUtils.warning(
+              @logger_prefix,
+              "Expected :#{key} params to be a map or keyword list, got: #{inspect(params)}"
             )
-          end)
+
+            query
         end
 
       key in [:having, :or_having, :where, :or_where] ->
@@ -452,13 +462,24 @@ defmodule EctoShorts.CommonFilters do
 
       key in [:or, :any] ->
         cond do
-          is_nil(params) -> query
+          is_nil(params) ->
+            query
+
           list_of_params?(params) ->
             reduce_filters(:or_where, source, query, selected_binding, params, opts)
-          true ->
+
+          (is_map(params) and not is_struct(params)) or is_list(params) ->
             Enum.reduce(params, query, fn {inner_key, inner_value}, query_acc ->
               or_entries(source, query_acc, selected_binding, inner_key, inner_value, opts)
             end)
+
+          true ->
+            LogUtils.warning(
+              @logger_prefix,
+              "Expected :#{key} params to be a map or keyword list, got: #{inspect(params)}"
+            )
+
+            query
         end
 
       key in @filters ->

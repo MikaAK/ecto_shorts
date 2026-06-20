@@ -96,6 +96,36 @@ defmodule EctoShorts.CommonFiltersTest do
     end
   end
 
+  describe "convert_params_to_filter/3 or:/and: with scalar value" do
+    test "returns query unchanged and warns when or: value is a scalar" do
+      import ExUnit.CaptureLog
+
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual = CommonFilters.convert_params_to_filter(Post, %{or: "bad"}, [])
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
+    end
+
+    test "returns query unchanged and warns when at: inner value is a scalar" do
+      import ExUnit.CaptureLog
+
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual = CommonFilters.convert_params_to_filter(Post, %{at: "bad"}, [])
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
+    end
+  end
+
   describe "convert_params_to_filter/3 as: with scalar inner value" do
     test "returns query unchanged and does not crash when as: inner value is a scalar" do
       import ExUnit.CaptureLog

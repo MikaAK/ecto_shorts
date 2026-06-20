@@ -10,6 +10,22 @@ defmodule EctoShorts.CommonFilters.HavingTest do
   import Ecto.Query
 
 
+  describe "having scalar guard" do
+    import ExUnit.CaptureLog
+
+    test "returns query unchanged and warns when having value is a scalar string" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual = CommonFilters.convert_params_to_filter(Post, %{having: "bad"}, [])
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
+    end
+  end
+
   describe "having shapes" do
     import ExUnit.CaptureLog
 

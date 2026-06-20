@@ -4,6 +4,9 @@ defmodule EctoShorts.CommonFilters.OrHaving do
 
   alias EctoShorts.CommonQuery
   alias EctoShorts.CommonFilters.Builder
+  alias EctoShorts.LogUtils
+
+  @logger_prefix "EctoShorts.CommonFilters.OrHaving"
 
   def build_query(:or_having, _source, query, _selected_binding, nil, _opts) do
     query
@@ -16,6 +19,15 @@ defmodule EctoShorts.CommonFilters.OrHaving do
   def build_query(:or_having, source, query, selected_binding, {key, value}, opts) do
     effective_source = resolve_source(source, query, selected_binding)
     Builder.or_having_from_params(query, effective_source, key, value, selected_binding, opts)
+  end
+
+  def build_query(:or_having, _source, query, _selected_binding, term, _opts) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Expected :or_having value to be a {field, op} tuple, DynamicExpr, or nil, got: #{inspect(term)}"
+    )
+
+    query
   end
 
   defp resolve_source(source, _query, {:as, nil}), do: source
