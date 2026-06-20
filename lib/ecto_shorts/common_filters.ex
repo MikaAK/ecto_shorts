@@ -385,6 +385,11 @@ defmodule EctoShorts.CommonFilters do
   * `:query_builder` - custom `EctoShorts.QueryBuilder`
   * `:query_provider` - provider used by query families such as joins and
     locks
+  * `:dynamic_builder` - per-call override of the dynamic expression builder
+    module (the adapter that turns predicate filters into `Ecto.Query.dynamic`
+    expressions); defaults to auto-detection from the repo's adapter — only
+    `Ecto.Adapters.Postgres` ships today. Note: the app-config form of this
+    setting uses the key `:dynamic_builder_module` instead.
 
   ## Examples
 
