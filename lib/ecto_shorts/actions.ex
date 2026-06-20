@@ -373,10 +373,18 @@ defmodule EctoShorts.Actions do
 
   @doc group: "CRUD"
   @doc """
-  Deletes a struct, changeset, or list of either with options.
+  Deletes a record by id, or a struct/changeset/list of either with options.
 
-  When `data` is a list, entries are deleted sequentially and the function
-  stops on the first error. Earlier successful deletes are not rolled back.
+  Given a queryable and an id, fetches the record with `find/3` and deletes it
+  (equivalent to `delete/3` with empty opts). Given a struct, changeset, or list
+  of either plus opts, deletes them directly; for a list, entries are deleted
+  sequentially and the function stops on the first error (earlier successful
+  deletes are not rolled back).
+
+  ## Examples
+
+      {:ok, deleted} = EctoShorts.Actions.delete(EctoShorts.Schema.Post, 1)
+      {:ok, deleted} = EctoShorts.Actions.delete(post, [])
 
   See `delete/1` for return values. See also `delete/3` and
   `find_and_delete/3`.
