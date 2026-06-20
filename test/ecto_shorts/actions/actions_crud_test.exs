@@ -1862,6 +1862,11 @@ defmodule EctoShorts.Actions.CRUDTest do
                  end
                )
     end
+
+    test "inserts the record when params is a keyword list" do
+      assert {:ok, %Post{title: "KwCreated"}} =
+               Actions.create(Post, [title: "KwCreated"])
+    end
   end
 
   describe "get/3" do

@@ -802,6 +802,8 @@ defmodule EctoShorts.CommonSchema do
   end
 
   def create_changeset(schema, data_or_changeset, params, opts) do
+    params = if Keyword.keyword?(params), do: Map.new(params), else: params
+
     if Keyword.has_key?(opts, :changeset) do
       apply_changeset!(schema, data_or_changeset, params, opts[:changeset])
     else
