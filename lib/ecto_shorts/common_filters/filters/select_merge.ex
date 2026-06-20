@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.SelectMerge do
   it. Accepts a map, keyword list, `{field_alias, field_name}` tuple,
   `{field_alias, DynamicExpr}` tuple, a `{:map, fields}` shape, a
   `{:struct, fields}` shape (which resets the select to a struct), or an
-  `Ecto.Query.DynamicExpr`. Used via params, not called directly:
+  a dynamic expression. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{select_merge: %{title_upper: :title}})
       EctoShorts.Actions.all(Post, %{select_merge: {:map, [:id, :title]}})

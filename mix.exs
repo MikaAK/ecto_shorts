@@ -83,6 +83,7 @@ defmodule EctoShorts.MixProject do
     [
       main: "EctoShorts",
       source_url: "https://github.com/MikaAK/ecto_shorts",
+      api_reference: false,
       before_closing_body_tag: &before_closing_body_tag/1,
       extras: [
         "docs/getting-started.md",

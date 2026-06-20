@@ -103,9 +103,9 @@ Before reduction, params are sorted into a deterministic order: `:where` clauses
 
 ## Cross-References
 
-- [Codebase Summary](codebase-summary.md) -- directory layout, module inventory, key file index
+- [Codebase Summary](https://github.com/MikaAK/ecto_shorts/blob/main/docs/codebase-summary.md) -- directory layout, module inventory, key file index
 - [System Architecture](explanation/architecture.md) -- component diagrams, filter pipeline, adapter extension points
 - [API Reference](reference/api-reference.md) -- complete function signatures for all public modules
 - [Configuration Guide](reference/configuration.md) -- repo, replica, and adapter configuration
 - [Testing Guide](testing-guide.md) -- test setup, DataCase, dual-file pattern
-- [Code Standards](code-standards.md) -- adding filters, Credo, Dialyzer
+- [Code Standards](https://github.com/MikaAK/ecto_shorts/blob/main/docs/code-standards.md) -- adding filters, Credo, Dialyzer

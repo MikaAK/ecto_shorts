@@ -1,7 +1,7 @@
 defmodule EctoShorts.CommonParams do
   @moduledoc since: "3.0.0"
   @moduledoc """
-  Prepares data for `c:Ecto.Repo.insert_all/3` and `c:Ecto.Repo.update_all/3`.
+  Prepares data for Ecto.Repo.insert_all/3 and Ecto.Repo.update_all/3.
 
   Use this module when you need to perform bulk inserts or updates with Ecto.
   It transforms application-level data (maps, structs, changesets) into the
@@ -120,7 +120,7 @@ defmodule EctoShorts.CommonParams do
   ### Step 5: Substitute
 
   Placeholder values are replaced with `{:placeholder, field}` tuples for
-  use with `c:Ecto.Repo.insert_all/3`'s `:placeholders` option.
+  use with Ecto.Repo.insert_all/3's `:placeholders` option.
 
   See the "Placeholder options" section for details.
 
@@ -157,7 +157,7 @@ defmodule EctoShorts.CommonParams do
   ## Conflict resolution strategies
 
   Use `build_on_conflict_options/3` to generate `:conflict_target` and
-  `:on_conflict` options for `c:Ecto.Repo.insert_all/3`.
+  `:on_conflict` options for Ecto.Repo.insert_all/3.
 
   | Strategy         | Behaviour                                     |
   |------------------|----------------------------------------------|
@@ -191,7 +191,7 @@ defmodule EctoShorts.CommonParams do
   ## Placeholder options
 
   Placeholders let you reference values from the `:placeholders` option in
-  `c:Ecto.Repo.insert_all/3`. This is useful when you want to insert the
+  Ecto.Repo.insert_all/3. This is useful when you want to insert the
   same value across multiple rows without repeating it.
 
   | Option                      | Purpose                                      |
@@ -301,7 +301,7 @@ defmodule EctoShorts.CommonParams do
   exactly. Use `:on_placeholder_conflict` to force replacement.
 
   See also `EctoShorts.Actions`, `EctoShorts.CommonSchema`, and
-  `c:Ecto.Repo.insert_all/3`.
+  Ecto.Repo.insert_all/3.
   """
 
   alias Ecto.Changeset
@@ -312,7 +312,7 @@ defmodule EctoShorts.CommonParams do
   alias EctoShorts.Utils
 
   @doc """
-  Builds conflict resolution options for use with `c:Ecto.Repo.insert_all/3`.
+  Builds conflict resolution options for use with Ecto.Repo.insert_all/3.
 
   `source` is a schema module or `{source, schema}` tuple. `inserts` is the
   list of prepared insert maps (output of `convert_to_insert_params/3`).
@@ -354,7 +354,7 @@ defmodule EctoShorts.CommonParams do
       iex> EctoShorts.CommonParams.build_on_conflict_options(EctoShorts.Schema.Post, [], [])
       []
 
-  See also `convert_to_insert_params/3` and `c:Ecto.Repo.insert_all/3`.
+  See also `convert_to_insert_params/3` and Ecto.Repo.insert_all/3.
   """
   @spec build_on_conflict_options(
           source :: module() | {binary(), module()},
@@ -409,7 +409,7 @@ defmodule EctoShorts.CommonParams do
 
   @doc """
   Converts a list of parameters or structs into the format expected by
-  `c:Ecto.Repo.insert_all/3`, with support for validation, timestamps, and
+  Ecto.Repo.insert_all/3, with support for validation, timestamps, and
   placeholder substitution.
 
   `source` is a schema module or `{source, schema}` tuple (or `nil` for
@@ -425,7 +425,7 @@ defmodule EctoShorts.CommonParams do
 
   * `:placeholders` - a map where each key is a field atom and each value is
     the placeholder value to match. When a field value matches, it is replaced
-    with `{:placeholder, field_name}` for use with `c:Ecto.Repo.insert_all/3`'s
+    with `{:placeholder, field_name}` for use with Ecto.Repo.insert_all/3's
     `:placeholders` option. Defaults to `%{}`.
   * `:on_placeholder_conflict` - controls what happens when a placeholder value
     is provided but the record already has a different value. Defaults to
@@ -683,7 +683,7 @@ defmodule EctoShorts.CommonParams do
 
   @doc """
   Converts a map of update parameters into the format expected by
-  `c:Ecto.Repo.update_all/3`.
+  Ecto.Repo.update_all/3.
 
   `source` is a schema module or `{source, schema}` tuple (or `nil` for
   schemaless updates). `params` is a map of `{field, value}` pairs.
@@ -702,7 +702,7 @@ defmodule EctoShorts.CommonParams do
 
   Returns a keyword list of update operations (e.g.
   `[set: [title: "New"], inc: [views: 1]]`) ready to be passed as the
-  second argument to `c:Ecto.Repo.update_all/3`. Returns an empty list when
+  second argument to Ecto.Repo.update_all/3. Returns an empty list when
   no valid fields are found in `params`.
 
   ## Options

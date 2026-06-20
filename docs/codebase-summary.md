@@ -138,4 +138,4 @@ ecto_shorts/
 - [System Architecture](explanation/architecture.md) -- component diagrams, filter pipeline flow, adapter extension points
 - [API Reference](reference/api-reference.md) -- complete function signatures for all public modules
 - [Testing Guide](testing-guide.md) -- test setup, DataCase, dual-file pattern, coverage
-- [Code Standards](code-standards.md) -- naming conventions, adding filters, Credo, Dialyzer
+- [Code Standards](https://github.com/MikaAK/ecto_shorts/blob/main/docs/code-standards.md) -- naming conventions, adding filters, Credo, Dialyzer

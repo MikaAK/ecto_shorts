@@ -96,7 +96,7 @@ defmodule EctoShorts.Actions do
   * `:replica` — the `Ecto.Repo` module to use for read operations. Overrides
     the value from `EctoShorts.Config`.
   * `:preload` — an association or list of associations to load after the main
-    operation completes. Accepts the same shapes as `c:Ecto.Repo.preload/3`.
+    operation completes. Accepts the same shapes as Ecto.Repo.preload/3.
   * `:dynamic_builder` — a custom `EctoShorts.DynamicBuilder` module.
   * `:query_builder` — a custom `EctoShorts.QueryBuilder` module.
   * `:query_provider` — a custom `EctoShorts.QueryProvider` module.
@@ -123,8 +123,8 @@ defmodule EctoShorts.Actions do
   @doc """
   Preloads associations in the given struct or structs.
 
-  This delegates to `c:Ecto.Repo.preload/3` on the configured replica repo.
-  `preloads` accepts the same shapes as `Ecto.Repo.preload/3`, including
+  This delegates to Ecto.Repo.preload/3 on the configured replica repo.
+  `preloads` accepts the same shapes as Ecto.Repo.preload/3, including
   atoms, lists, keyword lists, and `{assoc, query}` tuples.
 
   ## Examples
@@ -133,7 +133,7 @@ defmodule EctoShorts.Actions do
       posts = EctoShorts.Actions.preload(posts, [:author, :comments])
       post = EctoShorts.Actions.preload(post, author: :profile)
 
-  See `c:Ecto.Repo.preload/3` for the full list of supported options.
+  See Ecto.Repo.preload/3 for the full list of supported options.
   See also `all/3` and `EctoShorts.CommonChanges.preload_change_assoc/3`.
   """
   @spec preload(struct() | list(term()), term(), opts) :: struct() | list(term())
@@ -147,7 +147,7 @@ defmodule EctoShorts.Actions do
   Returns `true` if at least one record matches `params`, `false` otherwise.
 
   This builds a query with `EctoShorts.CommonFilters` and delegates to
-  `c:Ecto.Repo.exists?/2` on the configured replica repo.
+  Ecto.Repo.exists?/2 on the configured replica repo.
 
   ## Examples
 
@@ -194,7 +194,7 @@ defmodule EctoShorts.Actions do
   Fetches all records matching `params`.
 
   This is the main list-read helper. It builds an `Ecto.Query` with
-  `EctoShorts.CommonFilters`, runs `c:Ecto.Repo.all/2`, and optionally
+  `EctoShorts.CommonFilters`, runs Ecto.Repo.all/2, and optionally
   preloads the returned structs.
 
   ## Options
@@ -203,7 +203,7 @@ defmodule EctoShorts.Actions do
   * `:group_by` - merged into `params` before query building
   * `:preload` - applied after the query returns
 
-  All other options are forwarded to `c:Ecto.Repo.all/2`.
+  All other options are forwarded to Ecto.Repo.all/2.
 
   ## Examples
 
@@ -225,7 +225,7 @@ defmodule EctoShorts.Actions do
   Inserts a new record built from `params`.
 
   Builds a changeset via the schema's `changeset/2` (or the
-  `:changeset` option) and delegates to `c:Ecto.Repo.insert/2`.
+  `:changeset` option) and delegates to Ecto.Repo.insert/2.
 
   ## Options
 
@@ -249,7 +249,7 @@ defmodule EctoShorts.Actions do
   @doc """
   Fetches a single record by primary key.
 
-  Returns the struct or `nil`. Delegates to `c:Ecto.Repo.get/3` on
+  Returns the struct or `nil`. Delegates to Ecto.Repo.get/3 on
   the configured replica repo.
 
   ## Options
@@ -277,7 +277,7 @@ defmodule EctoShorts.Actions do
   is an empty map and `queryable` is not an `Ecto.Query`, the error is
   returned immediately without querying.
 
-  `find/3` uses `c:Ecto.Repo.one/2`, so callers should pass filters that
+  `find/3` uses Ecto.Repo.one/2, so callers should pass filters that
   identify at most one row.
 
   ## Options
@@ -322,7 +322,7 @@ defmodule EctoShorts.Actions do
   ## Optimistic locking
 
   When optimistic locking is active, the changeset is piped through
-  `Ecto.Changeset.optimistic_lock/3` before calling `c:Ecto.Repo.update/2`.
+  `Ecto.Changeset.optimistic_lock/3` before calling Ecto.Repo.update/2.
   If the record has been modified by another process since it was fetched,
   `Ecto.StaleEntryError` is rescued and converted to
   `{:error, %ErrorMessage{code: :stale}}`.
@@ -411,7 +411,7 @@ defmodule EctoShorts.Actions do
   @doc """
   Returns a stream of records matching `params`.
 
-  Wraps `c:Ecto.Repo.stream/2` with filter support. The stream must be
+  Wraps Ecto.Repo.stream/2 with filter support. The stream must be
   consumed inside a transaction (see `transact/2` or `transaction/2`).
 
   ## Options
@@ -446,7 +446,7 @@ defmodule EctoShorts.Actions do
   @doc """
   Runs an aggregate on filtered records.
 
-  Delegates to `c:Ecto.Repo.aggregate/4` on the configured replica repo.
+  Delegates to Ecto.Repo.aggregate/4 on the configured replica repo.
 
   ## Examples
 
@@ -781,10 +781,10 @@ defmodule EctoShorts.Actions do
   @doc group: "Bulk"
   @doc since: "3.0.0"
   @doc """
-  Inserts many records via `c:Ecto.Repo.insert_all/3`.
+  Inserts many records via Ecto.Repo.insert_all/3.
 
   This helper prepares the insert set first, then performs one
-  `c:Ecto.Repo.insert_all/3` call. By default, each entry is validated through
+  Ecto.Repo.insert_all/3 call. By default, each entry is validated through
   the schema's `changeset/2` before the repo call. Validation can be skipped
   with `validate: false`.
 
@@ -799,8 +799,8 @@ defmodule EctoShorts.Actions do
   * `:batch_find` - batch-resolve matching records before preparing inserts
   * `:validate` - set to `false` to skip changeset validation
   * `:on_conflict_replace` - `:none`, `:insert_keys`, or a list of fields
-  * `:on_conflict` - forwarded directly to `c:Ecto.Repo.insert_all/3`
-  * `:conflict_target` - forwarded directly to `c:Ecto.Repo.insert_all/3`
+  * `:on_conflict` - forwarded directly to Ecto.Repo.insert_all/3
+  * `:conflict_target` - forwarded directly to Ecto.Repo.insert_all/3
 
   When at least one prepared insert contains all primary-key fields and the
   caller does not provide an explicit `:on_conflict`, the default conflict

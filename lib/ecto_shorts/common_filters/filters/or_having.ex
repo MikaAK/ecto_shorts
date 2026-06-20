@@ -5,7 +5,7 @@ defmodule EctoShorts.CommonFilters.OrHaving do
 
   Adds an `OR HAVING` clause to the query, combining with any existing `HAVING`
   conditions using `OR`. Accepts a `{field, op_map}` tuple, an
-  `Ecto.Query.DynamicExpr`, or `nil` (no-op). Automatically adds a `GROUP BY`
+  a dynamic expression, or `nil` (no-op). Automatically adds a `GROUP BY`
   on the primary key when none is present. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{or_having: {:comment_count, %{gte: 5}}})

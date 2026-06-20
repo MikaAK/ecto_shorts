@@ -5,7 +5,7 @@ defmodule EctoShorts.CommonFilters.Distinct do
 
   Adds a `DISTINCT ON` clause to the query. Accepts `true` (plain DISTINCT), a
   field atom, a list of `{direction, field}` tuples, or an
-  `Ecto.Query.DynamicExpr`. Used via params, not called directly:
+  a dynamic expression. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{distinct: true})
       EctoShorts.Actions.all(Post, %{distinct: :title})

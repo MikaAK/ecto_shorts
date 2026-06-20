@@ -4,7 +4,7 @@ defmodule EctoShorts.DynamicBuilders do
   Entry point for building dynamic filter expressions.
 
   This module is responsible for turning filter key-value pairs into
-  `Ecto.Query.DynamicExpr` values.
+  dynamic expression values.
 
   ## Operator routing
 
@@ -32,7 +32,7 @@ defmodule EctoShorts.DynamicBuilders do
   The dynamic adapter is resolved in the following order:
 
     1. The `:dynamic_builder` option passed at call time
-    2. `EctoShorts.Config.dynamic_builder/0`
+    2. `EctoShorts.Config.dynamic_builder_module/0`
     3. The repo database adapter
 
   At the moment, the following repo adapters are supported for inference:
@@ -67,7 +67,7 @@ defmodule EctoShorts.DynamicBuilders do
 
   @doc since: "3.0.0"
   @doc """
-  Builds an `Ecto.Query.DynamicExpr` for one resolved
+  Builds a dynamic expression for one resolved
   `EctoShorts.CommonFilters.Predicate` using the adapter resolved from `opts`.
 
   ## Arguments
@@ -88,7 +88,7 @@ defmodule EctoShorts.DynamicBuilders do
 
   ## Returns
 
-  An `Ecto.Query.DynamicExpr` suitable for use with `Ecto.Query.where/3`,
+  A dynamic expression suitable for use with `Ecto.Query.where/3`,
   `Ecto.Query.or_where/3`, `Ecto.Query.having/3`, etc., or `nil` when the
   predicate contributes no clause.
   """

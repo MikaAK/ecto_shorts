@@ -11,7 +11,7 @@ defmodule EctoShorts.QueryBuilders do
 
   The default implementation — `EctoShorts.CommonFilters.Builder` — routes each
   filter key to the appropriate sub-module. Custom implementations receive
-  every key and can delegate unhandled keys back to `CommonFilters.Builder.build_query/6`.
+  every key and can delegate unhandled keys back to the default filter dispatch (see `EctoShorts.QueryBuilder`).
 
   ## Adapter resolution order
 

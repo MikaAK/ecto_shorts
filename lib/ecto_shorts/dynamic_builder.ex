@@ -73,7 +73,7 @@ defmodule EctoShorts.DynamicBuilder do
   into `WHERE` clauses. When the predicate contributes no clause (for example,
   because the value is ignored), return `nil` instead.
   """
-  @type dynamic_expr :: %Ecto.Query.DynamicExpr{}
+  @type dynamic_expr :: term()
 
   @typedoc """
   A fully resolved filter predicate passed to `build_dynamic/3`.
@@ -107,7 +107,7 @@ defmodule EctoShorts.DynamicBuilder do
   This is the only callback you must implement. It receives a fully resolved
   `EctoShorts.CommonFilters.Predicate` struct — the field name, expression
   family, whether the condition is negated, and the operator-value pair — and
-  must return either an `Ecto.Query.DynamicExpr` (from `Ecto.Query.dynamic/2`)
+  must return either a dynamic expression (from `Ecto.Query.dynamic/2`)
   or `nil`.
 
   ## Arguments
@@ -120,7 +120,7 @@ defmodule EctoShorts.DynamicBuilder do
 
   ## Return value
 
-  Return an `Ecto.Query.DynamicExpr` when the predicate produces a WHERE
+  Return a dynamic expression when the predicate produces a WHERE
   clause. Return `nil` when the predicate should contribute nothing.
   """
   @callback build_dynamic(predicate, selected_binding, opts) :: dynamic_expr() | nil

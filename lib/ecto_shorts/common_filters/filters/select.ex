@@ -7,7 +7,7 @@ defmodule EctoShorts.CommonFilters.Select do
   excluded first). Accepts a field atom, a list of field atoms, a map or
   keyword list of `{alias, field}` pairs, a `{:map, fields}` shape, a
   `{:struct, fields}` shape, `true` (selects the full binding), or an
-  `Ecto.Query.DynamicExpr`. Used via params, not called directly:
+  a dynamic expression. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{select: [:id, :title]})
       EctoShorts.Actions.all(Post, %{select: {:map, [:id, :title]}})

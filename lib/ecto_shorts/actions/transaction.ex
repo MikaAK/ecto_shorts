@@ -1,7 +1,7 @@
 defmodule EctoShorts.Actions.Transaction do
   @moduledoc since: "3.0.0"
   @moduledoc """
-  Wraps `c:Ecto.Repo.transaction/2` for `EctoShorts.Actions.transaction/2` and
+  Wraps Ecto.Repo.transaction/2 for `EctoShorts.Actions.transaction/2` and
   `EctoShorts.Actions.transact/2`.
 
   Handles the strict (`transact`) mode — unwrapping `{:ok, {:ok, value}}` and

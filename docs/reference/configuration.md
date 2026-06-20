@@ -51,8 +51,8 @@ config :ecto_shorts,
 
 `EctoShorts.Actions` routes based on the operation type:
 
-- **Reads** (`all`, `get`, `find`, `exists?`, `stream`, `aggregate`, `preload`, `find_many`) use `Config.replica!/1`, which returns the replica if configured or falls back to the primary.
-- **Writes** (`create`, `update`, `delete`, `insert_all`, `update_all`, `delete_all`, and all `find_and_*` / `find_or_*` variants) use `Config.repo!/1`, which always returns the primary.
+- **Reads** (`all`, `get`, `find`, `exists?`, `stream`, `aggregate`, `preload`, `find_many`) use `EctoShorts.Config.replica!/1`, which returns the replica if configured or falls back to the primary.
+- **Writes** (`create`, `update`, `delete`, `insert_all`, `update_all`, `delete_all`, and all `find_and_*` / `find_or_*` variants) use `EctoShorts.Config.repo!/1`, which always returns the primary.
 
 Compound operations such as `find_or_create` use the replica for the read phase and the primary for the write phase within the same call. No additional configuration is needed.
 
@@ -145,7 +145,7 @@ Register globally:
 config :ecto_shorts, query_builder_module: MyApp.CustomQueryBuilder
 ```
 
-When set, `EctoShorts.QueryBuilders` calls your module for every filter key. Return the updated query to short-circuit the default, or call `EctoShorts.CommonFilters.Builder.build_query/6` to delegate to the default dispatch.
+When set, `EctoShorts.QueryBuilders` calls your module for every filter key. Return the updated query to short-circuit the default, or call the default filter dispatch (see `EctoShorts.QueryBuilder` for the callback contract).
 
 ## Custom QueryProvider
 
@@ -183,4 +183,4 @@ Do not set `:hints` in `runtime.exs` or via `Application.put_env/3` at runtime.
 
 - [System Architecture](../explanation/architecture.md) -- adapter extension point diagrams, replica routing diagram
 - [API Reference](api-reference.md) -- per-call option overrides in function signatures
-- [Code Standards](../code-standards.md) -- implementing custom adapters step by step
+- [Code Standards](https://github.com/MikaAK/ecto_shorts/blob/main/docs/code-standards.md) -- implementing custom adapters step by step

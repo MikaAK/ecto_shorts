@@ -173,7 +173,7 @@ PostgreSQL-specific logic.
   `{:at, pos_integer()}` for a positional binding.
 * `opts` — keyword options forwarded from the call site.
 
-Return an `Ecto.Query.DynamicExpr` (from `Ecto.Query.dynamic/2`) or `nil` when
+Return a dynamic expression (from `Ecto.Query.dynamic/2`) or `nil` when
 the predicate contributes no `WHERE` clause.
 
 ### Worked example

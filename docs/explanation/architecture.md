@@ -209,9 +209,9 @@ Do not imply other adapters ship.
 
 ## Cross-References
 
-- [Codebase Summary](../codebase-summary.md) -- directory layout and key file index
+- [Codebase Summary](https://github.com/MikaAK/ecto_shorts/blob/main/docs/codebase-summary.md) -- directory layout and key file index
 - [API Reference](../reference/api-reference.md) -- complete function signatures
 - [Configuration Guide](../reference/configuration.md) -- adapter and repo configuration
-- [Code Standards](../code-standards.md) -- how to add new filters and adapters
+- [Code Standards](https://github.com/MikaAK/ecto_shorts/blob/main/docs/code-standards.md) -- how to add new filters and adapters
 - [Filter Pipeline](filter-pipeline.md) -- detailed evaluation flow
 - [Filter Key Reference](../reference/filter-keys.md) -- every recognized key

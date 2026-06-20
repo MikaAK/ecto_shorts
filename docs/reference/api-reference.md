@@ -412,7 +412,7 @@ build_on_conflict_options(schema, conflict_target, update_fields) :: keyword
 ```
 
 Builds the `:on_conflict` and `:conflict_target` options for
-`Ecto.Repo.insert_all/3`.
+Ecto.Repo.insert_all/3.
 
 ---
 

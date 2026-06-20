@@ -4,7 +4,7 @@ defmodule EctoShorts.CommonFilters.GroupBy do
   Implements the `:group_by` structural filter for `EctoShorts.CommonFilters`.
 
   Adds a `GROUP BY` clause to the query. Accepts a field atom, a list of field
-  atoms, or an `Ecto.Query.DynamicExpr`. Unknown schema fields are silently
+  atoms, or a dynamic expression. Unknown schema fields are silently
   skipped with a warning. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{group_by: :status})

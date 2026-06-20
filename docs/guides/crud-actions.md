@@ -95,7 +95,7 @@ record matches. Use this when you need the error path explicitly.
 # => {:ok, %MyApp.Post{id: 1, comments: [...]}}
 ```
 
-> `find/3` delegates to `Ecto.Repo.one/2`, so pass filters that match at most
+> `find/3` delegates to Ecto.Repo.one/2, so pass filters that match at most
 > one row. Passing filters that match multiple rows raises at runtime.
 
 ### `exists?/3` — check whether a record exists
@@ -112,7 +112,7 @@ EctoShorts.Actions.exists?(MyApp.Post, %{id: 999})
 
 ### `stream/3` — stream records
 
-Returns an `Enumerable.t()` backed by `Ecto.Repo.stream/2`. **Must be consumed
+Returns an `Enumerable.t()` backed by Ecto.Repo.stream/2. **Must be consumed
 inside a transaction.** Use `transact/2` as the wrapper.
 
 ```elixir

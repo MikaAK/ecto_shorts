@@ -4,7 +4,7 @@ defmodule EctoShorts.CommonFilters.Having do
   Implements the `:having` structural filter for `EctoShorts.CommonFilters`.
 
   Adds a `HAVING` clause to the query for filtering on aggregate values. Accepts
-  a `{field, op_map}` tuple, an `Ecto.Query.DynamicExpr`, or `nil` (no-op).
+  a `{field, op_map}` tuple, a dynamic expression, or `nil` (no-op).
   Automatically adds a `GROUP BY` on the primary key when none is already
   present. Used via params, not called directly:
 
