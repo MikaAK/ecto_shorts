@@ -2,10 +2,14 @@ defmodule EctoShorts.CommonFilters.Preload do
   @moduledoc since: "3.0.0"
   @moduledoc false
 
-  alias EctoShorts.QueryBinding
+  alias EctoShorts.{LogUtils, QueryBinding}
 
   alias Ecto.Query
   require Ecto.Query
+
+  @logger_prefix "EctoShorts.CommonFilters.Preload"
+
+  def build_query(:preload, _source, query, _selected_binding, nil, _opts), do: query
 
   def build_query(:preload, _source, query, selected_binding, params, _opts) do
     case selected_binding do
@@ -27,6 +31,12 @@ defmodule EctoShorts.CommonFilters.Preload do
       assoc_key, query_acc ->
         build_preload(query_acc, selected_binding, assoc_key, nil)
     end)
+  end
+
+  defp apply_preload(query, _selected_binding, value)
+       when not is_atom(value) do
+    LogUtils.warning(@logger_prefix, "Expected :preload to be an atom, list, or map, got: #{inspect(value)}")
+    query
   end
 
   defp apply_preload(query, selected_binding, assoc_key) do
@@ -59,6 +69,11 @@ defmodule EctoShorts.CommonFilters.Preload do
         [{^assoc_key, {unquote(target_binding_var), ^prepared_nested}}]
       )
     end
+  end
+
+  defp build_preload(query, value) when not is_atom(value) and not is_map(value) and not is_list(value) do
+    LogUtils.warning(@logger_prefix, "Expected :preload to be an atom, list, or map, got: #{inspect(value)}")
+    query
   end
 
   defp build_preload(query, value) do

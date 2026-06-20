@@ -2,10 +2,12 @@ defmodule EctoShorts.CommonFilters.SelectMerge do
   @moduledoc since: "3.0.0"
   @moduledoc false
 
-  alias EctoShorts.QueryBinding
+  alias EctoShorts.{LogUtils, QueryBinding}
 
   alias Ecto.Query
   require Ecto.Query
+
+  @logger_prefix "EctoShorts.CommonFilters.SelectMerge"
 
   def build_query(:select_merge, _source, query, _selected_binding, nil, _opts), do: query
 
@@ -76,8 +78,17 @@ defmodule EctoShorts.CommonFilters.SelectMerge do
     select_merge_expr(query, selected_binding, field_alias, value)
   end
 
-  defp apply_select_merge(query, _source, _selected_binding, value, _opts) do
+  defp apply_select_merge(query, _source, _selected_binding, %Ecto.Query.DynamicExpr{} = value, _opts) do
     Query.select_merge(query, ^value)
+  end
+
+  defp apply_select_merge(query, _source, _selected_binding, value, _opts) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Expected :select_merge to be a map, keyword list, tuple, or DynamicExpr, got: #{inspect(value)}"
+    )
+
+    query
   end
 
   defp reduce_params(query, selected_binding, params) do

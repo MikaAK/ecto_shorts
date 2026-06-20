@@ -189,6 +189,22 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
     end
   end
 
+  describe "select_merge invalid scalar guard" do
+    import ExUnit.CaptureLog
+
+    test "returns query unchanged and warns when select_merge is a non-map, non-list scalar" do
+      source = from(p in Post, select: %{})
+
+      log =
+        capture_log(fn ->
+          actual = CommonFilters.convert_params_to_filter(source, %{select_merge: 5}, [])
+          assert %Ecto.Query{} = actual
+        end)
+
+      assert log =~ "Expected"
+    end
+  end
+
   # ---- merged from select_merge (schemaless) ----
   describe "select_merge shapes (schemaless)" do
     @describetag feature: :select_merge

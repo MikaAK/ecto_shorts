@@ -25,13 +25,32 @@ defmodule EctoShorts.CommonFilters.ReverseOrderTest do
     end
   end
 
-  describe "reverse_order raises on non-true value (D-RAISE)" do
-    test "raises when reverse_order is not true" do
-      base = from(p in Post, order_by: [asc: p.title])
+  describe "reverse_order false is a no-op" do
+    test "returns query unchanged when reverse_order is false" do
+      expected = from(p in Post, order_by: [asc: p.title])
 
-      assert_raise EctoShorts.FilterError, ~r/reverse_order/, fn ->
-        CommonFilters.convert_params_to_filter(base, %{reverse_order: false}, [])
-      end
+      actual =
+        CommonFilters.convert_params_to_filter(expected, %{reverse_order: false}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
+  describe "reverse_order invalid scalar guard" do
+    import ExUnit.CaptureLog
+
+    test "returns query unchanged and warns when reverse_order is a non-boolean scalar" do
+      expected = from(p in Post, order_by: [asc: p.title])
+
+      log =
+        capture_log(fn ->
+          actual =
+            CommonFilters.convert_params_to_filter(expected, %{reverse_order: 0}, [])
+
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
     end
   end
 

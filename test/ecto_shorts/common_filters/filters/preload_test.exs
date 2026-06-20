@@ -500,4 +500,30 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
       end
     end
   end
+
+  describe "preload nil guard" do
+    test "returns query unchanged when preload is nil" do
+      expected = from(p in Post)
+
+      actual = CommonFilters.convert_params_to_filter(Post, %{preload: nil}, [])
+
+      assert_query(expected, actual)
+    end
+  end
+
+  describe "preload invalid scalar guard" do
+    import ExUnit.CaptureLog
+
+    test "returns query unchanged and warns when preload is a non-atom scalar" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual = CommonFilters.convert_params_to_filter(Post, %{preload: 5}, [])
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
+    end
+  end
 end
