@@ -275,7 +275,7 @@ defmodule EctoShorts.Actions.CRUD do
   def find_and_upsert(source, find_params, upsert_params, opts) do
     case find(source, find_params, Keyword.delete(opts, :preload)) do
       {:ok, record} -> update(source, record, upsert_params, opts)
-      {:error, _} -> create(source, Map.merge(find_params, upsert_params), opts)
+      {:error, _} -> create(source, Map.merge(Map.new(find_params), upsert_params), opts)
     end
   end
 

@@ -2211,6 +2211,11 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert {:ok, %Post{title: "Upserted"}} =
                Actions.find_and_upsert(Post, %{title: "Missing"}, %{title: "Upserted"})
     end
+
+    test "creates the record when no match exists and find_params is a keyword list" do
+      assert {:ok, %Post{title: "UpsertedKw"}} =
+               Actions.find_and_upsert(Post, [title: "MissingKw"], %{title: "UpsertedKw"})
+    end
   end
 
   describe "find_and_delete/3" do
