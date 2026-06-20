@@ -475,7 +475,6 @@ defmodule EctoShorts.CommonFilters.WindowsTest do
     end
 
     test "logs warning and returns query unchanged for non-map, non-keyword windows value" do
-      import ExUnit.CaptureLog
       expected = from(p in Post)
 
       log =

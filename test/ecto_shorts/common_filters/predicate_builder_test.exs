@@ -14,7 +14,6 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
   alias EctoShorts.Schema.EnumSchema
 
 
-
   describe "canonical_op/1" do
     test "passes canonical atoms through" do
       assert PredicateBuilder.canonical_op(:==) === :==
@@ -261,7 +260,6 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
   # ---- merged from boolean_composition ----
   describe ":or_where with nil dynamic" do
   @describetag feature: :boolean_composition
-    import ExUnit.CaptureLog
 
     test "returns query unchanged when or_where term produces no dynamic expression" do
       expected = from(p in Post)

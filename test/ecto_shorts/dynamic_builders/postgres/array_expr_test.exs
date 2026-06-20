@@ -8,6 +8,8 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "equality and membership" do
     test "list value produces array equality" do
       expected = dynamic([q], field(q, :tags) == ^["elixir", "erlang"])
@@ -535,7 +537,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
   end
 
   describe "unsupported operators log a warning and return nil" do
-    import ExUnit.CaptureLog
 
     for op <- [:avg, :sum, :max, :min] do
       test "#{op} aggregate logs a warning" do
@@ -676,7 +677,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ArrayExprTest do
     end
 
     test "{:parent_as, invalid_payload} logs a warning and returns nil" do
-      import ExUnit.CaptureLog
 
       log =
         capture_log(fn ->

@@ -9,6 +9,8 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
 
   import Ecto.Query
 
+  import ExUnit.CaptureLog
+
   describe "preload shapes" do
     test "matches Ecto.Query for a root preload atom" do
       expected = from(p in Post, preload: :author)
@@ -512,7 +514,6 @@ defmodule EctoShorts.CommonFilters.PreloadTest do
   end
 
   describe "preload invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when preload is a non-atom scalar" do
       expected = from(p in Post)

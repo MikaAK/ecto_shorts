@@ -9,6 +9,8 @@ defmodule EctoShorts.CommonFilters.IntersectTest do
 
   import Ecto.Query
 
+  import ExUnit.CaptureLog
+
   describe "set operation shapes" do
     test "matches Ecto.Query for intersect with filter params" do
       other_query = from(p in Post, where: p.published == ^false)
@@ -45,7 +47,6 @@ defmodule EctoShorts.CommonFilters.IntersectTest do
     end
   end
   describe "intersect invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when intersect value is a non-map, non-list scalar" do
       expected = from(p in Post)

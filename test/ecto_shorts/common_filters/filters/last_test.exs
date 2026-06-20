@@ -10,9 +10,10 @@ defmodule EctoShorts.CommonFilters.LastTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "last shapes" do
     test "returns query unchanged when last is a non-keyword list" do
-      import ExUnit.CaptureLog
       expected = from(p in Post)
 
       log =

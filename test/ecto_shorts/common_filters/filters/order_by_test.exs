@@ -142,7 +142,6 @@ defmodule EctoShorts.CommonFilters.OrderByTest do
   end
 
   describe "order_by invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when order_by is a non-atom scalar" do
       expected = from(p in Post)

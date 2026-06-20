@@ -9,6 +9,8 @@ defmodule EctoShorts.CommonFilters.ReverseOrderTest do
 
   import Ecto.Query
 
+  import ExUnit.CaptureLog
+
   describe "reverse_order nil" do
     test "reverses the query order when reverse_order is nil" do
       source = from(p in Post, order_by: [asc: p.title])
@@ -37,7 +39,6 @@ defmodule EctoShorts.CommonFilters.ReverseOrderTest do
   end
 
   describe "reverse_order invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when reverse_order is a non-boolean scalar" do
       expected = from(p in Post, order_by: [asc: p.title])

@@ -10,6 +10,8 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "update nil" do
     test "keeps the query unchanged when update value is nil" do
       expected = from(p in Post)
@@ -33,7 +35,6 @@ defmodule EctoShorts.CommonFilters.UpdateTest do
     end
 
     test "logs warning and returns query unchanged when subquery value is not a map or keyword list" do
-      import ExUnit.CaptureLog
 
       log =
         capture_log(fn ->

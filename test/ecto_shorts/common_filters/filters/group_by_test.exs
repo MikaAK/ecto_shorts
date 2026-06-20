@@ -10,6 +10,8 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "group_by shapes" do
     test "matches Ecto.Query for a named binding group_by atom" do
       source =
@@ -171,7 +173,6 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
 
   describe "group_by edge cases" do
     test "skips invalid schema field atom, returns query unchanged" do
-      import ExUnit.CaptureLog
       expected = from(p in Post)
 
       log =
@@ -233,7 +234,6 @@ defmodule EctoShorts.CommonFilters.GroupByTest do
   end
 
   describe "group_by invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when group_by is a non-atom scalar" do
       expected = from(p in Post)

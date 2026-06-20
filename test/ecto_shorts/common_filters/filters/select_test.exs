@@ -10,6 +10,8 @@ defmodule EctoShorts.CommonFilters.SelectTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "select shapes" do
     test "matches Ecto.Query for a root select struct projection" do
       expected = from(p in Post, select: struct(p, [:id, :title]))
@@ -576,7 +578,6 @@ defmodule EctoShorts.CommonFilters.SelectTest do
   end
 
   describe "select invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when select is a non-atom, non-map, non-list scalar" do
       expected = from(p in Post)

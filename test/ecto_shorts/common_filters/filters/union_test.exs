@@ -9,6 +9,8 @@ defmodule EctoShorts.CommonFilters.UnionTest do
 
   import Ecto.Query
 
+  import ExUnit.CaptureLog
+
   describe "set operation shapes" do
     test "matches Ecto.Query for union with filter params" do
       other_query = from(p in Post, where: p.published == ^false)
@@ -46,7 +48,6 @@ defmodule EctoShorts.CommonFilters.UnionTest do
   end
 
   describe "union invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when union value is a non-map, non-list scalar" do
       expected = from(p in Post)

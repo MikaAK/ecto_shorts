@@ -9,6 +9,8 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
 
   import Ecto.Query
 
+  import ExUnit.CaptureLog
+
   describe "distinct shapes" do
     test "matches Ecto.Query for a root boolean distinct" do
       expected = from(p in Post, distinct: true)
@@ -153,7 +155,6 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
   end
 
   describe "distinct invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when distinct value is a non-boolean scalar" do
       expected = from(p in Post)
@@ -229,7 +230,6 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
     end
 
     test "skips ordered-tuple entry for non-existent schema field, returns query unchanged" do
-      import ExUnit.CaptureLog
 
       # :nonexistent_field not on Post → skip entry → exprs=[] while entries≠[] → query unchanged
       expected = from(p in Post)
@@ -250,7 +250,6 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
     end
 
     test "skips plain-atom entry for non-existent schema field, returns query unchanged" do
-      import ExUnit.CaptureLog
       # All entries invalid → exprs=[] while entries≠[] → query unchanged (no distinct)
       expected = from(p in Post)
 

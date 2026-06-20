@@ -10,8 +10,9 @@ defmodule EctoShorts.CommonFilters.HavingTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "having scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when having value is a scalar string" do
       expected = from(p in Post)
@@ -27,7 +28,6 @@ defmodule EctoShorts.CommonFilters.HavingTest do
   end
 
   describe "having shapes" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged when having is nil" do
       expected = from(p in Post, group_by: p.author_id)

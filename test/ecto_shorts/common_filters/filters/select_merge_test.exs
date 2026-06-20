@@ -10,6 +10,8 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
   import Ecto.Query
 
 
+  import ExUnit.CaptureLog
+
   describe "select_merge nil" do
     test "keeps the query unchanged when select_merge value is nil" do
       expected = from(p in Post, select: %{})
@@ -190,7 +192,6 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
   end
 
   describe "select_merge invalid scalar guard" do
-    import ExUnit.CaptureLog
 
     test "returns query unchanged and warns when select_merge is a non-map, non-list scalar" do
       source = from(p in Post, select: %{})

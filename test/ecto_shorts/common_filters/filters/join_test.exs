@@ -604,7 +604,6 @@ defmodule EctoShorts.CommonFilters.JoinTest do
   end
 
   describe "join :on with keyword list that produces nil dynamic" do
-    import ExUnit.CaptureLog
 
     test "keeps the query unchanged when keyword :on filters all produce nil dynamics" do
       expected = from(p in Post)
@@ -749,7 +748,6 @@ defmodule EctoShorts.CommonFilters.JoinTest do
   end
 
   describe "join :on merge_dynamic paths" do
-    import ExUnit.CaptureLog
 
     # merge_dynamic(a, _, nil) fires when the second of two on-entries produces nil.
     # A keyword list :on is used to guarantee the order of entries: the valid field

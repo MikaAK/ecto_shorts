@@ -17,6 +17,8 @@ defmodule EctoShorts.CommonFiltersTest do
     end
   end
 
+  import ExUnit.CaptureLog
+
   describe "convert_params_to_filter/3 query_builder: opt" do
     test "routes dispatch through a custom query builder when query_builder: is set" do
       expected = from(p in Post, limit: 99)
@@ -98,7 +100,6 @@ defmodule EctoShorts.CommonFiltersTest do
 
   describe "convert_params_to_filter/3 or:/and: with scalar value" do
     test "returns query unchanged and warns when or: value is a scalar" do
-      import ExUnit.CaptureLog
 
       expected = from(p in Post)
 
@@ -112,7 +113,6 @@ defmodule EctoShorts.CommonFiltersTest do
     end
 
     test "returns query unchanged and warns when at: inner value is a scalar" do
-      import ExUnit.CaptureLog
 
       expected = from(p in Post)
 
@@ -128,7 +128,6 @@ defmodule EctoShorts.CommonFiltersTest do
 
   describe "convert_params_to_filter/3 as: with scalar inner value" do
     test "returns query unchanged and does not crash when as: inner value is a scalar" do
-      import ExUnit.CaptureLog
 
       expected = from(p in Post)
 
