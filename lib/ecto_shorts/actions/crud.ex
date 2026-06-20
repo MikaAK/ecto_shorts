@@ -107,7 +107,7 @@ defmodule EctoShorts.Actions.CRUD do
   end
 
   def find(query, params, opts)
-      when params === %{} and not is_struct(query, Ecto.Query) do
+      when (params === %{} or params === []) and not is_struct(query, Ecto.Query) do
     {:error,
      Error.call(
        :not_found,

@@ -1906,6 +1906,15 @@ defmodule EctoShorts.Actions.CRUDTest do
                Actions.find(Post, %{}, [])
     end
 
+    test "returns a not_found error when the params is an empty keyword list even when records exist" do
+      %Post{}
+      |> Post.changeset(%{title: "Existing"})
+      |> Repo.insert!()
+
+      assert {:error, %{code: :not_found, message: "record not found."}} =
+               Actions.find(Post, [], [])
+    end
+
     test "queries the database when params is empty but the source is a query" do
       %Post{}
       |> Post.changeset(%{title: "Only"})
