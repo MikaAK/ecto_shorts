@@ -152,6 +152,22 @@ defmodule EctoShorts.CommonFilters.DistinctTest do
     end
   end
 
+  describe "distinct invalid scalar guard" do
+    import ExUnit.CaptureLog
+
+    test "returns query unchanged and warns when distinct value is a non-boolean scalar" do
+      expected = from(p in Post)
+
+      log =
+        capture_log(fn ->
+          actual = CommonFilters.convert_params_to_filter(Post, %{distinct: 1}, [])
+          assert_query(expected, actual)
+        end)
+
+      assert log =~ "Expected"
+    end
+  end
+
   describe "distinct extended shapes" do
     test "matches Ecto.Query for a root distinct bare-atom list" do
       expected = from(p in Post, distinct: [asc: p.title, asc: p.views])

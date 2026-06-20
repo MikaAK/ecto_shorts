@@ -63,8 +63,17 @@ defmodule EctoShorts.CommonFilters.Distinct do
     end
   end
 
-  defp build_distinct(_source, query, _selected_binding, expr) do
+  defp build_distinct(_source, query, _selected_binding, %Ecto.Query.DynamicExpr{} = expr) do
     Query.distinct(query, ^expr)
+  end
+
+  defp build_distinct(_source, query, _selected_binding, expr) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Expected :distinct to be a boolean, field atom, list of fields, or DynamicExpr, got: #{inspect(expr)}"
+    )
+
+    query
   end
 
   defp build_distinct_exprs(source, query, selected_binding, entries) do
