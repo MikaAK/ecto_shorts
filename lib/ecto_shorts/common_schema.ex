@@ -819,7 +819,7 @@ defmodule EctoShorts.CommonSchema do
   end
 
   defp apply_changeset!(schema, data_or_changeset, params, callback) do
-    cast_params = if is_list(params), do: Map.new(params), else: params
+    cast_params = Map.new(params)
 
     case callback do
       fun when is_function(fun, 3) ->
