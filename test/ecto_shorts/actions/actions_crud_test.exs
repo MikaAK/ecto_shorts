@@ -2049,6 +2049,20 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert Repo.get(Post, post_a.id) === nil
       assert Repo.get(Post, post_b.id) === nil
     end
+
+    test "deletes a record by id with the arity-2 form" do
+      post =
+        %Post{}
+        |> Post.changeset(%{title: "ToDeleteArity2"})
+        |> Repo.insert!()
+
+      assert {:ok, %Post{}} = Actions.delete(Post, post.id)
+      assert Repo.get(Post, post.id) === nil
+    end
+
+    test "returns a not_found error for the arity-2 form when the id does not exist" do
+      assert {:error, %{code: :not_found}} = Actions.delete(Post, -1)
+    end
   end
 
   describe "stream/3" do

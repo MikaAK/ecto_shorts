@@ -381,6 +381,12 @@ defmodule EctoShorts.Actions do
   See `delete/1` for return values. See also `delete/3` and
   `find_and_delete/3`.
   """
+  @spec delete(queryable, id) :: {:ok, struct()} | {:error, term()}
+  def delete(queryable, id)
+      when is_atom(queryable) and (is_integer(id) or is_binary(id)) do
+    CRUD.delete(queryable, id, [])
+  end
+
   @spec delete(
           struct() | Ecto.Changeset.t() | [struct() | Ecto.Changeset.t()],
           opts
