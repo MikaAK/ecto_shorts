@@ -84,6 +84,27 @@ defmodule EctoShorts.MixProject do
       main: "EctoShorts",
       source_url: "https://github.com/MikaAK/ecto_shorts",
       before_closing_body_tag: &before_closing_body_tag/1,
+      extras: [
+        "docs/getting-started.md",
+        "docs/guides/filtering.md",
+        "docs/guides/crud-actions.md",
+        "docs/guides/associations-changes.md",
+        "docs/guides/pagination-ordering.md",
+        "docs/guides/bulk-and-transactions.md",
+        "docs/guides/extending.md",
+        "docs/reference/api-reference.md",
+        "docs/reference/filter-keys.md",
+        "docs/reference/configuration.md",
+        "docs/explanation/architecture.md",
+        "docs/explanation/filter-pipeline.md",
+        "docs/testing-guide.md"
+      ],
+      groups_for_extras: [
+        "Getting Started": ["docs/getting-started.md"],
+        Guides: Path.wildcard("docs/guides/*.md"),
+        Reference: Path.wildcard("docs/reference/*.md"),
+        Explanation: Path.wildcard("docs/explanation/*.md")
+      ],
       groups_for_modules: [
         Core: [
           EctoShorts.Actions,
@@ -105,7 +126,6 @@ defmodule EctoShorts.MixProject do
         ],
         "Dynamic Expressions": [
           EctoShorts.DynamicBuilders,
-          EctoShorts.Dynamic,
           EctoShorts.DynamicBuilder,
           EctoShorts.DynamicBuilders.Postgres
         ],
@@ -123,6 +143,8 @@ defmodule EctoShorts.MixProject do
         ],
         "Common Filters": [
           EctoShorts.CommonFilters.Builder,
+          EctoShorts.CommonFilters.Predicate,
+          EctoShorts.CommonFilters.PredicateBuilder,
           EctoShorts.CommonFilters.Distinct,
           EctoShorts.CommonFilters.Except,
           EctoShorts.CommonFilters.ExceptAll,
@@ -166,9 +188,13 @@ defmodule EctoShorts.MixProject do
         ],
         "Configuration & Utilities": [
           EctoShorts.Config,
+          EctoShorts.FilterError,
+          EctoShorts.LogUtils,
           EctoShorts.Logger,
-          EctoShorts.QueryProvider,
+          EctoShorts.QueryBinding,
           EctoShorts.QueryBuilder,
+          EctoShorts.QueryBuilders,
+          EctoShorts.QueryProvider,
           EctoShorts.Types,
           EctoShorts.Utils
         ]
