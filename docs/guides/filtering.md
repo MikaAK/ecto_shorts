@@ -56,7 +56,7 @@ Wrap the value in an operator map to use `>`, `>=`, `<`, `<=`, `!=`:
 | Operator key | SQL        |
 |--------------|------------|
 | `:eq`        | `=`        |
-| `:neq`       | `!=`       |
+| `:ne`        | `!=`       |
 | `:gt`        | `>`        |
 | `:gte`       | `>=`       |
 | `:lt`        | `<`        |
@@ -69,21 +69,23 @@ EctoShorts.CommonFilters.convert_params_to_filter(User, %{age: %{gte: 18, lte: 5
 
 Multiple operators in one field map are ANDed together.
 
-### Nil checks with `:is_nil`
+### Nil checks
 
-```elixir
-EctoShorts.CommonFilters.convert_params_to_filter(User, %{deleted_at: %{is_nil: true}})
-#=> #Ecto.Query<from u0 in User, where: is_nil(u0.deleted_at)>
-
-EctoShorts.CommonFilters.convert_params_to_filter(User, %{deleted_at: %{is_nil: false}})
-#=> #Ecto.Query<from u0 in User, where: not is_nil(u0.deleted_at)>
-```
-
-You can also pass `nil` directly as an equality check:
+Pass `nil` directly for an IS NULL check:
 
 ```elixir
 EctoShorts.CommonFilters.convert_params_to_filter(User, %{deleted_at: nil})
 #=> #Ecto.Query<from u0 in User, where: is_nil(u0.deleted_at)>
+```
+
+For NOT NULL, use the `:not` wrapper or the `!=` operator:
+
+```elixir
+EctoShorts.CommonFilters.convert_params_to_filter(User, %{deleted_at: %{not: %{==: nil}}})
+#=> #Ecto.Query<from u0 in User, where: not is_nil(u0.deleted_at)>
+
+EctoShorts.CommonFilters.convert_params_to_filter(User, %{deleted_at: %{!=: nil}})
+#=> #Ecto.Query<from u0 in User, where: not is_nil(u0.deleted_at)>
 ```
 
 ---
@@ -97,10 +99,13 @@ EctoShorts.CommonFilters.convert_params_to_filter(User, %{status: %{in: [:active
 #=> #Ecto.Query<from u0 in User, where: u0.status in ^[:active, :pending]>
 ```
 
-Use `:not_in` to exclude:
+Use `:nin` to exclude, or equivalently wrap `:in` with `:not`:
 
 ```elixir
-EctoShorts.CommonFilters.convert_params_to_filter(User, %{status: %{not_in: [:banned, :deleted]}})
+EctoShorts.CommonFilters.convert_params_to_filter(User, %{status: %{nin: [:banned, :deleted]}})
+#=> #Ecto.Query<from u0 in User, where: u0.status not in ^[:banned, :deleted]>
+
+EctoShorts.CommonFilters.convert_params_to_filter(User, %{status: %{not: %{in: [:banned, :deleted]}}})
 #=> #Ecto.Query<from u0 in User, where: u0.status not in ^[:banned, :deleted]>
 ```
 
@@ -131,13 +136,13 @@ EctoShorts.CommonFilters.convert_params_to_filter(User, %{email: %{like: "admin@
 #=> #Ecto.Query<from u0 in User, where: like(u0.email, ^"admin@%")>
 ```
 
-Negated forms:
+Negated forms use the `:not` wrapper:
 
 ```elixir
-EctoShorts.CommonFilters.convert_params_to_filter(User, %{name: %{not_ilike: "bot"}})
+EctoShorts.CommonFilters.convert_params_to_filter(User, %{name: %{not: %{ilike: "bot"}}})
 #=> #Ecto.Query<from u0 in User, where: not ilike(u0.name, ^"%bot%")>
 
-EctoShorts.CommonFilters.convert_params_to_filter(User, %{name: %{not_like: "test%"}})
+EctoShorts.CommonFilters.convert_params_to_filter(User, %{name: %{not: %{like: "test%"}}})
 #=> #Ecto.Query<from u0 in User, where: not like(u0.name, ^"test%")>
 ```
 
@@ -153,16 +158,19 @@ EctoShorts.CommonFilters.convert_params_to_filter(User, %{name: %{ilike: ["ada",
 
 ## 5. Null Checks
 
-The `:is_nil` operator was shown in section 2. It is the idiomatic way to
-filter on `NULL`/`NOT NULL`:
+Pass `nil` directly as the field value to generate `IS NULL`. For `IS NOT NULL`,
+use the `:not` wrapper or the `!=` operator:
 
 ```elixir
 # Rows where the field IS NULL
-EctoShorts.CommonFilters.convert_params_to_filter(Post, %{published_at: %{is_nil: true}})
+EctoShorts.CommonFilters.convert_params_to_filter(Post, %{published_at: nil})
 #=> #Ecto.Query<from p0 in Post, where: is_nil(p0.published_at)>
 
 # Rows where the field IS NOT NULL
-EctoShorts.CommonFilters.convert_params_to_filter(Post, %{published_at: %{is_nil: false}})
+EctoShorts.CommonFilters.convert_params_to_filter(Post, %{published_at: %{not: %{==: nil}}})
+#=> #Ecto.Query<from p0 in Post, where: not is_nil(p0.published_at)>
+
+EctoShorts.CommonFilters.convert_params_to_filter(Post, %{published_at: %{!=: nil}})
 #=> #Ecto.Query<from p0 in Post, where: not is_nil(p0.published_at)>
 ```
 
@@ -400,9 +408,9 @@ and SQL equivalent — see [../reference/filter-keys.md](../reference/filter-key
 `:intersect`, `:intersect_all`, `:except`, `:except_all`, `:subquery`,
 `:update`, `:put_query_prefix`, `:as`, `:at`, `:exclude`.
 
-**Predicate operators** (inside a field value map): `:eq`, `:neq`, `:gt`,
-`:gte`, `:lt`, `:lte`, `:in`, `:not_in`, `:like`, `:ilike`, `:not_like`,
-`:not_ilike`, `:is_nil`.
+**Predicate operators** (inside a field value map): `:eq`, `:ne`, `:gt`,
+`:gte`, `:lt`, `:lte`, `:in`, `:nin`, `:like`, `:ilike`. Negation via `:not`
+wrapper (e.g. `%{not: %{like: "test%"}}`, `%{not: %{in: [...]}}`).
 
 **Boolean group keys**: `:where`, `:or_where`, `:and` (alias `:all`), `:or`
 (alias `:any`).
