@@ -69,6 +69,8 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExpr do
     Query.dynamic([], ^dyn <= ^term)
   end
 
+  defp dispatch_expr(_binding, :exists, _field, nil), do: nil
+
   defp dispatch_expr(_binding, :exists, _field, term) do
     Query.dynamic([], exists(term))
   end

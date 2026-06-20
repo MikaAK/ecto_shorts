@@ -150,6 +150,12 @@ defmodule EctoShorts.DynamicBuilders.Postgres.CommonExprTest do
   end
 
   describe ":exists operator" do
+    test ":exists with nil value returns nil (skipped)" do
+      actual = CommonExpr.dynamic_expr({:as, nil}, nil, nil, {:exists, nil}, [])
+
+      assert is_nil(actual)
+    end
+
     test ":exists produces an exists(subquery) expression" do
       sub = from(p in Post, where: p.published == ^true)
       actual = CommonExpr.dynamic_expr({:as, nil}, nil, nil, {:exists, sub}, [])
