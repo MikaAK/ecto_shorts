@@ -55,7 +55,7 @@ conflict_opts =
   EctoShorts.CommonParams.build_on_conflict_options(Post, inserts, [])
 # => [conflict_target: [:id], on_conflict: {:replace, [:body, :title, :updated_at]}]
 
-{:ok, {count, _}} = EctoShorts.Actions.insert_all(Post, inserts ++ conflict_opts)
+{:ok, {count, _}} = EctoShorts.Actions.insert_all(Post, inserts, conflict_opts)
 ```
 
 Pass `:on_conflict_replace` to control which fields are replaced:
