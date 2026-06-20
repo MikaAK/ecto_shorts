@@ -54,7 +54,7 @@ defmodule EctoShorts.QueryBuilders do
   def build_query(filter, source, query, selected_binding, term, opts \\ []) do
     case adapter(opts) do
       module when is_atom(module) ->
-        if function_exported?(module, :build_query, 6) do
+        if Code.ensure_loaded?(module) and function_exported?(module, :build_query, 6) do
           module.build_query(filter, source, query, selected_binding, term, opts)
         else
           LogUtils.warning(

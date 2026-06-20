@@ -3,10 +3,12 @@ defmodule EctoShorts.Schema.UserData do
   use Ecto.Schema
   import Ecto.Changeset
 
-  schema "data_stores" do
+  schema "user_datas" do
     field :data, :map
     field :typed_map, {:map, :string}
     belongs_to :creator, EctoShorts.Schema.User
+
+    timestamps()
   end
 
   @available_fields [

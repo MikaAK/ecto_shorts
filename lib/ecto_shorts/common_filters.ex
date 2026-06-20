@@ -226,7 +226,7 @@ defmodule EctoShorts.CommonFilters do
   alias EctoShorts.CommonSchema
   alias EctoShorts.Config
 
-  alias EctoShorts.CommonFilters.Builder
+  alias EctoShorts.QueryBuilders
 
   @type filters ::
           :distinct
@@ -416,7 +416,7 @@ defmodule EctoShorts.CommonFilters do
             reduce_filters(key, source, query, selected_binding, params, opts)
 
           true ->
-            Builder.build_query(key, source, query, selected_binding, params, opts)
+            QueryBuilders.build_query(key, source, query, selected_binding, params, opts)
         end
 
       assoc_key?(source, key) ->
@@ -440,10 +440,10 @@ defmodule EctoShorts.CommonFilters do
         end
 
       key in @filters ->
-        Builder.build_query(key, source, query, selected_binding, params, opts)
+        QueryBuilders.build_query(key, source, query, selected_binding, params, opts)
 
       true ->
-        Builder.build_query(filter, source, query, selected_binding, {key, params}, opts)
+        QueryBuilders.build_query(filter, source, query, selected_binding, {key, params}, opts)
     end
   end
 
@@ -452,14 +452,14 @@ defmodule EctoShorts.CommonFilters do
   end
 
   defp or_entries(source, query, selected_binding, key, value, opts) do
-    Builder.build_query(:or_where, source, query, selected_binding, {key, value}, opts)
+    QueryBuilders.build_query(:or_where, source, query, selected_binding, {key, value}, opts)
   end
 
   defp apply_assoc_filters(filter, source, query, key, params, opts) do
     assoc_source = get_assoc_source(source, key)
 
     query_acc =
-      Builder.build_query(
+      QueryBuilders.build_query(
         :join,
         source,
         query,

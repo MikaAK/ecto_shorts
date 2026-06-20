@@ -6,6 +6,31 @@ defmodule EctoShorts.Actions.BatchTest do
   alias EctoShorts.Schema.Post
   alias EctoShorts.Schema.User
 
+  describe "batch/3 replica routing" do
+    test "reads from the replica repo, not the primary repo" do
+      %Post{}
+      |> Post.changeset(%{title: "replica-routing"})
+      |> Repo.insert!()
+
+      # Pass a fake primary repo — if batch mistakenly uses Config.repo! this crashes
+      # because EctoShorts.FakeRepo.all/2 is undefined.
+      # dynamic_builder: bypasses adapter detection so FakeRepo is never probed.
+      # Passing the real repo only as replica: proves Config.replica! is what's called.
+      result =
+        Actions.batch(
+          Post,
+          [%{title: "replica-routing"}],
+          batch_keys: :title,
+          cardinality: :one,
+          dynamic_builder: EctoShorts.DynamicBuilders.Postgres,
+          replica: EctoShorts.Repo,
+          repo: EctoShorts.FakeRepo
+        )
+
+      assert %{"replica-routing" => %Post{title: "replica-routing"}} = result
+    end
+  end
+
   describe "batch/3" do
     test "returns an empty map when no params are given" do
       assert %{} = Actions.batch(Post, [], batch_keys: [:title], cardinality: :many)

@@ -97,14 +97,14 @@ defmodule EctoShorts.CommonParamsTest do
   end
 
   describe "build_on_conflict_options/3" do
-    test "returns only the conflict target when on_conflict_replace is :none" do
+    test "returns conflict_target and on_conflict: :nothing when on_conflict_replace is :none" do
       inserts = [%{id: 1, title: "Hello"}]
 
       opts =
         CommonParams.build_on_conflict_options(Post, inserts, on_conflict_replace: :none)
 
       assert Keyword.fetch!(opts, :conflict_target) === [:id]
-      refute Keyword.has_key?(opts, :on_conflict)
+      assert Keyword.fetch!(opts, :on_conflict) === :nothing
     end
 
     test "raises when on_conflict_replace has an invalid value" do

@@ -4,6 +4,7 @@ defmodule EctoShorts.Actions.BulkTest do
   alias EctoShorts.Actions
   alias EctoShorts.Schema.Comment
   alias EctoShorts.Schema.Post
+  alias EctoShorts.Schema.UserData
 
   describe "insert_all/3" do
     test "inserts all records and returns the count" do
@@ -183,6 +184,15 @@ defmodule EctoShorts.Actions.BulkTest do
       |> Repo.insert!()
 
       assert {0, nil} = Actions.delete_all(Post, %{title: "Missing"})
+    end
+  end
+
+  describe "insert_all/3 with a schema that has a :data field" do
+    test "treats a plain params map containing :data as params, not as a changeset" do
+      # UserData has `field :data, :map`. Before the fix, %{data: %{...}} matched
+      # the Ecto.Changeset clause and crashed with KeyError on .params access.
+      assert {:ok, {1, nil}} =
+               Actions.insert_all(UserData, [%{data: %{role: "admin"}}])
     end
   end
 end

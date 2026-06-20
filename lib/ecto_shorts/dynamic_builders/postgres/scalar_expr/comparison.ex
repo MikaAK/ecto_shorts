@@ -453,8 +453,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Comparison do
     apply_dyn_comparison(op, lhs, comparison_rhs(binding, rhs), :negated)
   end
 
-  defp operand_dyn(binding, {:field, {bind, col}}) when bind !== nil do
-    _ = binding
+  defp operand_dyn(_binding, {:field, {bind, col}}) when bind !== nil do
     dynamic([], field(as(^bind), ^col))
   end
 

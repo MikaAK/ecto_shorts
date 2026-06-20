@@ -696,7 +696,7 @@ defmodule EctoShorts.Actions do
       batch_params ->
         schema
         |> CommonFilters.convert_params_to_filter(batch_params, opts)
-        |> Config.repo!(opts).all(opts)
+        |> Config.replica!(opts).all(opts)
         |> Enum.group_by(&Map.take(&1, batch_keys))
         |> Batch.handle_batch_response(cardinality, batch_keys, opts)
     end
@@ -711,7 +711,7 @@ defmodule EctoShorts.Actions do
 
     schema
     |> CommonFilters.convert_params_to_filter(%{batch_key => values}, opts)
-    |> Config.repo!(opts).all(opts)
+    |> Config.replica!(opts).all(opts)
     |> Enum.group_by(&Batch.normalize_batch_key(&1, batch_key))
     |> Batch.handle_batch_response(cardinality, batch_key, opts)
   end

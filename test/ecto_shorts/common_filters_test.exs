@@ -9,7 +9,28 @@ defmodule EctoShorts.CommonFiltersTest do
   alias EctoShorts.CommonFilters
   alias EctoShorts.Schema.Post
 
+  defmodule AlwaysLimit99 do
+    @behaviour EctoShorts.QueryBuilder
+    def build_query(_filter, _source, query, _binding, _term, _opts) do
+      import Ecto.Query
+      from(q in query, limit: 99)
+    end
+  end
 
+  describe "convert_params_to_filter/3 query_builder: opt" do
+    test "routes dispatch through a custom query builder when query_builder: is set" do
+      expected = from(p in Post, limit: 99)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{limit: 5},
+          query_builder: AlwaysLimit99
+        )
+
+      assert_query(expected, actual)
+    end
+  end
 
   describe "filters/0" do
     test "returns the list of supported filter keys" do

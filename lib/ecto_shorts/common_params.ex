@@ -331,8 +331,8 @@ defmodule EctoShorts.CommonParams do
   * `:on_conflict_replace` - controls which fields are replaced on conflict.
     Defaults to `:insert_keys`.
     * `:insert_keys` - replaces all non-primary-key fields present in the inserts.
-    * `:none` - no fields are replaced (insert-or-nothing). The returned list
-      will contain only `conflict_target:` with **no** `on_conflict:` key.
+    * `:none` - no fields are replaced on conflict (insert-or-do-nothing). The returned
+      list contains `conflict_target:` and `on_conflict: :nothing`.
     * a list of atoms - only the listed fields are replaced.
 
   ## Examples
@@ -348,8 +348,8 @@ defmodule EctoShorts.CommonParams do
       iex> opts = EctoShorts.CommonParams.build_on_conflict_options(
       ...>   EctoShorts.Schema.Post, inserts, on_conflict_replace: :none
       ...> )
-      iex> Keyword.has_key?(opts, :conflict_target) and not Keyword.has_key?(opts, :on_conflict)
-      true
+      iex> {opts[:conflict_target], opts[:on_conflict]}
+      {[:id], :nothing}
 
       iex> EctoShorts.CommonParams.build_on_conflict_options(EctoShorts.Schema.Post, [], [])
       []
@@ -376,7 +376,7 @@ defmodule EctoShorts.CommonParams do
     replace_fields = get_replace_fields(inserts, conflict_target, opts)
 
     if replace_fields === [] do
-      [conflict_target: conflict_target]
+      [conflict_target: conflict_target, on_conflict: :nothing]
     else
       [conflict_target: conflict_target, on_conflict: {:replace, replace_fields}]
     end
@@ -591,7 +591,7 @@ defmodule EctoShorts.CommonParams do
     end
   end
 
-  defp normalize_insert_entry(schema, %{data: schema_struct} = changeset, opts) do
+  defp normalize_insert_entry(schema, %Ecto.Changeset{data: schema_struct} = changeset, opts) do
     params = normalize_insert_params(schema, changeset.params, opts)
     changed_keys = keys_changed_in_schema_data(schema_struct, params)
 
