@@ -5,6 +5,7 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
   @moduletag feature: :offset
 
   alias EctoShorts.CommonFilters
+  alias EctoShorts.CommonFilters.Offset
   alias EctoShorts.Schema.Post
 
   import Ecto.Query
@@ -102,8 +103,6 @@ defmodule EctoShorts.CommonFilters.OffsetTest do
     end
 
     test "applies offset via fallback when selected_binding is not a recognised pattern" do
-      alias EctoShorts.CommonFilters.Offset
-
       query = from(p in Post)
       result = Offset.build_query(:offset, Post, query, :unrecognised_binding, 7, [])
 

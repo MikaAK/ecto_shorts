@@ -8,25 +8,25 @@ defmodule EctoShorts.SchemaHelpersTest do
 
   describe "get_related_schema/2" do
     test "returns nil when the schema is nil" do
-      assert SchemaHelpers.get_related_schema(nil, :comments) === nil
+      assert nil === SchemaHelpers.get_related_schema(nil, :comments)
     end
 
     test "follows a through association to find the final schema" do
-      assert SchemaHelpers.get_related_schema(Post, :comments_authors) === User
+      assert User = SchemaHelpers.get_related_schema(Post, :comments_authors)
     end
 
     test "returns nil when the association does not exist" do
-      assert SchemaHelpers.get_related_schema(Post, :does_not_exist) === nil
+      assert nil === SchemaHelpers.get_related_schema(Post, :does_not_exist)
     end
   end
 
   describe "schema_field_type/2" do
     test "returns the type of a field" do
-      assert SchemaHelpers.schema_field_type(Post, :title) === :string
+      assert :string = SchemaHelpers.schema_field_type(Post, :title)
     end
 
     test "returns the array type for an array field" do
-      assert SchemaHelpers.schema_field_type(Post, :tags) === {:array, :string}
+      assert {:array, :string} = SchemaHelpers.schema_field_type(Post, :tags)
     end
   end
 
@@ -34,66 +34,66 @@ defmodule EctoShorts.SchemaHelpersTest do
     test "returns true when association is not loaded" do
       post = %Post{}
 
-      assert SchemaHelpers.association_not_loaded?(post, :comments) === true
+      assert true = SchemaHelpers.association_not_loaded?(post, :comments)
     end
 
     test "returns false when association is loaded" do
       post = %Post{comments: []}
 
-      assert SchemaHelpers.association_not_loaded?(post, :comments) === false
+      assert false === SchemaHelpers.association_not_loaded?(post, :comments)
     end
   end
 
   describe "all_schema_struct?/1" do
     test "returns false for empty list" do
-      assert SchemaHelpers.all_schema_struct?([]) === false
+      assert false === SchemaHelpers.all_schema_struct?([])
     end
 
     test "returns false for empty map" do
-      assert SchemaHelpers.all_schema_struct?(%{}) === false
+      assert false === SchemaHelpers.all_schema_struct?(%{})
     end
 
     test "returns true when all items are schema structs" do
-      assert SchemaHelpers.all_schema_struct?([%Post{}, %Comment{}]) === true
+      assert true = SchemaHelpers.all_schema_struct?([%Post{}, %Comment{}])
     end
 
     test "returns false when mixed with plain maps" do
-      assert SchemaHelpers.all_schema_struct?([%Post{}, %{id: 1}]) === false
+      assert false === SchemaHelpers.all_schema_struct?([%Post{}, %{id: 1}])
     end
   end
 
   describe "any_schema_struct?/1" do
     test "returns true when any item is a schema struct" do
-      assert SchemaHelpers.any_schema_struct?([%Post{}, %{id: 1}]) === true
+      assert true = SchemaHelpers.any_schema_struct?([%Post{}, %{id: 1}])
     end
 
     test "returns false when no items are schema structs" do
-      assert SchemaHelpers.any_schema_struct?([%{id: 1}]) === false
+      assert false === SchemaHelpers.any_schema_struct?([%{id: 1}])
     end
   end
 
   describe "schema_module?/1" do
     test "returns false when the value is not an atom" do
-      assert SchemaHelpers.schema_module?("not_a_module") === false
-      assert SchemaHelpers.schema_module?(123) === false
+      assert false === SchemaHelpers.schema_module?("not_a_module")
+      assert false === SchemaHelpers.schema_module?(123)
     end
   end
 
   describe "any_persisted?/1" do
     test "returns true when the map has a non-nil :id" do
-      assert SchemaHelpers.any_persisted?(%{id: 42}) === true
+      assert true = SchemaHelpers.any_persisted?(%{id: 42})
     end
 
     test "returns false when the map has a nil :id" do
-      assert SchemaHelpers.any_persisted?(%{id: nil}) === false
+      assert false === SchemaHelpers.any_persisted?(%{id: nil})
     end
 
     test "returns true when the map has a non-nil string id" do
-      assert SchemaHelpers.any_persisted?(%{"id" => 99}) === true
+      assert true = SchemaHelpers.any_persisted?(%{"id" => 99})
     end
 
     test "returns false when the map has a nil string id" do
-      assert SchemaHelpers.any_persisted?(%{"id" => nil}) === false
+      assert false === SchemaHelpers.any_persisted?(%{"id" => nil})
     end
   end
 end

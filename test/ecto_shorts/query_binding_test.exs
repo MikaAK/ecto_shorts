@@ -17,7 +17,7 @@ defmodule EctoShorts.QueryBindingTest do
       {target_binding_var, binding_patterns} =
         QueryBinding.query_binding_contracts(__MODULE__, positions: 2)
 
-      assert Macro.to_string(target_binding_var) === "q"
+      assert "q" = Macro.to_string(target_binding_var)
 
       assert [
                {"{:as, nil}", ["q"]},

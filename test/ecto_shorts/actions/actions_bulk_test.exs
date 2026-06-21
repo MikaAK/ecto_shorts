@@ -135,7 +135,7 @@ defmodule EctoShorts.Actions.BulkTest do
       assert {:ok, {2, nil}} =
                Actions.insert_all(Post, entries, batch_preload: :title)
 
-      assert Repo.get!(Post, existing.id).title === "Existing"
+      assert "Existing" = Repo.get!(Post, existing.id).title
     end
 
     test "passes through batch_find path when :batch_find option is set" do

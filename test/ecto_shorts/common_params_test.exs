@@ -16,10 +16,10 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert [inc: inc_ops, push: push_ops, set: set_ops] = updates
 
-      assert inc_ops === [views: 1]
-      assert push_ops === [tags: "elixir"]
+      assert [views: 1] = inc_ops
+      assert [tags: "elixir"] = push_ops
 
-      assert Keyword.fetch!(set_ops, :title) === "Hello"
+      assert "Hello" = Keyword.fetch!(set_ops, :title)
       assert %NaiveDateTime{} = Keyword.fetch!(set_ops, :updated_at)
     end
 
@@ -38,7 +38,7 @@ defmodule EctoShorts.CommonParamsTest do
         )
 
       assert [set: set_ops] = updates
-      assert set_ops === [title: "Hello"]
+      assert [title: "Hello"] = set_ops
     end
 
     test "skips the updated_at timestamp when the source option is false" do
@@ -50,7 +50,7 @@ defmodule EctoShorts.CommonParamsTest do
         )
 
       assert [set: set_ops] = updates
-      assert set_ops === [title: "Hello"]
+      assert [title: "Hello"] = set_ops
     end
   end
 
@@ -59,7 +59,7 @@ defmodule EctoShorts.CommonParamsTest do
       updates = CommonParams.convert_to_update_params(Post, %{title: [set: "Explicit"]})
 
       assert [set: set_ops] = updates
-      assert Keyword.fetch!(set_ops, :title) === "Explicit"
+      assert "Explicit" = Keyword.fetch!(set_ops, :title)
     end
 
     test "accepts a list of operations on the same field" do
@@ -91,8 +91,8 @@ defmodule EctoShorts.CommonParamsTest do
           id: "1"
         })
 
-      assert Keyword.fetch!(updates, :inc) === [views: 2]
-      assert Keyword.fetch!(updates, :set)[:id] === 1
+      assert [views: 2] = Keyword.fetch!(updates, :inc)
+      assert 1 = Keyword.fetch!(updates, :set)[:id]
     end
   end
 
@@ -103,8 +103,8 @@ defmodule EctoShorts.CommonParamsTest do
       opts =
         CommonParams.build_on_conflict_options(Post, inserts, on_conflict_replace: :none)
 
-      assert Keyword.fetch!(opts, :conflict_target) === [:id]
-      assert Keyword.fetch!(opts, :on_conflict) === :nothing
+      assert [:id] = Keyword.fetch!(opts, :conflict_target)
+      assert :nothing = Keyword.fetch!(opts, :on_conflict)
     end
 
     test "raises when on_conflict_replace has an invalid value" do
@@ -126,7 +126,7 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert [set: set_ops] = updates
 
-      assert Keyword.fetch!(set_ops, :made_up_field) === "value"
+      assert "value" = Keyword.fetch!(set_ops, :made_up_field)
       assert %DateTime{} = Keyword.fetch!(set_ops, :updated_at)
     end
 
@@ -139,7 +139,7 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert [set: set_ops] = updates
 
-      assert Keyword.fetch!(set_ops, :made_up_field) === "value"
+      assert "value" = Keyword.fetch!(set_ops, :made_up_field)
       assert %DateTime{} = Keyword.fetch!(set_ops, :updated_at)
     end
 
@@ -152,7 +152,7 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert [set: set_ops] = updates
 
-      assert Keyword.fetch!(set_ops, :made_up_field) === "value"
+      assert "value" = Keyword.fetch!(set_ops, :made_up_field)
       assert %DateTime{} = Keyword.fetch!(set_ops, :updated_at)
     end
 
@@ -165,7 +165,7 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert [set: set_ops] = updates
 
-      assert Keyword.fetch!(set_ops, :title) === "Hello"
+      assert "Hello" = Keyword.fetch!(set_ops, :title)
       refute Keyword.has_key?(set_ops, :made_up_field)
     end
   end
@@ -177,7 +177,7 @@ defmodule EctoShorts.CommonParamsTest do
 
       assert [insert_map] = insert_maps
 
-      assert insert_map.title === "Hello"
+      assert "Hello" = insert_map.title
       assert %NaiveDateTime{} = insert_map.inserted_at
       assert %NaiveDateTime{} = insert_map.updated_at
     end
@@ -212,8 +212,8 @@ defmodule EctoShorts.CommonParamsTest do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params(Post, [struct], validate: false)
 
-      assert insert_map.title === "From Struct"
-      assert insert_map.published === true
+      assert "From Struct" = insert_map.title
+      assert true = insert_map.published
     end
 
     test "accepts a struct-and-params tuple as an insert entry" do
@@ -223,7 +223,7 @@ defmodule EctoShorts.CommonParamsTest do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params(Post, [{struct, params}], validate: false)
 
-      assert insert_map.title === "Overridden"
+      assert "Overridden" = insert_map.title
     end
 
     test "validates a struct-and-params tuple when validate is not false" do
@@ -233,7 +233,7 @@ defmodule EctoShorts.CommonParamsTest do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params(Post, [{struct, params}])
 
-      assert insert_map.title === "Validated"
+      assert "Validated" = insert_map.title
     end
 
     test "accepts an Ecto changeset as an insert entry" do
@@ -242,14 +242,14 @@ defmodule EctoShorts.CommonParamsTest do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params(Post, [changeset])
 
-      assert insert_map.title === "From Changeset"
+      assert "From Changeset" = insert_map.title
     end
 
     test "accepts a keyword list as an insert entry" do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params(Post, [[title: "KW"]], validate: false)
 
-      assert insert_map.title === "KW"
+      assert "KW" = insert_map.title
     end
   end
 
@@ -264,7 +264,7 @@ defmodule EctoShorts.CommonParamsTest do
                )
 
       assert %DateTime{microsecond: {_, precision}} = insert_map.inserted_at
-      assert precision === 6
+      assert 6 = precision
     end
 
     test "produces NaiveDateTime with microsecond precision when type is :naive_datetime_usec" do
@@ -277,7 +277,7 @@ defmodule EctoShorts.CommonParamsTest do
                )
 
       assert %NaiveDateTime{microsecond: {_, precision}} = insert_map.inserted_at
-      assert precision === 6
+      assert 6 = precision
     end
   end
 
@@ -312,7 +312,7 @@ defmodule EctoShorts.CommonParamsTest do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params(nil, [%{"made_up_field" => "value"}])
 
-      assert insert_map["made_up_field"] === "value"
+      assert "value" = insert_map["made_up_field"]
       assert %DateTime{} = insert_map.updated_at
     end
 
@@ -320,7 +320,7 @@ defmodule EctoShorts.CommonParamsTest do
       assert {:ok, [insert_map]} =
                CommonParams.convert_to_insert_params("posts", [%{"made_up_field" => "value"}])
 
-      assert insert_map["made_up_field"] === "value"
+      assert "value" = insert_map["made_up_field"]
       assert %DateTime{} = insert_map.updated_at
     end
 
@@ -330,7 +330,7 @@ defmodule EctoShorts.CommonParamsTest do
                  %{"made_up_field" => "value"}
                ])
 
-      assert insert_map["made_up_field"] === "value"
+      assert "value" = insert_map["made_up_field"]
       assert %DateTime{} = insert_map.updated_at
     end
 
@@ -342,7 +342,7 @@ defmodule EctoShorts.CommonParamsTest do
                  validate: false
                )
 
-      assert insert_map.title === "Hello"
+      assert "Hello" = insert_map.title
       refute Map.has_key?(insert_map, :made_up_field)
     end
   end
@@ -364,7 +364,7 @@ defmodule EctoShorts.CommonParamsTest do
                  validate: false
                )
 
-      assert insert_map.title === "Overridden"
+      assert "Overridden" = insert_map.title
     end
 
     test "includes non-nil params even when the value matches the existing struct value" do
@@ -378,7 +378,7 @@ defmodule EctoShorts.CommonParamsTest do
                )
 
       # Non-nil values are always included, regardless of whether they changed
-      assert insert_map.title === "Same"
+      assert "Same" = insert_map.title
     end
   end
 
@@ -450,20 +450,20 @@ defmodule EctoShorts.CommonParamsTest do
     test "replaces a matching field value with a placeholder tuple" do
       data = %{title: "default", views: 0}
       result = Placeholders.put_placeholders(data, [title: "default"], [])
-      assert result.title === {:placeholder, :title}
-      assert result.views === 0
+      assert {:placeholder, :title} = result.title
+      assert 0 = result.views
     end
 
     test "leaves the field unchanged when the value does not match the placeholder value" do
       data = %{title: "custom", views: 0}
       result = Placeholders.put_placeholders(data, [title: "default"], [])
-      assert result.title === "custom"
+      assert "custom" = result.title
     end
 
     test "leaves the map unchanged when the key is not present" do
       data = %{views: 0}
       result = Placeholders.put_placeholders(data, [title: "default"], [])
-      assert result === %{views: 0}
+      assert %{views: 0} = result
     end
 
     test "on_placeholder_conflict :nothing leaves the field unchanged (default)" do
@@ -472,7 +472,7 @@ defmodule EctoShorts.CommonParamsTest do
       result =
         Placeholders.put_placeholders(data, [title: "default"], on_placeholder_conflict: :nothing)
 
-      assert result.title === "custom"
+      assert "custom" = result.title
     end
 
     test "on_placeholder_conflict :replace_all replaces the field even when value differs" do
@@ -483,7 +483,7 @@ defmodule EctoShorts.CommonParamsTest do
           on_placeholder_conflict: :replace_all
         )
 
-      assert result.title === {:placeholder, :title}
+      assert {:placeholder, :title} = result.title
     end
 
     test "on_placeholder_conflict {:replace, keys} replaces only listed keys" do
@@ -494,8 +494,8 @@ defmodule EctoShorts.CommonParamsTest do
           on_placeholder_conflict: {:replace, [:title]}
         )
 
-      assert result.title === {:placeholder, :title}
-      assert result.body === "custom body"
+      assert {:placeholder, :title} = result.title
+      assert "custom body" = result.body
     end
 
     test "on_placeholder_conflict {:replace, keys} skips keys not in the list" do
@@ -506,7 +506,7 @@ defmodule EctoShorts.CommonParamsTest do
           on_placeholder_conflict: {:replace, [:body]}
         )
 
-      assert result.title === "custom"
+      assert "custom" = result.title
     end
 
     test "raises ArgumentError for an unrecognised on_placeholder_conflict value" do

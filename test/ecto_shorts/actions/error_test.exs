@@ -16,7 +16,7 @@ defmodule EctoShorts.Actions.ErrorTest do
     test "builds the error using the custom module from the options" do
       result = Error.call(:not_found, "gone", %{id: 1}, error_module: CustomError)
 
-      assert result === %{custom: true, code: :not_found, message: "gone", details: %{id: 1}}
+      assert %{custom: true, code: :not_found, message: "gone", details: %{id: 1}} = result
     end
   end
 end

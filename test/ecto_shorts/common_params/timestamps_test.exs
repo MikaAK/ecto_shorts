@@ -62,7 +62,7 @@ defmodule EctoShorts.CommonParams.TimestampsTest do
     test "explicit :updated_at value forces the key onto a schema lacking it" do
       result = Timestamps.put_timestamps(%{title: "x"}, @dt, TimestampFree, updated_at: @dt)
 
-      assert result[:updated_at] === @dt
+      assert @dt = result[:updated_at]
     end
 
     test "explicit :updated_at_source forces the custom key onto a schema lacking it" do
@@ -95,7 +95,7 @@ defmodule EctoShorts.CommonParams.TimestampsTest do
     test "explicit :updated_at value forces it onto a schema lacking the field" do
       result = Timestamps.put_set_updated_at([set: [title: "x"]], @dt, TimestampFree, updated_at: @dt)
 
-      assert result[:set][:updated_at] === @dt
+      assert @dt = result[:set][:updated_at]
     end
 
     test "explicit :updated_at_source forces the custom key onto a schema lacking it" do

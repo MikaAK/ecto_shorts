@@ -178,7 +178,7 @@ defmodule EctoShorts.Actions.MultiTest do
       assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.update_many(Post, params)
 
-      assert details.index === 1
+      assert 1 = details.index
 
       # transaction rollback: first record should not be updated
       assert %Post{title: "Existing"} = Repo.get!(Post, post.id)
@@ -200,8 +200,8 @@ defmodule EctoShorts.Actions.MultiTest do
       assert {:ok, [%Post{title: "A"}, %Post{title: "B"}]} =
                Actions.delete_many(Post, [post_a, post_b])
 
-      assert Repo.get(Post, post_a.id) === nil
-      assert Repo.get(Post, post_b.id) === nil
+      assert nil === Repo.get(Post, post_a.id)
+      assert nil === Repo.get(Post, post_b.id)
     end
 
     test "rolls back when a delete fails due to a constraint" do
@@ -309,7 +309,7 @@ defmodule EctoShorts.Actions.MultiTest do
                  preload: [:comments]
                )
 
-      assert posts |> Enum.map(& &1.title) |> Enum.sort() === ["UM-A Updated", "UM-B Updated"]
+      assert ["UM-A Updated", "UM-B Updated"] = posts |> Enum.map(& &1.title) |> Enum.sort()
       assert Enum.all?(posts, fn post -> post.comments === [] end)
     end
   end
@@ -329,10 +329,10 @@ defmodule EctoShorts.Actions.MultiTest do
       assert {:ok, deleted_posts} =
                Actions.delete_many(Post, [post_a, post_b], preload: [:comments])
 
-      assert deleted_posts |> Enum.map(& &1.title) |> Enum.sort() === ["DM-A", "DM-B"]
+      assert ["DM-A", "DM-B"] = deleted_posts |> Enum.map(& &1.title) |> Enum.sort()
       assert Enum.all?(deleted_posts, fn post -> post.comments === [] end)
-      assert Repo.get(Post, post_a.id) === nil
-      assert Repo.get(Post, post_b.id) === nil
+      assert nil === Repo.get(Post, post_a.id)
+      assert nil === Repo.get(Post, post_b.id)
     end
   end
 
@@ -353,7 +353,7 @@ defmodule EctoShorts.Actions.MultiTest do
                  preload: [:comments]
                )
 
-      assert posts |> Enum.map(& &1.title) |> Enum.sort() === ["FOCM-Created", "FOCM-Existing"]
+      assert ["FOCM-Created", "FOCM-Existing"] = posts |> Enum.map(& &1.title) |> Enum.sort()
       assert Enum.all?(posts, fn post -> post.comments === [] end)
       assert Enum.any?(posts, fn post -> post.id === existing.id end)
     end
@@ -376,7 +376,7 @@ defmodule EctoShorts.Actions.MultiTest do
                  preload: [:comments]
                )
 
-      assert posts |> Enum.map(& &1.title) |> Enum.sort() === ["FAUM-Created", "FAUM-Updated"]
+      assert ["FAUM-Created", "FAUM-Updated"] = posts |> Enum.map(& &1.title) |> Enum.sort()
       assert Enum.all?(posts, fn post -> post.comments === [] end)
       assert Enum.any?(posts, fn post -> post.id === existing.id end)
     end
@@ -440,7 +440,7 @@ defmodule EctoShorts.Actions.MultiTest do
         |> Repo.insert!()
 
       assert {:ok, [%Post{}]} = Actions.delete_many(Post, [%{id: post.id}])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
 
     test "deletes a record when the entry is a scalar id" do
@@ -450,7 +450,7 @@ defmodule EctoShorts.Actions.MultiTest do
         |> Repo.insert!()
 
       assert {:ok, [%Post{}]} = Actions.delete_many(Post, [post.id])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
   end
 end

@@ -10,13 +10,13 @@ defmodule EctoShorts.LogUtilsTest do
   # contract: the call returns :ok.
   describe "debug/2" do
     test "returns :ok" do
-      assert LogUtils.debug("TestPrefix", "debug message") === :ok
+      assert :ok = LogUtils.debug("TestPrefix", "debug message")
     end
   end
 
   describe "info/2" do
     test "returns :ok" do
-      assert LogUtils.info("TestPrefix", "info message") === :ok
+      assert :ok = LogUtils.info("TestPrefix", "info message")
     end
   end
 
@@ -24,7 +24,7 @@ defmodule EctoShorts.LogUtilsTest do
     test "prefixes the message and returns :ok" do
       log =
         capture_log(fn ->
-          assert LogUtils.warning("TestPrefix", "warning message") === :ok
+          assert :ok = LogUtils.warning("TestPrefix", "warning message")
         end)
 
       assert log =~ "[TestPrefix] warning message"
@@ -35,7 +35,7 @@ defmodule EctoShorts.LogUtilsTest do
     test "prefixes the message and returns :ok" do
       log =
         capture_log(fn ->
-          assert LogUtils.error("TestPrefix", "error message") === :ok
+          assert :ok = LogUtils.error("TestPrefix", "error message")
         end)
 
       assert log =~ "[TestPrefix] error message"

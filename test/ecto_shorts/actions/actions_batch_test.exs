@@ -216,7 +216,7 @@ defmodule EctoShorts.Actions.BatchTest do
                Actions.batch_find(Post, [input], :permalink, preload: [:comments])
 
       assert resolved_post.id === post.id
-      assert resolved_post.comments === []
+      assert [] = resolved_post.comments
     end
 
     test "preloads nested associations on the resolved struct" do
@@ -275,7 +275,7 @@ defmodule EctoShorts.Actions.BatchTest do
 
       # build_batch_params/4 with empty batch_keys returns [] which causes batch to return %{}
       result = Actions.batch(Post, [%{title: "A"}], batch_keys: [], cardinality: :many)
-      assert result === %{}
+      assert %{} = result
     end
 
     test "raises ArgumentError when batch_keys contains a key not in the schema's query fields" do
@@ -290,17 +290,17 @@ defmodule EctoShorts.Actions.BatchTest do
 
     test "converts a keyword list params to a map and extracts the given keys" do
       result = Batch.normalize_batch_key([title: "Hello", views: 5], [:title])
-      assert result === %{title: "Hello"}
+      assert %{title: "Hello"} = result
     end
 
     test "wraps a scalar value as a map keyed by the given atom" do
       result = Batch.normalize_batch_key("my_permalink", :permalink)
-      assert result === %{permalink: "my_permalink"}
+      assert %{permalink: "my_permalink"} = result
     end
 
     test "takes the given keys from a map when params is a map and keys is a list" do
       result = Batch.normalize_batch_key(%{title: "Hello", views: 5}, [:title])
-      assert result === %{title: "Hello"}
+      assert %{title: "Hello"} = result
     end
   end
 
@@ -325,7 +325,7 @@ defmodule EctoShorts.Actions.BatchTest do
 
     test "returns an empty map unchanged when records are empty and :preload is set" do
       result = Batch.handle_batch_response([], :many, :title, preload: [:comments])
-      assert result === %{}
+      assert %{} = result
     end
   end
 
@@ -350,8 +350,8 @@ defmodule EctoShorts.Actions.BatchTest do
 
       {params_list, index_map} = Batch.extract_lookup_params([input], [:id, :title])
 
-      assert params_list === [%{id: 1, title: "Hello"}]
-      assert index_map === %{0 => %{id: 1, title: "Hello"}}
+      assert [%{id: 1, title: "Hello"}] = params_list
+      assert %{0 => %{id: 1, title: "Hello"}} = index_map
     end
   end
 
@@ -374,7 +374,7 @@ defmodule EctoShorts.Actions.BatchTest do
     alias EctoShorts.Actions.Batch
 
     test "returns a list unchanged when given a list" do
-      assert Batch.normalize_key_fields([:id, :title]) === [:id, :title]
+      assert [:id, :title] = Batch.normalize_key_fields([:id, :title])
     end
 
     test "returns a non-atom non-list value unchanged" do
@@ -392,8 +392,8 @@ defmodule EctoShorts.Actions.BatchTest do
 
       {params_list, index_map} = Batch.extract_lookup_params([input], key_fn)
 
-      assert params_list === [%{permalink: "my-slug"}]
-      assert index_map === %{0 => %{permalink: "my-slug"}}
+      assert [%{permalink: "my-slug"}] = params_list
+      assert %{0 => %{permalink: "my-slug"}} = index_map
     end
 
     test "raises RuntimeError when the function key returns a non-map value" do

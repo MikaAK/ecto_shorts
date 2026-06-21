@@ -1,6 +1,7 @@
 defmodule EctoShorts.CommonFilters.NormalizerTest do
   use ExUnit.Case, async: true
 
+  alias EctoShorts.CommonFilters
   alias EctoShorts.CommonFilters.Normalizer
 
   @post_source EctoShorts.Schema.Post
@@ -22,8 +23,8 @@ defmodule EctoShorts.CommonFilters.NormalizerTest do
     end
 
     test "passes non-map, non-list through unchanged" do
-      assert Normalizer.normalize(:atom, nil) == :atom
-      assert Normalizer.normalize(42, nil) == 42
+      assert :atom = Normalizer.normalize(:atom, nil)
+      assert 42 = Normalizer.normalize(42, nil)
     end
   end
 
@@ -107,8 +108,6 @@ defmodule EctoShorts.CommonFilters.NormalizerTest do
 
   describe "integration — string keys through convert_params_to_filter/3" do
     test "string structural key produces same query as atom key" do
-      alias EctoShorts.CommonFilters
-
       result_string = CommonFilters.convert_params_to_filter(
         EctoShorts.Schema.Post,
         %{"where" => %{"title" => "Hi"}},
@@ -121,12 +120,10 @@ defmodule EctoShorts.CommonFilters.NormalizerTest do
         []
       )
 
-      assert inspect(result_string) == inspect(result_atom)
+      assert inspect(result_string) === inspect(result_atom)
     end
 
     test "fully string-keyed nested operator map produces same query as atom keys" do
-      alias EctoShorts.CommonFilters
-
       result_string = CommonFilters.convert_params_to_filter(
         EctoShorts.Schema.Post,
         %{"where" => %{"title" => %{"ilike" => "%hello%"}}},
@@ -139,7 +136,7 @@ defmodule EctoShorts.CommonFilters.NormalizerTest do
         []
       )
 
-      assert inspect(result_string) == inspect(result_atom)
+      assert inspect(result_string) === inspect(result_atom)
     end
   end
 end

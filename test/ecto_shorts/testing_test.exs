@@ -11,7 +11,7 @@ defmodule EctoShorts.TestingTest do
       dyn_a = dynamic([p], p.id == ^1)
       dyn_b = dynamic([p], p.id == ^1)
 
-      assert Testing.assert_dynamic(dyn_a, dyn_b) === :ok
+      assert :ok = Testing.assert_dynamic(dyn_a, dyn_b)
     end
 
     test "raises AssertionError when dynamic expressions differ" do
@@ -29,7 +29,7 @@ defmodule EctoShorts.TestingTest do
       dyn_a = dynamic([p], p.id == ^1)
       dyn_b = dynamic([p], p.id == ^2)
 
-      assert Testing.refute_dynamic(dyn_a, dyn_b) === :ok
+      assert :ok = Testing.refute_dynamic(dyn_a, dyn_b)
     end
 
     test "raises AssertionError when dynamic expressions are identical" do
@@ -49,7 +49,7 @@ defmodule EctoShorts.TestingTest do
       q1 = from(p in Post, where: p.id == ^1)
       q2 = from(p in Post, where: p.id == ^1)
 
-      assert Testing.assert_query(q1, q2) === :ok
+      assert :ok = Testing.assert_query(q1, q2)
     end
 
     test "raises AssertionError when queries differ" do
@@ -67,7 +67,7 @@ defmodule EctoShorts.TestingTest do
       q1 = from(p in Post, where: p.id == ^1)
       q2 = from(p in Post, where: p.id == ^2)
 
-      assert Testing.refute_query(q1, q2) === :ok
+      assert :ok = Testing.refute_query(q1, q2)
     end
 
     test "raises AssertionError when queries are identical" do
@@ -85,7 +85,7 @@ defmodule EctoShorts.TestingTest do
       q1 = from(p in Post, where: p.id == ^1)
       q2 = from(p in Post, where: p.id == ^1)
 
-      assert Testing.assert_sql(EctoShorts.Repo, q1, q2) === :ok
+      assert :ok = Testing.assert_sql(EctoShorts.Repo, q1, q2)
     end
 
     test "raises AssertionError when queries produce different SQL" do
@@ -105,7 +105,7 @@ defmodule EctoShorts.TestingTest do
       q1 = from(p in Post, where: p.id == ^1)
       q2 = from(p in Post, where: p.id == ^2)
 
-      assert Testing.refute_sql(EctoShorts.Repo, q1, q2) === :ok
+      assert :ok = Testing.refute_sql(EctoShorts.Repo, q1, q2)
     end
 
     test "raises AssertionError when queries produce identical SQL and params" do

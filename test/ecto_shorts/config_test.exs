@@ -36,7 +36,7 @@ defmodule EctoShorts.ConfigTest do
         end
       end)
 
-      assert Config.error_module!() === EctoShorts.Actions.Error
+      assert EctoShorts.Actions.Error = Config.error_module!()
     end
 
     test "returns the configured error_module when set" do
@@ -51,7 +51,7 @@ defmodule EctoShorts.ConfigTest do
         end
       end)
 
-      assert Config.error_module!() === MyApp.CustomError
+      assert MyApp.CustomError = Config.error_module!()
     end
   end
 
@@ -85,7 +85,7 @@ defmodule EctoShorts.ConfigTest do
         end
       end)
 
-      assert Config.dynamic_builder_module!() === EctoShorts.DynamicBuilders.Postgres
+      assert EctoShorts.DynamicBuilders.Postgres = Config.dynamic_builder_module!()
     end
   end
 
@@ -119,7 +119,7 @@ defmodule EctoShorts.ConfigTest do
         end
       end)
 
-      assert Config.query_builder_module!() === MyApp.QueryBuilder
+      assert MyApp.QueryBuilder = Config.query_builder_module!()
     end
   end
 
@@ -153,7 +153,7 @@ defmodule EctoShorts.ConfigTest do
         end
       end)
 
-      assert Config.query_provider_module!() === MyApp.QueryProvider
+      assert MyApp.QueryProvider = Config.query_provider_module!()
     end
   end
 end

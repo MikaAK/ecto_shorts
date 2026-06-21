@@ -16,40 +16,40 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
 
   describe "canonical_op/1" do
     test "passes canonical atoms through" do
-      assert PredicateBuilder.canonical_op(:==) === :==
-      assert PredicateBuilder.canonical_op(:in) === :in
+      assert :== = PredicateBuilder.canonical_op(:==)
+      assert :in = PredicateBuilder.canonical_op(:in)
     end
 
     test "maps atom nicknames to canonical operators" do
-      assert PredicateBuilder.canonical_op(:eq) === :==
-      assert PredicateBuilder.canonical_op(:ne) === :!=
-      assert PredicateBuilder.canonical_op(:gt) === :>
-      assert PredicateBuilder.canonical_op(:gte) === :>=
-      assert PredicateBuilder.canonical_op(:lt) === :<
-      assert PredicateBuilder.canonical_op(:lte) === :<=
-      assert PredicateBuilder.canonical_op(:downcase) === :lower
-      assert PredicateBuilder.canonical_op(:upcase) === :upper
+      assert :== = PredicateBuilder.canonical_op(:eq)
+      assert :!= = PredicateBuilder.canonical_op(:ne)
+      assert :> = PredicateBuilder.canonical_op(:gt)
+      assert :>= = PredicateBuilder.canonical_op(:gte)
+      assert :< = PredicateBuilder.canonical_op(:lt)
+      assert :<= = PredicateBuilder.canonical_op(:lte)
+      assert :lower = PredicateBuilder.canonical_op(:downcase)
+      assert :upper = PredicateBuilder.canonical_op(:upcase)
     end
 
     test "maps operator strings (HTTP) through the closed safe list" do
-      assert PredicateBuilder.canonical_op("gt") === :>
-      assert PredicateBuilder.canonical_op("eq") === :==
-      assert PredicateBuilder.canonical_op("overlaps") === :overlaps
-      assert PredicateBuilder.canonical_op("ilike") === :ilike
+      assert :> = PredicateBuilder.canonical_op("gt")
+      assert :== = PredicateBuilder.canonical_op("eq")
+      assert :overlaps = PredicateBuilder.canonical_op("overlaps")
+      assert :ilike = PredicateBuilder.canonical_op("ilike")
     end
 
     test "returns :__unknown__ for an unrecognized operator string (never raises/atomizes)" do
-      assert PredicateBuilder.canonical_op("definitely_not_an_op") === :__unknown__
+      assert :__unknown__ = PredicateBuilder.canonical_op("definitely_not_an_op")
     end
   end
 
   describe "resolve_field/3" do
     test "returns atom field names as-is (trusted)" do
-      assert PredicateBuilder.resolve_field(Post, :title, []) === {:ok, :title}
+      assert {:ok, :title} = PredicateBuilder.resolve_field(Post, :title, [])
     end
 
     test "resolves a known string field against the schema" do
-      assert PredicateBuilder.resolve_field(Post, "title", []) === {:ok, :title}
+      assert {:ok, :title} = PredicateBuilder.resolve_field(Post, "title", [])
     end
 
     test "warns and skips an unknown string field on a schema-backed source" do
@@ -62,7 +62,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     end
 
     test "resolves a string field via :allowed_keys when there is no schema" do
-      assert PredicateBuilder.resolve_field({"things", nil}, "name", allowed_keys: ["name"]) === {:ok, :name}
+      assert {:ok, :name} = PredicateBuilder.resolve_field({"things", nil}, "name", allowed_keys: ["name"])
     end
 
     test "warns and skips a string field not in :allowed_keys" do
@@ -77,7 +77,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     test "best-effort resolves a string to an existing atom when there is no schema or :allowed_keys" do
       # :title already exists as an atom (the Post schema defines it), so the
       # string resolves without minting anything.
-      assert PredicateBuilder.resolve_field({"things", nil}, "title", []) === {:ok, :title}
+      assert {:ok, :title} = PredicateBuilder.resolve_field({"things", nil}, "title", [])
     end
 
     test "warns and skips an unknown string field when there is no schema or :allowed_keys" do
@@ -96,50 +96,50 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
 
   describe "routing_family/3" do
     test "routes a scalar schema column to :scalar" do
-      assert PredicateBuilder.routing_family(Post, :title, []) === :scalar
+      assert :scalar = PredicateBuilder.routing_family(Post, :title, [])
     end
 
     test "routes an array schema column to :array" do
-      assert PredicateBuilder.routing_family(Post, :tags, []) === :array
+      assert :array = PredicateBuilder.routing_family(Post, :tags, [])
     end
 
     test "uses :field_types over schema reflection" do
-      assert PredicateBuilder.routing_family({"t", nil}, :things, field_types: [things: {:array, :string}]) === :array
-      assert PredicateBuilder.routing_family({"t", nil}, :doc, field_types: [doc: :map]) === :map
+      assert :array = PredicateBuilder.routing_family({"t", nil}, :things, field_types: [things: {:array, :string}])
+      assert :map = PredicateBuilder.routing_family({"t", nil}, :doc, field_types: [doc: :map])
     end
 
     test "defaults an unknown/typeless column to :scalar" do
-      assert PredicateBuilder.routing_family({"t", nil}, :whatever, []) === :scalar
+      assert :scalar = PredicateBuilder.routing_family({"t", nil}, :whatever, [])
     end
   end
 
   describe "cast/2" do
     test "passes through when type is nil" do
-      assert PredicateBuilder.cast(nil, "anything") === "anything"
+      assert "anything" = PredicateBuilder.cast(nil, "anything")
     end
 
     test "casts a scalar to the column type" do
-      assert PredicateBuilder.cast(:integer, "5") === 5
+      assert 5 = PredicateBuilder.cast(:integer, "5")
     end
 
     test "casts each element of a list" do
-      assert PredicateBuilder.cast(:integer, ["1", "2"]) === [1, 2]
+      assert [1, 2] = PredicateBuilder.cast(:integer, ["1", "2"])
     end
 
     test "casts list elements using the inner type for an array column" do
-      assert PredicateBuilder.cast({:array, :integer}, ["1", "2"]) === [1, 2]
+      assert [1, 2] = PredicateBuilder.cast({:array, :integer}, ["1", "2"])
     end
   end
 
   describe "build/4 — comparison family (returns a list of terms)" do
     test "bare scalar becomes equality, cast to the column type" do
-      assert PredicateBuilder.build(Post, :views, "5", []) ===
-               {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:==, 5}}]}
+      assert {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:==, 5}}]} =
+               PredicateBuilder.build(Post, :views, "5", [])
     end
 
     test "operator nickname canonicalizes and casts" do
-      assert PredicateBuilder.build(Post, :views, %{gt: "10"}, []) ===
-               {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:>, 10}}]}
+      assert {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:>, 10}}]} =
+               PredicateBuilder.build(Post, :views, %{gt: "10"}, [])
     end
 
     test "a multi-operator value map yields one term per operator (reduce; AND)" do
@@ -149,13 +149,13 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     end
 
     test "nil becomes a nil-check (no cast)" do
-      assert PredicateBuilder.build(Post, :published_at, %{eq: nil}, []) ===
-               {:ok, [%Predicate{field: :published_at, routing: :scalar, negated: false, expr: {:==, nil}}]}
+      assert {:ok, [%Predicate{field: :published_at, routing: :scalar, negated: false, expr: {:==, nil}}]} =
+               PredicateBuilder.build(Post, :published_at, %{eq: nil}, [])
     end
 
     test "bare list is sugar for eq (routing decides membership vs equality)" do
-      assert PredicateBuilder.build(Post, :views, ["1", "2"], []) ===
-               {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:==, [1, 2]}}]}
+      assert {:ok, [%Predicate{field: :views, routing: :scalar, negated: false, expr: {:==, [1, 2]}}]} =
+               PredicateBuilder.build(Post, :views, ["1", "2"], [])
     end
 
     test "explicit in/nin keep their operator" do

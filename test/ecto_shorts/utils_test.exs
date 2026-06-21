@@ -7,44 +7,44 @@ defmodule EctoShorts.UtilsTest do
     test "passes through string-keyed maps preserving keys" do
       result = Utils.atomize_keys(%{"title" => "Hello"})
 
-      assert result === %{"title" => "Hello"}
+      assert %{"title" => "Hello"} = result
     end
 
     test "passes through atom-keyed maps unchanged" do
       result = Utils.atomize_keys(%{title: "Hello"})
 
-      assert result === %{title: "Hello"}
+      assert %{title: "Hello"} = result
     end
 
     test "recursively transforms nested maps" do
       result = Utils.atomize_keys(%{nested: %{inner: "value"}})
 
-      assert result === %{nested: %{inner: "value"}}
+      assert %{nested: %{inner: "value"}} = result
     end
 
     test "recursively traverses deeply nested structures" do
       result = Utils.atomize_keys(%{a: %{b: %{c: "deep"}}})
 
-      assert result === %{a: %{b: %{c: "deep"}}}
+      assert %{a: %{b: %{c: "deep"}}} = result
     end
 
     test "preserves scalar values in list inputs" do
       result = Utils.atomize_keys([{"title", "Hello"}, {"views", 10}])
 
-      assert result === [{"title", "Hello"}, {"views", 10}]
+      assert [{"title", "Hello"}, {"views", 10}] = result
     end
 
     test "preserves a bare tuple input" do
       result = Utils.atomize_keys({"title", "Hello"})
 
-      assert result === {"title", "Hello"}
+      assert {"title", "Hello"} = result
     end
 
     test "passes scalar values through unchanged" do
-      assert Utils.atomize_keys(42) === 42
-      assert Utils.atomize_keys("string") === "string"
-      assert Utils.atomize_keys(:atom) === :atom
-      assert Utils.atomize_keys(nil) === nil
+      assert 42 = Utils.atomize_keys(42)
+      assert "string" = Utils.atomize_keys("string")
+      assert :atom = Utils.atomize_keys(:atom)
+      assert nil === Utils.atomize_keys(nil)
     end
 
     # The {key, value} branch in the transform lambda is triggered when a map has a
@@ -56,7 +56,7 @@ defmodule EctoShorts.UtilsTest do
       result = Utils.atomize_keys(%{{"title", :extra} => "value"})
 
       assert Map.has_key?(result, {:title, :extra})
-      assert result[{:title, :extra}] === "value"
+      assert "value" = result[{:title, :extra}]
     end
 
     test "keeps the tuple key's string part as a string when the atom does not exist" do
@@ -64,7 +64,7 @@ defmodule EctoShorts.UtilsTest do
       result = Utils.atomize_keys(%{{nonexistent, :extra} => "value"})
 
       assert Map.has_key?(result, {nonexistent, :extra})
-      assert result[{nonexistent, :extra}] === "value"
+      assert "value" = result[{nonexistent, :extra}]
     end
   end
 end

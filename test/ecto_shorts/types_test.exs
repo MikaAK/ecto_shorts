@@ -11,11 +11,11 @@ defmodule EctoShorts.TypesTest do
       result = Types.cast(:binary_id, uuid)
 
       assert expected === result
-      assert byte_size(result) === 16
+      assert 16 = byte_size(result)
     end
 
     test "returns the value unchanged when it is not a valid UUID" do
-      assert "not-a-uuid" === Types.cast(:binary_id, "not-a-uuid")
+      assert "not-a-uuid" = Types.cast(:binary_id, "not-a-uuid")
     end
 
     test "returns nil unchanged" do
@@ -25,11 +25,11 @@ defmodule EctoShorts.TypesTest do
 
   describe "cast/2 with other types (regression)" do
     test "casts and dumps an integer" do
-      assert 42 === Types.cast(:integer, "42")
+      assert 42 = Types.cast(:integer, "42")
     end
 
     test "returns the value unchanged for a nil type" do
-      assert "unchanged" === Types.cast(nil, "unchanged")
+      assert "unchanged" = Types.cast(nil, "unchanged")
     end
   end
 end

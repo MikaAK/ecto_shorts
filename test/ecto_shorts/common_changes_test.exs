@@ -26,9 +26,9 @@ defmodule EctoShorts.CommonChangesTest do
                params: params
              } = changeset
 
-      assert %{} === changes
+      assert %{} = changes
 
-      assert %{} === params
+      assert %{} = params
     end
 
     test "applies the change when the condition returns true" do
@@ -45,7 +45,7 @@ defmodule EctoShorts.CommonChangesTest do
                changes: changes
              } = changeset
 
-      assert %{title: "title"} === changes
+      assert %{title: "title"} = changes
     end
   end
 
@@ -491,7 +491,7 @@ defmodule EctoShorts.CommonChangesTest do
                valid?: true
              } = changeset
 
-      assert %{} === changes
+      assert %{} = changes
     end
 
     test "associates the struct when it is not yet linked to the record" do
@@ -531,7 +531,7 @@ defmodule EctoShorts.CommonChangesTest do
                valid?: true
              } = changeset
 
-      assert %{} === changes
+      assert %{} = changes
     end
 
     test "inserts a new association when the params have no id" do
@@ -957,7 +957,7 @@ defmodule EctoShorts.CommonChangesTest do
                valid?: true
              } = changeset
 
-      assert %{} === changes
+      assert %{} = changes
     end
 
     test "preloads and associates existing records when params contain ids" do
@@ -993,7 +993,7 @@ defmodule EctoShorts.CommonChangesTest do
                ]
              } = changes
 
-      assert %{"comments" => [%{id: existing_comment.id}]} === params
+      assert params === %{"comments" => [%{id: existing_comment.id}]}
     end
 
     test "raises when the key is not an association on the schema" do
@@ -1122,7 +1122,7 @@ defmodule EctoShorts.CommonChangesTest do
         |> Changeset.put_change(:title, "keep me")
 
       result = CommonChanges.truncate_datetime_change(changeset, :title)
-      assert Changeset.get_change(result, :title) === "keep me"
+      assert "keep me" = Changeset.get_change(result, :title)
     end
   end
 
@@ -1134,7 +1134,7 @@ defmodule EctoShorts.CommonChangesTest do
         |> Changeset.put_change(:views, 42)
 
       result = CommonChanges.trim_string_change(changeset, :views)
-      assert Changeset.get_change(result, :views) === 42
+      assert 42 = Changeset.get_change(result, :views)
     end
   end
 

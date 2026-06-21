@@ -13,13 +13,13 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
   describe "exists?/3 with Source" do
     test "returns true when a record matching the filter exists" do
       %Post{} |> Post.changeset(%{title: "Exists"}) |> Repo.insert!()
-      assert Actions.exists?(source(), %{from: :posts, title: "Exists"}) === true
+      assert true = Actions.exists?(source(), %{from: :posts, title: "Exists"})
     end
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.exists?(source(), %{from: :missing})
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -31,8 +31,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.all(source(), %{from: :missing})
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
 
     test "returns records matching the filter when called with explicit opts" do
@@ -52,8 +52,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.find(source(), %{from: :missing, id: 1})
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -65,8 +65,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.create(source(), %{from: :missing, title: "X"})
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -82,8 +82,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
       assert {:error, error} =
                Actions.find_and_create(source(), %{from: :missing, title: "X"}, %{title: "X"})
 
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -99,8 +99,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
       assert {:error, error} =
                Actions.find_and_update(source(), %{from: :missing, id: 1}, %{title: "X"})
 
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -116,8 +116,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
       assert {:error, error} =
                Actions.find_and_upsert(source(), %{from: :missing, id: 1}, %{title: "X"})
 
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -129,8 +129,8 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.find_and_delete(source(), %{from: :missing, id: 1})
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
@@ -144,21 +144,21 @@ defmodule EctoShorts.Actions.SourceDispatchTest do
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.find_or_create(source(), %{from: :missing, title: "X"})
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 
   describe "aggregate/3 with Source" do
     test "counts records matching the filter" do
       %Post{} |> Post.changeset(%{title: "Agg"}) |> Repo.insert!()
-      assert Actions.aggregate(source(), %{from: :posts, title: "Agg"}, aggregate: :count, key: :id) === 1
+      assert 1 = Actions.aggregate(source(), %{from: :posts, title: "Agg"}, aggregate: :count, key: :id)
     end
 
     test "returns a not_found error when :from does not match any store entry" do
       assert {:error, error} = Actions.aggregate(source(), %{from: :missing}, aggregate: :count, key: :id)
-      assert error.code === :not_found
-      assert error.message === "source not found."
+      assert :not_found = error.code
+      assert "source not found." = error.message
     end
   end
 end

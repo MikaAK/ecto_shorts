@@ -14,7 +14,7 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
         capture_log(fn ->
           result = UpdateExpr.build_update_operations(Post, :invalid_atom)
 
-          assert result === []
+          assert [] = result
         end)
 
       assert log =~ "Expected params to be a map or list"
@@ -25,7 +25,7 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
         capture_log(fn ->
           result = UpdateExpr.build_update_operations(Post, "not a map")
 
-          assert result === []
+          assert [] = result
         end)
 
       assert log =~ "Expected params to be a map or list"
@@ -65,7 +65,7 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
         capture_log(fn ->
           result = UpdateExpr.build_update_expr(Post, :bad_params)
 
-          assert result === :bad_params
+          assert :bad_params = result
         end)
 
       assert log =~ "Expected params to be a map or list"
@@ -77,13 +77,13 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
       # [set: ["a", "b"]] - set values is a plain list, not keyword
       result = UpdateExpr.build_update_expr(Post, set: ["a", "b"])
 
-      assert result === [set: ["a", "b"]]
+      assert [set: ["a", "b"]] = result
     end
 
     test "returns values unchanged when inc values is a plain (non-keyword) list" do
       result = UpdateExpr.build_update_expr(Post, inc: [1, 2])
 
-      assert result === [inc: [1, 2]]
+      assert [inc: [1, 2]] = result
     end
   end
 
@@ -119,7 +119,7 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
     test "returns plain list unchanged for push operator (not keyword)" do
       result = UpdateExpr.build_update_expr(Post, push: ["item1", "item2"])
 
-      assert result === [push: ["item1", "item2"]]
+      assert [push: ["item1", "item2"]] = result
     end
   end
 
@@ -127,7 +127,7 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
     test "returns a non-list non-map set value unchanged" do
       result = UpdateExpr.build_update_expr(Post, set: "bare_string")
 
-      assert result === [set: "bare_string"]
+      assert [set: "bare_string"] = result
     end
   end
 
@@ -137,7 +137,7 @@ defmodule EctoShorts.CommonFilters.UpdateExprTest do
     test "passes value through unchanged when field is not an array type" do
       result = UpdateExpr.build_update_expr(Post, push: [title: "hello"])
 
-      assert result === [push: [title: "hello"]]
+      assert [push: [title: "hello"]] = result
     end
   end
 

@@ -7,6 +7,7 @@ defmodule EctoShorts.Actions.CRUDTest do
   alias EctoShorts.Schema.Post
   alias EctoShorts.Schema.PostAuthor
   alias EctoShorts.Schema.PostWithLock
+  alias EctoShorts.Actions.Source
   alias EctoShorts.Schema.User
 
   import Ecto.Query
@@ -17,11 +18,11 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "Existing"})
       |> Repo.insert!()
 
-      assert Actions.exists?(Post, %{title: "Existing"}) === true
+      assert true = Actions.exists?(Post, %{title: "Existing"})
     end
 
     test "returns false when no record matches the filter" do
-      assert Actions.exists?(Post, %{title: "NonExistent"}) === false
+      assert false === Actions.exists?(Post, %{title: "NonExistent"})
     end
   end
 
@@ -56,7 +57,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           order_by: [asc: :title]
         })
 
-      assert Enum.map(results, & &1.title) === ["OrWhereMatch", "WhereMatch"]
+      assert ["OrWhereMatch", "WhereMatch"] = Enum.map(results, & &1.title)
     end
 
     test "returns posts whose associated author matches the given name" do
@@ -148,7 +149,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           }
         })
 
-      assert Enum.map(results, & &1.title) === ["Z Post", "A Post"]
+      assert ["Z Post", "A Post"] = Enum.map(results, & &1.title)
     end
 
     test "sorts results by a positional binding when order_by uses the live :at shape" do
@@ -184,7 +185,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           }
         })
 
-      assert Enum.map(results, & &1.title) === ["Z Post", "A Post"]
+      assert ["Z Post", "A Post"] = Enum.map(results, & &1.title)
     end
   end
 
@@ -235,7 +236,7 @@ defmodule EctoShorts.Actions.CRUDTest do
                })
 
       assert id === post.id
-      assert title === "SelectMap"
+      assert "SelectMap" = title
     end
 
     test "returns a struct with only the listed fields when select uses struct" do
@@ -463,10 +464,8 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert %User{first_name: "NamedPostsPreload"} = loaded_author = result.author
 
-      assert loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort() === [
-               "NestedPost",
-               "ParentPost"
-             ]
+      assert ["NestedPost", "ParentPost"] =
+               loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort()
     end
 
     test "loads nested associations from a named binding when preload uses the live :as shape" do
@@ -519,10 +518,8 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert %User{first_name: "NamedNestedPreload"} = loaded_author = result.author
 
-      assert loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort() === [
-               "NestedPost",
-               "ParentPost"
-             ]
+      assert ["NestedPost", "ParentPost"] =
+               loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort()
 
       assert Enum.any?(loaded_author.posts, fn loaded_post ->
                Ecto.assoc_loaded?(loaded_post.comments) and
@@ -571,10 +568,8 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert %User{first_name: "PositionalPostsPreload"} = loaded_author = result.author
 
-      assert loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort() === [
-               "NestedPost",
-               "ParentPost"
-             ]
+      assert ["NestedPost", "ParentPost"] =
+               loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort()
     end
 
     test "loads nested associations from a positional binding when preload uses the live :at shape" do
@@ -626,10 +621,8 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert %User{first_name: "PositionalNestedPreload"} = loaded_author = result.author
 
-      assert loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort() === [
-               "NestedPost",
-               "ParentPost"
-             ]
+      assert ["NestedPost", "ParentPost"] =
+               loaded_author.posts |> Enum.map(& &1.title) |> Enum.sort()
 
       assert Enum.any?(loaded_author.posts, fn loaded_post ->
                Ecto.assoc_loaded?(loaded_post.comments) and
@@ -652,8 +645,8 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       results = Actions.all(Post, %{last: 2})
 
-      assert Enum.count(results) === 2
-      assert Enum.map(results, & &1.title) === ["Two", "Three"]
+      assert 2 = Enum.count(results)
+      assert ["Two", "Three"] = Enum.map(results, & &1.title)
     end
 
     test "returns the last N records sorted by the given key" do
@@ -671,8 +664,8 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       results = Actions.all(Post, %{last: %{id: 2}})
 
-      assert Enum.count(results) === 2
-      assert Enum.map(results, & &1.title) === ["Two", "Three"]
+      assert 2 = Enum.count(results)
+      assert ["Two", "Three"] = Enum.map(results, & &1.title)
     end
 
     test "filters on a specific join position when bind uses :at" do
@@ -966,7 +959,7 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       results = Actions.all(Post, %{title: %{like: ["Hello", "World"]}, order_by: [asc: :title]})
 
-      assert Enum.count(results) === 2
+      assert 2 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "Hello"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "World"}, &1))
     end
@@ -1274,7 +1267,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Repo.insert!()
 
       results = Actions.all(Post, %{tags: %{not: %{==: ["elixir"]}}})
-      assert Enum.count(results) === 1
+      assert 1 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "Match"}, &1))
     end
 
@@ -1439,7 +1432,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           []
         )
 
-      assert Enum.count(results) === 2
+      assert 2 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "Published"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "Unpublished"}, &1))
     end
@@ -1491,7 +1484,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       via_or =
         Actions.all(Post, [where: %{published: true}, or: %{published: false}], [])
 
-      assert Enum.count(via_or_where) === 2
+      assert 2 = Enum.count(via_or_where)
       assert Enum.sort_by(via_or_where, & &1.title) === Enum.sort_by(via_or, & &1.title)
     end
 
@@ -1530,7 +1523,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       results =
         Actions.all(Post, [or_where: %{title: "A"}, or_where: %{title: "B"}], [])
 
-      assert Enum.count(results) === 2
+      assert 2 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "A"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "B"}, &1))
     end
@@ -1564,7 +1557,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           []
         )
 
-      assert Enum.count(results) === 3
+      assert 3 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "BothWhere"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "Extra1"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "Extra2"}, &1))
@@ -1619,7 +1612,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           []
         )
 
-      assert Enum.count(results) === 3
+      assert 3 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "WherePost"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "OrA"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "OrB"}, &1))
@@ -1648,7 +1641,7 @@ defmodule EctoShorts.Actions.CRUDTest do
           or_where: %{title: "OrPost"}
         })
 
-      assert Enum.count(results) === 2
+      assert 2 = Enum.count(results)
       assert Enum.any?(results, &match?(%Post{title: "WherePost"}, &1))
       assert Enum.any?(results, &match?(%Post{title: "OrPost"}, &1))
     end
@@ -1898,7 +1891,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.find(Post, %{id: -1}, [])
 
-      assert details.params === %{id: -1}
+      assert %{id: -1} = details.params
     end
 
     test "returns a not_found error immediately when the params map is empty" do
@@ -1982,7 +1975,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.update(Post, -1, %{title: "Ignored"})
 
-      assert details.params === %{id: -1}
+      assert %{id: -1} = details.params
     end
 
     test "uses the custom changeset function from the options" do
@@ -2014,14 +2007,14 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, %Post{}} = Actions.delete(Post, post.id, [])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
 
     test "returns a not_found error when the id does not exist for delete" do
       assert {:error, %{code: :not_found, message: "no records found", details: details}} =
                Actions.delete(Post, -1, [])
 
-      assert details.params === %{id: -1}
+      assert %{id: -1} = details.params
     end
 
     test "removes the record when given the struct directly" do
@@ -2031,7 +2024,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, %Post{}} = Actions.delete(post, [])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
 
     test "removes all records in the given list" do
@@ -2046,8 +2039,8 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, [%Post{title: "A"}, %Post{title: "B"}]} = Actions.delete([post_a, post_b], [])
-      assert Repo.get(Post, post_a.id) === nil
-      assert Repo.get(Post, post_b.id) === nil
+      assert nil === Repo.get(Post, post_a.id)
+      assert nil === Repo.get(Post, post_b.id)
     end
 
     test "deletes a record by id with the arity-2 form" do
@@ -2057,7 +2050,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, %Post{}} = Actions.delete(Post, post.id)
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
 
     test "returns a not_found error for the arity-2 form when the id does not exist" do
@@ -2116,7 +2109,7 @@ defmodule EctoShorts.Actions.CRUDTest do
                  |> Enum.to_list()
                end)
 
-      assert length(posts) === 5
+      assert 5 = length(posts)
     end
   end
 
@@ -2130,8 +2123,8 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "B"})
       |> Repo.insert!()
 
-      assert 2 === Actions.aggregate(Post)
-      assert 1 === Actions.aggregate(Post, %{title: "A"})
+      assert 2 = Actions.aggregate(Post)
+      assert 1 = Actions.aggregate(Post, %{title: "A"})
     end
 
     test "computes the aggregate using the specified function and field via opts" do
@@ -2143,8 +2136,8 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "High", views: 10})
       |> Repo.insert!()
 
-      assert 10 === Actions.aggregate(Post, %{}, aggregate: :max, key: :views)
-      assert 1 === Actions.aggregate(Post, %{title: "Low"}, aggregate: :max, key: :views)
+      assert 10 = Actions.aggregate(Post, %{}, aggregate: :max, key: :views)
+      assert 1 = Actions.aggregate(Post, %{title: "Low"}, aggregate: :max, key: :views)
     end
   end
 
@@ -2158,8 +2151,8 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "B"})
       |> Repo.insert!()
 
-      assert 2 === Actions.aggregate(Post, %{}, :count, :id)
-      assert 1 === Actions.aggregate(Post, %{title: "A"}, :count, :id)
+      assert 2 = Actions.aggregate(Post, %{}, :count, :id)
+      assert 1 = Actions.aggregate(Post, %{title: "A"}, :count, :id)
     end
 
     test "computes max using positional aggregate and field args" do
@@ -2171,7 +2164,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       |> Post.changeset(%{title: "High", views: 10})
       |> Repo.insert!()
 
-      assert 10 === Actions.aggregate(Post, %{}, :max, :views)
+      assert 10 = Actions.aggregate(Post, %{}, :max, :views)
     end
   end
 
@@ -2210,7 +2203,7 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       results = Actions.all(Post)
 
-      assert length(results) === 2
+      assert 2 = length(results)
     end
   end
 
@@ -2340,7 +2333,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> PostWithLock.changeset(%{title: "Original"})
         |> Repo.insert!()
 
-      assert post.lock_version === 1
+      assert 1 = post.lock_version
 
       assert {:ok, %PostWithLock{title: "Updated", lock_version: 2}} =
                Actions.update(PostWithLock, post, %{title: "Updated"})
@@ -2685,7 +2678,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, %Post{}} = Actions.delete(post)
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
   end
 
@@ -2699,7 +2692,7 @@ defmodule EctoShorts.Actions.CRUDTest do
       changeset = Post.changeset(post, %{})
 
       assert {:ok, %Post{title: "ChangesetDelete"}} = Actions.delete(changeset, [])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
   end
 
@@ -2711,7 +2704,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, %Post{}} = Actions.delete(Post, post, [])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
 
     test "deletes a record by id when called with queryable, integer id, and opts" do
@@ -2721,7 +2714,7 @@ defmodule EctoShorts.Actions.CRUDTest do
         |> Repo.insert!()
 
       assert {:ok, %Post{}} = Actions.delete(Post, post.id, [])
-      assert Repo.get(Post, post.id) === nil
+      assert nil === Repo.get(Post, post.id)
     end
   end
 
@@ -2748,8 +2741,6 @@ defmodule EctoShorts.Actions.CRUDTest do
 
   describe "all/2 with Source and params map" do
     test "resolves the source and returns matching records when params is a map" do
-      alias EctoShorts.Actions.Source
-
       %Post{}
       |> Post.changeset(%{title: "SourceKeyword"})
       |> Repo.insert!()
@@ -2779,8 +2770,6 @@ defmodule EctoShorts.Actions.CRUDTest do
 
   describe "stream/3 with Source" do
     test "resolves the source and streams matching records" do
-      alias EctoShorts.Actions.Source
-
       %Post{}
       |> Post.changeset(%{title: "StreamSource"})
       |> Repo.insert!()
