@@ -63,7 +63,7 @@ defmodule EctoShorts.CommonFilters.Select do
   end
 
   defp apply_select(query, _source, _selected_binding, term, _opts) do
-    LogUtils.warning(@logger_prefix, "Expected :select to be an atom, list, map, tuple, or DynamicExpr, got: #{inspect(term)}")
+    LogUtils.warning(@logger_prefix, "Expected :select to be an atom, list, map, or DynamicExpr, got: #{inspect(term)}")
     query
   end
 
