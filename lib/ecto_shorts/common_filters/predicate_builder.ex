@@ -154,7 +154,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   @doc """
   Turn one field's value-test into a LIST of canonical tidied terms (the caller
-  ANDs them), or :skip if the field can't be used.
+  ANDs them), or `{:error, reason}` if the field can't be used.
 
   A value map may carry several operator entries — `%{gt: 21, lte: 65}` means two
   conditions — so we **reduce over the entries** (Enum.reduce works directly on a

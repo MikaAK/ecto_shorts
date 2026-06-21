@@ -123,5 +123,23 @@ defmodule EctoShorts.CommonFilters.NormalizerTest do
 
       assert inspect(result_string) == inspect(result_atom)
     end
+
+    test "fully string-keyed nested operator map produces same query as atom keys" do
+      alias EctoShorts.CommonFilters
+
+      result_string = CommonFilters.convert_params_to_filter(
+        EctoShorts.Schema.Post,
+        %{"where" => %{"title" => %{"ilike" => "%hello%"}}},
+        []
+      )
+
+      result_atom = CommonFilters.convert_params_to_filter(
+        EctoShorts.Schema.Post,
+        %{where: %{title: %{ilike: "%hello%"}}},
+        []
+      )
+
+      assert inspect(result_string) == inspect(result_atom)
+    end
   end
 end
