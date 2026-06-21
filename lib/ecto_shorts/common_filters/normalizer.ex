@@ -106,6 +106,7 @@ defmodule EctoShorts.CommonFilters.Normalizer do
       :error -> normalize_user_identifier(key)
     end
   end
+  defp normalize_key(key), do: key
 
   # ---------------------------------------------------------------------------
   # Value normalization — dispatched by structural key
@@ -177,10 +178,15 @@ defmodule EctoShorts.CommonFilters.Normalizer do
   end
 
   defp normalize_value(key, value, source) when is_atom(key) do
-    if assoc_key?(source, key) and (is_map(value) and not is_struct(value) or is_list(value)) do
-      normalize(value, get_assoc_source(source, key))
-    else
-      value
+    cond do
+      assoc_key?(source, key) and (is_map(value) and not is_struct(value) or is_list(value)) ->
+        normalize(value, get_assoc_source(source, key))
+
+      is_map(value) and not is_struct(value) or is_list(value) ->
+        normalize_predicate_container(value, source)
+
+      true ->
+        value
     end
   end
 
@@ -202,6 +208,9 @@ defmodule EctoShorts.CommonFilters.Normalizer do
       {k, v} ->
         norm_k = normalize_schema_identifier(k, field_atoms_for(source))
         {norm_k, normalize_predicate_value(norm_k, v, source)}
+
+      map when is_map(map) and not is_struct(map) ->
+        normalize_predicate_container(map, source)
 
       other ->
         other
@@ -435,6 +444,8 @@ defmodule EctoShorts.CommonFilters.Normalizer do
         other
     end)
   end
+
+  defp normalize_kv_container(value, _key_fn, _value_fn), do: value
 
   defp assoc_atoms_for(nil), do: []
   defp assoc_atoms_for(source) do

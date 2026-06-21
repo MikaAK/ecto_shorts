@@ -228,6 +228,7 @@ defmodule EctoShorts.CommonFilters do
   alias EctoShorts.CommonSchema
   alias EctoShorts.Config
   alias EctoShorts.LogUtils
+  alias EctoShorts.CommonFilters.Normalizer
 
   alias EctoShorts.QueryBuilders
 
@@ -419,10 +420,12 @@ defmodule EctoShorts.CommonFilters do
   def convert_params_to_filter(source, params, opts \\ []) do
     query = CommonSchema.to_query(source)
 
+    normalized = Normalizer.normalize(params, source)
+
     sorted =
       case opts[:sorter] do
-        nil -> sort_filter_params(params)
-        sorter -> sorter.(params)
+        nil -> sort_filter_params(normalized)
+        sorter -> sorter.(normalized)
       end
 
     reduce_filters(:where, source, query, {:as, nil}, sorted, opts)
