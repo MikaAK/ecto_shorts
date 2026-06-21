@@ -8,6 +8,7 @@ defmodule EctoShorts.CommonFiltersTest do
 
   alias EctoShorts.CommonFilters
   alias EctoShorts.Schema.Post
+  alias EctoShorts.Schema.User
 
   defmodule AlwaysLimit99 do
     @behaviour EctoShorts.QueryBuilder
@@ -254,6 +255,26 @@ defmodule EctoShorts.CommonFiltersTest do
       assert_raise EctoShorts.FilterError, ~r/association/, fn ->
         CommonFilters.convert_params_to_filter(Post, %{author: "bad value"}, [])
       end
+    end
+
+    test "recurses through nested association maps, advancing schema context at each level" do
+      expected =
+        from(u in User,
+          join: c in assoc(u, :comments),
+          as: :comments,
+          join: p in assoc(c, :post),
+          as: :post,
+          where: p.id == ^1
+        )
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          User,
+          %{comments: %{post: %{id: 1}}},
+          []
+        )
+
+      assert_query(expected, actual)
     end
   end
 

@@ -485,7 +485,7 @@ defmodule EctoShorts.CommonFilters do
 
       assoc_key?(source, key) ->
         if params?(params) do
-          apply_assoc_filters(filter, source, query, key, params, opts)
+          apply_assoc_filters(filter, source, query, selected_binding, key, params, opts)
         else
           raise EctoShorts.FilterError,
                 "association filter #{inspect(key)} expects a map or keyword list, got: #{inspect(params)}"
@@ -532,7 +532,7 @@ defmodule EctoShorts.CommonFilters do
     QueryBuilders.build_query(:or_where, source, query, selected_binding, {key, value}, opts)
   end
 
-  defp apply_assoc_filters(filter, source, query, key, params, opts) do
+  defp apply_assoc_filters(filter, source, query, selected_binding, key, params, opts) do
     assoc_source = get_assoc_source(source, key)
 
     query_acc =
@@ -540,7 +540,7 @@ defmodule EctoShorts.CommonFilters do
         :join,
         source,
         query,
-        {:as, nil},
+        selected_binding,
         [association: [source: key, as: key]],
         opts
       )
