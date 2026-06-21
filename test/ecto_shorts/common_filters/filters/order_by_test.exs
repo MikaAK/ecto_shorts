@@ -98,7 +98,7 @@ defmodule EctoShorts.CommonFilters.OrderByTest do
           actual =
             CommonFilters.convert_params_to_filter(
               Post,
-              %{order_by: [{:asc, :nonexistent_field}]},
+              %{order_by: [asc: :nonexistent_field]},
               []
             )
 

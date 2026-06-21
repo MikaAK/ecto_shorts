@@ -4,14 +4,14 @@ defmodule EctoShorts.CommonFilters.OrderBy do
   Implements the `:order_by` structural filter for `EctoShorts.CommonFilters`.
 
   Sets the `ORDER BY` clause on the query (replacing any existing order).
-  Accepts a field atom (defaults to `:asc`), a `{direction, field}` tuple, a
+  Accepts a field atom (defaults to `:asc`), a
   list of such atoms or tuples, a dynamic expression, or a map that is
   converted to a keyword list. Direction atoms: `:asc`, `:desc`,
   `:asc_nulls_last`, `:asc_nulls_first`, `:desc_nulls_last`, `:desc_nulls_first`.
   Unknown schema fields are skipped with a warning. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{order_by: :inserted_at})
-      EctoShorts.Actions.all(Post, %{order_by: {:desc, :inserted_at}})
+      EctoShorts.Actions.all(Post, %{order_by: [desc: :inserted_at]})
       EctoShorts.Actions.all(Post, %{order_by: [asc: :title, desc: :inserted_at]})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
@@ -44,11 +44,6 @@ defmodule EctoShorts.CommonFilters.OrderBy do
   def build_query(:order_by, source, query, selected_binding, field_name, opts)
       when is_atom(field_name) do
     build_query(:order_by, source, query, selected_binding, [field_name], opts)
-  end
-
-  def build_query(:order_by, source, query, selected_binding, {dir, _} = entry, opts)
-      when dir in @directions do
-    build_query(:order_by, source, query, selected_binding, [entry], opts)
   end
 
   def build_query(:order_by, source, query, selected_binding, entries, _opts)
