@@ -194,8 +194,6 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
         predicates =
           exprs
-          |> Enum.map(&resolve_expr_fields(&1, source, opts))
-          |> Enum.reject(&match?({:error, _}, &1))
           |> Enum.map(&%Predicate{field: field, routing: routing, negated: negated, expr: &1})
 
         {:ok, predicates}
@@ -602,47 +600,6 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
     case p[:field] || p["field"] do
       nil -> kw
       f -> kw ++ [field: f]
-    end
-  end
-
-  # Resolve any string field-reference operands inside a tidied expr to checked
-  # atoms (using the source schema / :allowed_keys). Returns {:error, :unknown_field} if any
-  # referenced field cannot be resolved. Pure walk over the known operand shapes.
-  defp resolve_expr_fields(expr, source, opts) do
-    walk_fields(expr, source, opts)
-  catch
-    :skip -> {:error, :unknown_field}
-  end
-
-  defp walk_fields({:field, name}, source, opts) when is_binary(name) do
-    {:field, resolve_ref!(source, name, opts)}
-  end
-
-  defp walk_fields({:field, {b, name}}, source, opts) when is_binary(name) do
-    {:field, {b, resolve_ref!(source, name, opts)}}
-  end
-
-  # Subquery specs reference the inner source; leave them untouched here (the
-  # adapter recurses through CommonFilters with the inner source).
-  defp walk_fields({:subquery, _src, _select, _where} = sq, _source, _opts), do: sq
-
-  defp walk_fields(list, source, opts) when is_list(list) do
-    Enum.map(list, &walk_fields(&1, source, opts))
-  end
-
-  defp walk_fields(tuple, source, opts) when is_tuple(tuple) do
-    tuple
-    |> Tuple.to_list()
-    |> Enum.map(&walk_fields(&1, source, opts))
-    |> List.to_tuple()
-  end
-
-  defp walk_fields(other, _source, _opts), do: other
-
-  defp resolve_ref!(source, name, opts) do
-    case resolve_field(source, name, opts) do
-      {:ok, atom} -> atom
-      {:error, _} -> throw(:skip)
     end
   end
 
