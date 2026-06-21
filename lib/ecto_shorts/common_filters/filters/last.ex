@@ -1,0 +1,103 @@
+defmodule EctoShorts.CommonFilters.Last do
+  @moduledoc since: "3.0.0"
+  @moduledoc """
+  Implements the `:last` structural filter for `EctoShorts.CommonFilters`.
+
+  Limits the query to the last N records (a terminal filter — it runs after all
+  other filters). Wraps the query in a subquery ordered descending by the
+  primary key (or a supplied sort key), applies the limit, then re-orders
+  ascending so results are returned in natural order. Accepts an integer, a
+  map/keyword list with `:sort_by` and `:limit` keys, or a map/keyword list of
+  such pairs. Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{last: 5})
+      EctoShorts.Actions.all(Post, %{last: %{sort_by: :inserted_at, limit: 10}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
+
+  alias EctoShorts.CommonSchema
+  alias EctoShorts.LogUtils
+  alias EctoShorts.Types
+
+  alias Ecto.Query
+  require Ecto.Query
+
+  @logger_prefix "EctoShorts.CommonFilters.Last"
+
+  def build_query(:last, _source, query, _selected_binding, nil, _opts), do: query
+
+  def build_query(:last, source, query, _selected_binding, {sort_key, limit}, _opts)
+      when is_integer(limit) do
+    sort_keys =
+      if is_nil(sort_key) do
+        source
+        |> CommonSchema.get_schema_reflection(:primary_key)
+        |> Kernel.||(:id)
+        |> List.wrap()
+      else
+        List.wrap(sort_key)
+      end
+
+    excluded = Query.exclude(query, :order_by)
+
+    subquery =
+      sort_keys
+      |> Enum.reduce(excluded, &Query.order_by(&2, desc: ^&1))
+      |> Query.limit(^limit)
+      |> Query.subquery()
+
+    Enum.reduce(sort_keys, subquery, &Query.order_by(&2, asc: ^&1))
+  end
+
+  def build_query(:last, source, query, selected_binding, limit, opts)
+      when is_integer(limit) or is_binary(limit) do
+    build_query(:last, source, query, selected_binding, {nil, limit}, opts)
+  end
+
+  def build_query(:last, source, query, selected_binding, {sort_key, limit}, opts) do
+    build_query(
+      :last,
+      source,
+      query,
+      selected_binding,
+      {sort_key, Types.cast(:integer, limit)},
+      opts
+    )
+  end
+
+  def build_query(:last, source, query, selected_binding, term, opts)
+      when is_map(term) and not is_struct(term) do
+    if is_map_key(term, :limit) do
+      sort_key = term[:sort_by]
+      limit    = term[:limit]
+      build_query(:last, source, query, selected_binding, {sort_key, limit}, opts)
+    else
+      Enum.reduce(term, query, fn entry, query_acc ->
+        build_query(:last, source, query_acc, selected_binding, entry, opts)
+      end)
+    end
+  end
+
+  def build_query(:last, source, query, selected_binding, term, opts)
+      when is_list(term) do
+    if Keyword.keyword?(term) do
+      if Keyword.has_key?(term, :limit) do
+        sort_key = term[:sort_by]
+        limit    = term[:limit]
+        build_query(:last, source, query, selected_binding, {sort_key, limit}, opts)
+      else
+        Enum.reduce(term, query, fn entry, query_acc ->
+          build_query(:last, source, query_acc, selected_binding, entry, opts)
+        end)
+      end
+    else
+      LogUtils.warning(
+        @logger_prefix,
+        "Expected :last value to be an integer, a map/keyword list with :sort_by and :limit keys, or a map/keyword list of such pairs, got: #{inspect(term)}"
+      )
+
+      query
+    end
+  end
+end

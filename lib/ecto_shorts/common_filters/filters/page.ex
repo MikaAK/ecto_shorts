@@ -1,0 +1,131 @@
+defmodule EctoShorts.CommonFilters.Page do
+  @moduledoc since: "3.0.0"
+  @moduledoc """
+  Implements the `:page` structural filter for `EctoShorts.CommonFilters`.
+
+  Applies pagination to the query. Supports two shapes:
+
+  - **Offset-based**: `%{index: page_number, size: page_size}` — computes
+    `LIMIT size OFFSET (index - 1) * size`.
+  - **Cursor-based**: `%{after: cursor, by: field, size: N}` or
+    `%{before: cursor, by: field, size: N}` — adds a `WHERE` on the cursor
+    field, an `ORDER BY`, and a `LIMIT`.
+
+  Used via params, not called directly:
+
+      EctoShorts.Actions.all(Post, %{page: %{index: 2, size: 20}})
+      EctoShorts.Actions.all(Post, %{page: %{after: last_id, by: :id, size: 10}})
+
+  See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
+  """
+
+  alias EctoShorts.CommonFilters.{Limit, Offset, OrderBy}
+  alias EctoShorts.QueryBinding
+  alias EctoShorts.Types
+
+  alias Ecto.Query
+  require Ecto.Query
+
+  def build_query(:page, _source, query, _selected_binding, nil, _opts), do: query
+
+  def build_query(:page, source, query, selected_binding, params, opts)
+      when is_list(params) and length(params) > 0 do
+    build_query(:page, source, query, selected_binding, Map.new(params), opts)
+  end
+
+  # Shape 1 — offset-based: %{index: N, size: M}
+  def build_query(:page, source, query, selected_binding, %{index: index, size: size}, opts) do
+    offset = max(0, (Types.cast(:integer, index) - 1) * Types.cast(:integer, size))
+    limit = Types.cast(:integer, size)
+
+    query
+    |> then(&Limit.build_query(:limit, source, &1, selected_binding, limit, opts))
+    |> then(&Offset.build_query(:offset, source, &1, selected_binding, offset, opts))
+  end
+
+  # Shape 2a — cursor forward: %{after: cursor, by: field, size: N}
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{after: nil, by: field, size: size},
+        opts
+      ) do
+    limit = Types.cast(:integer, size)
+
+    query
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:asc, field}], opts))
+    |> Query.limit(^limit)
+  end
+
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{after: cursor, by: field, size: size},
+        opts
+      ) do
+    dyn = cursor_gt_dynamic(selected_binding, field, cursor)
+    limit = Types.cast(:integer, size)
+
+    query
+    |> Query.where(^dyn)
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:asc, field}], opts))
+    |> Query.limit(^limit)
+  end
+
+  # Shape 2b — cursor backward: %{before: cursor, by: field, size: N}
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{before: nil, by: field, size: size},
+        opts
+      ) do
+    limit = Types.cast(:integer, size)
+
+    query
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:desc, field}], opts))
+    |> Query.limit(^limit)
+  end
+
+  def build_query(
+        :page,
+        source,
+        query,
+        selected_binding,
+        %{before: cursor, by: field, size: size},
+        opts
+      ) do
+    dyn = cursor_lt_dynamic(selected_binding, field, cursor)
+    limit = Types.cast(:integer, size)
+
+    query
+    |> Query.where(^dyn)
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:desc, field}], opts))
+    |> Query.limit(^limit)
+  end
+
+  ## Generated Functions
+
+  {target_binding_var, binding_patterns} = QueryBinding.query_binding_contracts(__MODULE__)
+
+  for {quoted_binding_head, quoted_binding_body} <- binding_patterns do
+    defp cursor_gt_dynamic(unquote(quoted_binding_head), field, cursor) do
+      Query.dynamic(
+        [unquote_splicing(quoted_binding_body)],
+        field(unquote(target_binding_var), ^field) > ^cursor
+      )
+    end
+
+    defp cursor_lt_dynamic(unquote(quoted_binding_head), field, cursor) do
+      Query.dynamic(
+        [unquote_splicing(quoted_binding_body)],
+        field(unquote(target_binding_var), ^field) < ^cursor
+      )
+    end
+  end
+end

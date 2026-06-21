@@ -4,13 +4,15 @@ defmodule EctoShorts.MixProject do
   def project do
     [
       app: :ecto_shorts,
-      version: "2.4.0",
-      elixir: "~> 1.13",
-      start_permanent: Mix.env() == :prod,
+      version: "3.0.0",
+      elixir: "~> 1.15",
+      start_permanent: Mix.env() === :prod,
+      aliases: aliases(),
       deps: deps(),
-      description: "Helper tools for making ecto interactions more pleasant and shorter",
+      description: "Build and compose Ecto queries with a data-driven API",
       docs: docs(),
       package: package(),
+      compilers: Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
@@ -18,9 +20,12 @@ defmodule EctoShorts.MixProject do
         doctor: :test,
         coverage: :test,
         dialyzer: :test,
-        "coveralls.lcov": :test,
+        "coveralls.cobertura": :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
         "coveralls.json": :test,
-        "coveralls.html": :test
+        "coveralls.lcov": :test,
+        "coveralls.post": :test
       ],
       dialyzer: [
         plt_add_apps: [:ex_unit, :mix],
@@ -44,16 +49,21 @@ defmodule EctoShorts.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ecto, "~> 3.0"},
-      {:ecto_sql, "~> 3.10"},
+      # documentation
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false, warn_if_outdated: true},
+      # code quality
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:blitz_credo_checks, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:excoveralls, ">= 0.0.0", only: :test},
+      # ecto
+      {:ecto, ">= 3.0.0"},
+      {:ecto_sql, ">= 3.0.0"},
       {:postgrex, ">= 0.0.0", optional: true},
-
-      {:error_message, "~> 0.1"},
-
-      {:credo, ">= 0.0.0", only: [:dev, :test]},
-      {:excoveralls, ">= 0.0.0", only: [:dev, :test]},
-      {:ex_doc, ">= 0.0.0", only: :dev},
-      {:dialyxir, "~> 1.1", only: :test, runtime: false}
+      # testing
+      {:factory_ex, ">= 0.0.0", only: :test},
+      # utility
+      {:error_message, ">= 0.0.0"}
     ]
   end
 
@@ -62,7 +72,7 @@ defmodule EctoShorts.MixProject do
 
   defp package do
     [
-      maintainers: ["Mika Kalathil"],
+      maintainers: ["Mika Kalathil", "Kurt Hogarth"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/MikaAK/ecto_shorts"},
       files: ~w(mix.exs README.md CHANGELOG.md lib config)
@@ -72,28 +82,193 @@ defmodule EctoShorts.MixProject do
   defp docs do
     [
       main: "EctoShorts",
+      extra_section: "Guides",
       source_url: "https://github.com/MikaAK/ecto_shorts",
+      api_reference: false,
+      before_closing_body_tag: &before_closing_body_tag/1,
+      extras: [
+        "docs/getting-started.md",
+        "docs/guides/filtering.md",
+        "docs/guides/crud-actions.md",
+        "docs/guides/associations-changes.md",
+        "docs/guides/pagination-ordering.md",
+        "docs/guides/bulk-and-transactions.md",
+        "docs/guides/extending.md",
+        "docs/reference/api-reference.md",
+        "docs/reference/filter-keys.md",
+        "docs/reference/configuration.md",
+        "docs/explanation/architecture.md",
+        "docs/explanation/filter-pipeline.md",
+        "docs/testing-guide.md"
+      ],
+      groups_for_extras: [
+        "Getting Started": ["docs/getting-started.md"],
+        Guides: Path.wildcard("docs/guides/*.md"),
+        Reference: Path.wildcard("docs/reference/*.md"),
+        Explanation: Path.wildcard("docs/explanation/*.md")
+      ],
       groups_for_modules: [
-        "Main Modules": [
+        Core: [
           EctoShorts.Actions,
-          EctoShorts.CommonChanges
-        ],
-
-        "Support Modules": [
+          EctoShorts.CommonChanges,
           EctoShorts.CommonFilters,
-          EctoShorts.SchemaHelpers
+          EctoShorts.CommonParams,
+          EctoShorts.Actions.Source
         ],
-
-        "Misc Modules": [
+        "Actions (internal)": [
+          EctoShorts.Actions.Batch,
+          EctoShorts.Actions.Bulk,
+          EctoShorts.Actions.CRUD,
+          EctoShorts.Actions.Multi,
+          EctoShorts.Actions.Transaction,
           EctoShorts.Actions.Error
         ],
-
-        "Query Builder Modules": [
+        Testing: [
+          EctoShorts.Testing
+        ],
+        "Dynamic Expressions": [
+          EctoShorts.DynamicBuilders,
+          EctoShorts.DynamicBuilder,
+          EctoShorts.DynamicBuilders.Postgres
+        ],
+        "Postgres Expressions": [
+          EctoShorts.DynamicBuilders.Postgres.ArrayExpr,
+          EctoShorts.DynamicBuilders.Postgres.CommonExpr,
+          EctoShorts.DynamicBuilders.Postgres.FieldAccessors,
+          EctoShorts.DynamicBuilders.Postgres.MapExpr,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Aggregate,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Comparison,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.Membership,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.String,
+          EctoShorts.DynamicBuilders.Postgres.ScalarExpr.StringTransform
+        ],
+        "Common Filters": [
+          EctoShorts.CommonFilters.Builder,
+          EctoShorts.CommonFilters.Predicate,
+          EctoShorts.CommonFilters.PredicateBuilder,
+          EctoShorts.CommonFilters.Distinct,
+          EctoShorts.CommonFilters.Except,
+          EctoShorts.CommonFilters.ExceptAll,
+          EctoShorts.CommonFilters.GroupBy,
+          EctoShorts.CommonFilters.Having,
+          EctoShorts.CommonFilters.Intersect,
+          EctoShorts.CommonFilters.IntersectAll,
+          EctoShorts.CommonFilters.Join,
+          EctoShorts.CommonFilters.Last,
+          EctoShorts.CommonFilters.Limit,
+          EctoShorts.CommonFilters.Lock,
+          EctoShorts.CommonFilters.Offset,
+          EctoShorts.CommonFilters.OrHaving,
+          EctoShorts.CommonFilters.OrderBy,
+          EctoShorts.CommonFilters.Page,
+          EctoShorts.CommonFilters.Preload,
+          EctoShorts.CommonFilters.PrependOrderBy,
+          EctoShorts.CommonFilters.PutQueryPrefix,
+          EctoShorts.CommonFilters.RecursiveCtes,
+          EctoShorts.CommonFilters.ReverseOrder,
+          EctoShorts.CommonFilters.Select,
+          EctoShorts.CommonFilters.SelectMerge,
+          EctoShorts.CommonFilters.SubQuery,
+          EctoShorts.CommonFilters.Union,
+          EctoShorts.CommonFilters.UnionAll,
+          EctoShorts.CommonFilters.Update,
+          EctoShorts.CommonFilters.UpdateExpr,
+          EctoShorts.CommonFilters.Windows,
+          EctoShorts.CommonFilters.WithCte,
+          EctoShorts.CommonFilters.WithNamedBinding,
+          EctoShorts.CommonFilters.WithTies
+        ],
+        "Schema & Query Introspection": [
+          EctoShorts.CommonQuery,
+          EctoShorts.CommonSchema,
+          EctoShorts.SchemaHelpers
+        ],
+        "CommonParams API": [
+          EctoShorts.CommonParams.Placeholders,
+          EctoShorts.CommonParams.Timestamps
+        ],
+        "Configuration & Utilities": [
+          EctoShorts.Config,
+          EctoShorts.FilterError,
+          EctoShorts.LogUtils,
+          EctoShorts.Logger,
+          EctoShorts.QueryBinding,
           EctoShorts.QueryBuilder,
-          EctoShorts.QueryBuilder.Schema,
-          EctoShorts.QueryBuilder.Common
+          EctoShorts.QueryBuilders,
+          EctoShorts.QueryProvider,
+          EctoShorts.Types,
+          EctoShorts.Utils
         ]
       ]
+    ]
+  end
+
+  # Injects mermaid.js and Viz.js (Graphviz) into the generated HTML docs so
+  # that ```mermaid and ```dot code blocks are rendered as diagrams. Only
+  # applies to the HTML formatter.
+  #
+  # securityLevel: "loose" is required for mermaid `click` navigation and
+  # tooltips; the default "strict" disables them silently. Diagram source
+  # comes only from this project's own doc comments.
+  defp before_closing_body_tag(:html) do
+    """
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@viz-js/viz@3/lib/viz-standalone.min.js"></script>
+    <script>
+      let mermaidInitialized = false;
+      window.addEventListener("exdoc:loaded", function () {
+        if (!mermaidInitialized) {
+          mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "loose",
+            theme: document.body.className.includes("dark") ? "dark" : "default"
+          });
+          mermaidInitialized = true;
+        }
+
+        function replacePre(preEl, graphEl) {
+          preEl.insertAdjacentElement("afterend", graphEl);
+          preEl.remove();
+        }
+
+        let id = 0;
+        for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+          const preEl = codeEl.parentElement;
+          const graphEl = document.createElement("div");
+          const graphId = "mermaid-graph-" + id++;
+          mermaid.render(graphId, codeEl.textContent).then(({ svg, bindFunctions }) => {
+            graphEl.innerHTML = svg;
+            bindFunctions?.(graphEl);
+            replacePre(preEl, graphEl);
+          });
+        }
+
+        // Render ```dot (Graphviz) blocks via Viz.js.
+        Viz.instance().then(function (viz) {
+          for (const codeEl of document.querySelectorAll("pre code.dot")) {
+            const preEl = codeEl.parentElement;
+            const graphEl = document.createElement("div");
+            try {
+              graphEl.appendChild(viz.renderSVGElement(codeEl.textContent));
+              replacePre(preEl, graphEl);
+            } catch (err) {
+              console.error("Graphviz render failed:", err);
+            }
+          }
+        });
+      });
+    </script>
+    """
+  end
+
+  defp before_closing_body_tag(_), do: ""
+
+  defp aliases do
+    [
+      setup: ["deps.get", "ecto.setup"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"]
     ]
   end
 end

@@ -1,4 +1,4 @@
-defmodule EctoShorts.Support.Repo do
+defmodule EctoShorts.Repo do
   @moduledoc false
   use Ecto.Repo,
     otp_app: :ecto_shorts,

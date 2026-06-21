@@ -15,10 +15,11 @@ defmodule EctoShorts.DataCase do
   use ExUnit.CaseTemplate
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias Ecto.Changeset
 
   using do
     quote do
-      alias EctoShorts.Support.Repo
+      alias EctoShorts.Repo
 
       import Ecto
       import Ecto.Changeset
@@ -28,10 +29,10 @@ defmodule EctoShorts.DataCase do
   end
 
   setup tags do
-    :ok = Sandbox.checkout(EctoShorts.Support.Repo)
+    :ok = Sandbox.checkout(EctoShorts.Repo)
 
     unless tags[:async] do
-      Sandbox.mode(EctoShorts.Support.Repo, {:shared, self()})
+      Sandbox.mode(EctoShorts.Repo, {:shared, self()})
     end
 
     :ok
@@ -46,7 +47,7 @@ defmodule EctoShorts.DataCase do
 
   """
   def errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+    Changeset.traverse_errors(changeset, fn {message, opts} ->
       Enum.reduce(opts, message, fn {key, value}, acc ->
         String.replace(acc, "%{#{key}}", to_string(value))
       end)

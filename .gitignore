@@ -27,3 +27,12 @@ dialyzer/*.plt*
 
 .DS_Store
 .elixir_ls
+
+# Autoresearch files
+learn/
+
+# Claude Code
+.claude/
+.claude
+autoresearch/
+docs/superpowers/

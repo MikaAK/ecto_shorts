@@ -1,9 +1,12 @@
-defmodule EctoShorts.Support.Repo.Migrations.CreateUsers do
+defmodule EctoShorts.Repo.Migrations.CreateUsers do
   use Ecto.Migration
 
   def change do
     create table(:users) do
+      add :age, :integer
       add :email, :text
+      add :first_name, :string
+      add :last_name, :string
 
       timestamps()
     end
