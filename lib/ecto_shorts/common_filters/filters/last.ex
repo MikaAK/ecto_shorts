@@ -7,11 +7,11 @@ defmodule EctoShorts.CommonFilters.Last do
   other filters). Wraps the query in a subquery ordered descending by the
   primary key (or a supplied sort key), applies the limit, then re-orders
   ascending so results are returned in natural order. Accepts an integer, a
-  `{sort_key, limit}` tuple, or a map/keyword list of such pairs. Used via
-  params, not called directly:
+  map/keyword list with `:sort_by` and `:limit` keys, or a map/keyword list of
+  such pairs. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{last: 5})
-      EctoShorts.Actions.all(Post, %{last: {:inserted_at, 10}})
+      EctoShorts.Actions.all(Post, %{last: %{sort_by: :inserted_at, limit: 10}})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
   """
@@ -67,15 +67,34 @@ defmodule EctoShorts.CommonFilters.Last do
   end
 
   def build_query(:last, source, query, selected_binding, term, opts)
-      when (is_map(term) and not is_struct(term)) or is_list(term) do
-    if is_map(term) or Keyword.keyword?(term) do
+      when is_map(term) and not is_struct(term) do
+    if is_map_key(term, :limit) do
+      sort_key = term[:sort_by]
+      limit    = term[:limit]
+      build_query(:last, source, query, selected_binding, {sort_key, limit}, opts)
+    else
       Enum.reduce(term, query, fn entry, query_acc ->
         build_query(:last, source, query_acc, selected_binding, entry, opts)
       end)
+    end
+  end
+
+  def build_query(:last, source, query, selected_binding, term, opts)
+      when is_list(term) do
+    if Keyword.keyword?(term) do
+      if Keyword.has_key?(term, :limit) do
+        sort_key = term[:sort_by]
+        limit    = term[:limit]
+        build_query(:last, source, query, selected_binding, {sort_key, limit}, opts)
+      else
+        Enum.reduce(term, query, fn entry, query_acc ->
+          build_query(:last, source, query_acc, selected_binding, entry, opts)
+        end)
+      end
     else
       LogUtils.warning(
         @logger_prefix,
-        "Expected :last value to be an integer, a {sort_key, limit} tuple, or a map/keyword list of such pairs, got: #{inspect(term)}"
+        "Expected :last value to be an integer, a map/keyword list with :sort_by and :limit keys, or a map/keyword list of such pairs, got: #{inspect(term)}"
       )
 
       query

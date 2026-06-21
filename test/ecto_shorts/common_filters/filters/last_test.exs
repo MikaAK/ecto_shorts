@@ -165,6 +165,44 @@ defmodule EctoShorts.CommonFilters.LastTest do
 
       assert_query(expected, actual)
     end
+
+    test "matches Ecto.Query for a map with sort_by and limit keys" do
+      expected =
+        Post
+        |> exclude(:order_by)
+        |> order_by([], desc: :inserted_at)
+        |> limit(^10)
+        |> subquery()
+        |> order_by([], asc: :inserted_at)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{last: %{sort_by: :inserted_at, limit: 10}},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
+
+    test "matches Ecto.Query for a keyword with sort_by and limit keys" do
+      expected =
+        Post
+        |> exclude(:order_by)
+        |> order_by([], desc: :title)
+        |> limit(^5)
+        |> subquery()
+        |> order_by([], asc: :title)
+
+      actual =
+        CommonFilters.convert_params_to_filter(
+          Post,
+          %{last: [sort_by: :title, limit: 5]},
+          []
+        )
+
+      assert_query(expected, actual)
+    end
   end
 
   # ---- merged from last (schemaless) ----
