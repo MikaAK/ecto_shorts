@@ -55,7 +55,7 @@ defmodule EctoShorts.CommonFilters.Page do
     limit = Types.cast(:integer, size)
 
     query
-    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, {:asc, field}, opts))
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:asc, field}], opts))
     |> Query.limit(^limit)
   end
 
@@ -72,7 +72,7 @@ defmodule EctoShorts.CommonFilters.Page do
 
     query
     |> Query.where(^dyn)
-    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, {:asc, field}, opts))
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:asc, field}], opts))
     |> Query.limit(^limit)
   end
 
@@ -88,7 +88,7 @@ defmodule EctoShorts.CommonFilters.Page do
     limit = Types.cast(:integer, size)
 
     query
-    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, {:desc, field}, opts))
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:desc, field}], opts))
     |> Query.limit(^limit)
   end
 
@@ -105,7 +105,7 @@ defmodule EctoShorts.CommonFilters.Page do
 
     query
     |> Query.where(^dyn)
-    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, {:desc, field}, opts))
+    |> then(&OrderBy.build_query(:order_by, source, &1, selected_binding, [{:desc, field}], opts))
     |> Query.limit(^limit)
   end
 
