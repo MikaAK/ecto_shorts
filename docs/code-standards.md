@@ -133,6 +133,29 @@ On first run or after dependency changes, PLT build takes several minutes. Subse
 
 All public functions must have `@spec` annotations. Do not suppress Dialyzer warnings without a documented reason in a `@dialyzer` attribute with an explanatory comment.
 
+## EctoShorts Filter Architecture Rules
+
+1. **Reducer contract**: params are always a collection of operations. Never 
+   pattern-match on a map shape to infer a command. Use `Enum.reduce` or 
+   `Map.to_list` + reducer.
+
+2. **No map-as-opcode**: `%{map: params}` as a pattern match inside a filter 
+   is always wrong. It treats the `:map` key as a field alias, not a command.
+
+3. **Public forms only in docs/tests**: maps, keyword lists, scalars. Tuples 
+   are internal dispatch only and must not appear in public API documentation 
+   or tests.
+
+4. **String safety**: never `String.to_atom/1`. Always `String.to_existing_atom/1` 
+   with rescue, or schema reflection.
+
+5. **Error protocol**: `{:ok, result} | {:error, atom}`. Never `:skip`. 
+   Never `throw/catch` for control flow.
+
+6. **Normalization layer**: all string→atom conversion happens in 
+   `Normalizer.normalize/2` at the `convert_params_to_filter/3` boundary. 
+   Filter modules never convert strings to atoms.
+
 ## Test Conventions
 
 See [Testing Guide](testing-guide.md) for full detail. Summary:

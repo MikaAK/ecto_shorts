@@ -40,6 +40,19 @@ flowchart TD
 
 ---
 
+## Normalization Phase
+
+Before any filter is applied, `EctoShorts.CommonFilters.Normalizer.normalize/2`
+converts all string structural keys (`"where"`, `"order_by"`, etc.) to atoms
+using a compile-time lookup map. Association names are resolved via schema
+reflection. User-defined identifiers (CTE names, binding names) use
+`String.to_existing_atom/1` with rescue.
+
+This is the ONLY place string-to-atom conversion happens. Filter modules
+downstream always receive atom-keyed data.
+
+---
+
 ## Phase 1: Coerce
 
 `CommonSchema.to_query/1` converts the `source` argument into an `Ecto.Query`:

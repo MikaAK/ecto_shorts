@@ -6,6 +6,12 @@ explanation of how filters are combined and evaluated, see
 [Filter Pipeline](../explanation/filter-pipeline.md). For guided examples,
 see the [Filtering Guide](../guides/filtering.md).
 
+## String Keys
+
+All filter keys listed below are accepted as either atom or string keys. For example, 
+`%{where: %{...}}` and `%{"where" => %{...}}` are equivalent. This enables 
+direct use of JSON-decoded payloads and Phoenix controller params.
+
 ---
 
 ## Structural Filter Keys

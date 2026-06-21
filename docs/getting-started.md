@@ -66,6 +66,15 @@ EctoShorts.Actions.all(MyApp.User, %{age: %{gte: 18}})
 The return value is a plain list of structs — the same as calling `MyApp.Repo.all(query)`
 after building the query by hand.
 
+All filter keys accept string keys as well as atom keys. This is useful when 
+receiving JSON-decoded payloads or Phoenix controller params directly:
+
+```elixir
+# From a Phoenix controller
+EctoShorts.Actions.all(MyApp.User, %{"age" => %{"gte" => 18}})
+# => same result as above
+```
+
 You can narrow results further by stacking filters in the same map:
 
 ```elixir

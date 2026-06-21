@@ -38,6 +38,24 @@ duplicate keys or explicit evaluation order (for example, repeated `where:` or
 
 ---
 
+## JSON and String Keys
+
+EctoShorts accepts string keys wherever atom keys are accepted. A JSON-decoded
+payload like `%{"where" => %{"title" => "Hi"}}` works identically to
+`%{where: %{title: "Hi"}}`. The normalization layer converts string keys to
+atoms before the filter pipeline runs.
+
+This means you can pass Phoenix controller params directly:
+
+```elixir
+def index(conn, params) do
+  posts = EctoShorts.Actions.all(Post, params)
+  ...
+end
+```
+
+---
+
 ## 2. Equality and Comparison
 
 ### Direct value (equality)
