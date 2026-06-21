@@ -16,6 +16,7 @@ defmodule EctoShorts.CommonFilters.Preload do
   """
 
   alias EctoShorts.{LogUtils, QueryBinding}
+  alias EctoShorts.CommonFilters.Normalizer
 
   alias Ecto.Query
   require Ecto.Query
@@ -71,7 +72,7 @@ defmodule EctoShorts.CommonFilters.Preload do
 
     defp build_preload(query, unquote(quoted_binding_head), assoc_key, nested) do
       prepared_nested =
-        case normalize(nested) do
+        case Normalizer.normalize_preload(nested) do
           [{key, value}] -> {key, value}
           other -> other
         end
@@ -90,26 +91,8 @@ defmodule EctoShorts.CommonFilters.Preload do
   end
 
   defp build_preload(query, value) do
-    preloads = normalize(value)
+    preloads = Normalizer.normalize_preload(value)
     Query.preload(query, ^preloads)
   end
 
-  defp normalize(params) when is_map(params) and not is_struct(params) do
-    params
-    |> Map.to_list()
-    |> normalize()
-  end
-
-  defp normalize(params) when is_list(params) do
-    if Keyword.keyword?(params) do
-      Enum.map(params, fn {key, value} ->
-        {key, normalize(value)}
-      end)
-    else
-      params
-    end
-  end
-
-  defp normalize(name) when is_atom(name), do: [name]
-  defp normalize(term), do: term
 end
