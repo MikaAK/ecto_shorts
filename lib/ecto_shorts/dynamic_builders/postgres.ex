@@ -47,7 +47,6 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   alias EctoShorts.{
     CommonFilters,
     CommonFilters.Predicate,
-    CommonSchema,
     CommonFilters.Select,
     DynamicBuilders.Postgres.ArrayExpr,
     DynamicBuilders.Postgres.CommonExpr,
@@ -126,19 +125,13 @@ defmodule EctoShorts.DynamicBuilders.Postgres do
   defp resolve_subquery_select(_source, field, _default, _opts) when is_atom(field) and not is_nil(field),
     do: field
 
-  defp resolve_subquery_select(source, field, default, _opts) when is_binary(field) do
-    fields = CommonSchema.get_schema_reflection(source, :fields) || []
+  defp resolve_subquery_select(_source, field, default, _opts) when is_binary(field) do
+    LogUtils.warning(
+      @logger_prefix,
+      "Subquery :select field arrived as a string (#{inspect(field)}) — expected atom after normalization. Using default #{inspect(default)}."
+    )
 
-    if field in Enum.map(fields, &Atom.to_string/1) do
-      String.to_existing_atom(field)
-    else
-      LogUtils.warning(
-        @logger_prefix,
-        "Field \"#{field}\" does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping field reference"
-      )
-
-      default
-    end
+    default
   end
 
   defp resolve_subquery_select(_source, _select, default, _opts), do: default
