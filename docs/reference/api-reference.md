@@ -385,12 +385,19 @@ apply_when(changeset, condition, fun) :: Ecto.Changeset.t
 Applies `fun` to the changeset only when `condition` is truthy.
 
 ```elixir
-has_nil_change?(changeset, field) :: boolean
-has_empty_change?(changeset, field) :: boolean
-changeset_field_nil?(changeset, field) :: boolean
-changeset_field_empty?(changeset, field) :: boolean
+change_nil?(changeset, field) :: boolean
+change_empty?(changeset, field) :: boolean
+field_nil?(changeset, field) :: boolean
+field_empty?(changeset, field) :: boolean
 validate_not_unset(changeset, field) :: Ecto.Changeset.t
 ```
+
+`change_nil?/2` checks whether the changeset has a pending change for `field`
+whose value is nil. `change_empty?/2` is the same check for empty values.
+`field_nil?/2` and `field_empty?/2` check the *current data* field (not the
+pending change). The old names `has_nil_change?`, `has_empty_change?`,
+`changeset_field_nil?`, and `changeset_field_empty?` exist as deprecated aliases
+and will be removed in a future release.
 
 ```elixir
 truncate_datetime_change(changeset, field) :: Ecto.Changeset.t

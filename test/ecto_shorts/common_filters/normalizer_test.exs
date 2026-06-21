@@ -104,4 +104,24 @@ defmodule EctoShorts.CommonFilters.NormalizerTest do
       assert [{:comments, []}] = result
     end
   end
+
+  describe "integration — string keys through convert_params_to_filter/3" do
+    test "string structural key produces same query as atom key" do
+      alias EctoShorts.CommonFilters
+
+      result_string = CommonFilters.convert_params_to_filter(
+        EctoShorts.Schema.Post,
+        %{"where" => %{"title" => "Hi"}},
+        []
+      )
+
+      result_atom = CommonFilters.convert_params_to_filter(
+        EctoShorts.Schema.Post,
+        %{where: %{title: "Hi"}},
+        []
+      )
+
+      assert inspect(result_string) == inspect(result_atom)
+    end
+  end
 end

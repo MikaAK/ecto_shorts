@@ -134,7 +134,7 @@ defmodule EctoShorts.CommonFilters.Normalizer do
     normalize_order(value)
   end
 
-  defp normalize_value(:group_by, value, _source), do: normalize_fields(value)
+  defp normalize_value(:group_by, value, source), do: normalize_fields(value, source)
 
   defp normalize_value(:distinct, value, _source), do: normalize_order(value)
 
@@ -244,9 +244,13 @@ defmodule EctoShorts.CommonFilters.Normalizer do
         {norm_key, normalize_join_opts(norm_key, opts, source)}
 
       entry when is_map(entry) and not is_struct(entry) ->
-        [{key, opts}] = Map.to_list(entry)
-        norm_key = Map.get(@join_type_map, to_string(key), key)
-        {norm_key, normalize_join_opts(norm_key, opts, source)}
+        case Map.to_list(entry) do
+          [{key, opts}] ->
+            norm_key = Map.get(@join_type_map, to_string(key), key)
+            {norm_key, normalize_join_opts(norm_key, opts, source)}
+          _ ->
+            entry
+        end
 
       other ->
         other
@@ -285,9 +289,13 @@ defmodule EctoShorts.CommonFilters.Normalizer do
         {norm_k, v}
 
       entry when is_map(entry) and not is_struct(entry) ->
-        [{k, v}] = Map.to_list(entry)
-        norm_k = Map.get(@direction_map, to_string(k), normalize_key(k))
-        {norm_k, v}
+        case Map.to_list(entry) do
+          [{k, v}] ->
+            norm_k = Map.get(@direction_map, to_string(k), normalize_key(k))
+            {norm_k, v}
+          _ ->
+            entry
+        end
 
       other ->
         other
@@ -300,14 +308,15 @@ defmodule EctoShorts.CommonFilters.Normalizer do
   # Field list normalization (group_by)
   # ---------------------------------------------------------------------------
 
-  defp normalize_fields(entries) when is_list(entries) do
+  defp normalize_fields(entries, source) when is_list(entries) do
     Enum.map(entries, fn
       f when is_atom(f) -> f
+      f when is_binary(f) -> normalize_schema_identifier(f, field_atoms_for(source))
       other -> other
     end)
   end
 
-  defp normalize_fields(other), do: other
+  defp normalize_fields(other, _source), do: other
 
   # ---------------------------------------------------------------------------
   # with_cte normalization — CTE names are user-defined identifiers

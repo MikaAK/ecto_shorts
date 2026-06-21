@@ -33,43 +33,42 @@ ecto_shorts/
 |       +-- common_schema.ex              # Schema reflection helpers
 |       +-- schema_helpers.ex             # Schema introspection utilities
 |       +-- utils.ex                      # General utility functions
-|       +-- logger.ex                     # Structured logging helpers
+|       +-- log_utils.ex                  # Structured logging helpers
 |       +-- types.ex                      # Custom Ecto types
 |       +-- common_filters/
 |       |   +-- builder.ex                # Reduce loop + apply_filters dispatch
-|       |   +-- sorter.ex                 # Param sort (where -> others -> or_where -> terminal)
-|       |   +-- distinct.ex               # :distinct filter
-|       |   +-- except.ex                 # :except set operation
-|       |   +-- except_all.ex             # :except_all set operation
-|       |   +-- first.ex                  # :first / :limit filter
-|       |   +-- group_by.ex               # :group_by filter
-|       |   +-- having.ex                 # :having filter
-|       |   +-- intersect.ex              # :intersect set operation
-|       |   +-- intersect_all.ex          # :intersect_all set operation
-|       |   +-- join.ex                   # :join filter
-|       |   +-- last.ex                   # :last terminal filter
-|       |   +-- limit.ex                  # :limit filter
-|       |   +-- lock.ex                   # :lock filter
-|       |   +-- offset.ex                 # :offset filter
-|       |   +-- or_having.ex              # :or_having filter
-|       |   +-- order_by.ex               # :order_by filter
-|       |   +-- page.ex                   # :page filter
-|       |   +-- preload.ex                # :preload filter
-|       |   +-- prepend_order_by.ex       # :prepend_order_by filter
-|       |   +-- put_query_prefix.ex       # :put_query_prefix filter
-|       |   +-- recursive_ctes.ex         # :recursive_ctes filter
-|       |   +-- reverse_order.ex          # :reverse_order filter
-|       |   +-- select.ex                 # :select filter
-|       |   +-- select_merge.ex           # :select_merge filter
-|       |   +-- sub_query.ex              # :subquery terminal filter
-|       |   +-- union.ex                  # :union set operation
-|       |   +-- union_all.ex              # :union_all set operation
-|       |   +-- update.ex                 # :update filter
-|       |   +-- update_expr.ex            # :update_expr filter
-|       |   +-- windows.ex                # :windows filter
-|       |   +-- with_cte.ex               # :with_cte filter
-|       |   +-- with_named_binding.ex     # :with_named_binding filter
-|       |   +-- with_ties.ex              # :with_ties filter
+|       |   +-- filters/
+|       |       +-- distinct.ex               # :distinct filter
+|       |       +-- except.ex                 # :except set operation
+|       |       +-- except_all.ex             # :except_all set operation
+|       |       +-- group_by.ex               # :group_by filter
+|       |       +-- having.ex                 # :having filter
+|       |       +-- intersect.ex              # :intersect set operation
+|       |       +-- intersect_all.ex          # :intersect_all set operation
+|       |       +-- join.ex                   # :join filter
+|       |       +-- last.ex                   # :last terminal filter
+|       |       +-- limit.ex                  # :limit (and :first alias) filter
+|       |       +-- lock.ex                   # :lock filter
+|       |       +-- offset.ex                 # :offset filter
+|       |       +-- or_having.ex              # :or_having filter
+|       |       +-- order_by.ex               # :order_by filter
+|       |       +-- page.ex                   # :page filter
+|       |       +-- preload.ex                # :preload filter
+|       |       +-- prepend_order_by.ex       # :prepend_order_by filter
+|       |       +-- put_query_prefix.ex       # :put_query_prefix filter
+|       |       +-- recursive_ctes.ex         # :recursive_ctes filter
+|       |       +-- reverse_order.ex          # :reverse_order filter
+|       |       +-- select.ex                 # :select filter
+|       |       +-- select_merge.ex           # :select_merge filter
+|       |       +-- sub_query.ex              # :subquery terminal filter
+|       |       +-- union.ex                  # :union set operation
+|       |       +-- union_all.ex              # :union_all set operation
+|       |       +-- update.ex                 # :update filter
+|       |       +-- update_expr.ex            # :update_expr filter
+|       |       +-- windows.ex                # :windows filter
+|       |       +-- with_cte.ex               # :with_cte filter
+|       |       +-- with_named_binding.ex     # :with_named_binding filter
+|       |       +-- with_ties.ex              # :with_ties filter
 |       +-- dynamic_builders/
 |           +-- postgres.ex               # DynamicBuilders.Postgres dispatcher
 |           +-- postgres/
@@ -77,7 +76,12 @@ ecto_shorts/
 |               +-- array_expr.ex         # Postgres array operators (&&, @>, <@, etc.)
 |               +-- common_expr.ex        # Arithmetic, aggregate, date/datetime, string functions
 |               +-- map_expr.ex           # JSONB / map field expressions
-|               +-- normalizer.ex         # Normalize raw filter values before expression build
+|               +-- scalar_expr/          # Sub-modules for scalar expression types
+|                   +-- aggregate.ex      # Aggregate function expressions
+|                   +-- comparison.ex     # Comparison operators
+|                   +-- membership.ex     # IN / NOT IN membership checks
+|                   +-- string.ex         # String predicates (LIKE, ILIKE)
+|                   +-- string_transform.ex # String transformation helpers
 +-- test/
 |   +-- ecto_shorts/
 |   |   +-- common_filters/               # Schema-backed filter tests (41 files)
