@@ -57,13 +57,13 @@ defmodule EctoShorts.CommonFilters.OrderBy do
       Enum.flat_map(entries, fn
         {dir, field_name} when dir in @directions and is_atom(field_name) ->
           case validate_schema_field(source, query, selected_binding, field_name) do
-            :error -> []
+            {:error, _} -> []
             {:ok, field_name} -> [{dir, dynamic_field_expr(selected_binding, field_name)}]
           end
 
         field_name when is_atom(field_name) ->
           case validate_schema_field(source, query, selected_binding, field_name) do
-            :error -> []
+            {:error, _} -> []
             {:ok, field_name} -> [{:asc, dynamic_field_expr(selected_binding, field_name)}]
           end
 
@@ -101,7 +101,7 @@ defmodule EctoShorts.CommonFilters.OrderBy do
         "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(effective_source))}, skipping field reference"
       )
 
-      :error
+      {:error, :unknown_field}
     end
   end
 

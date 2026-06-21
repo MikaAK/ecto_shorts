@@ -30,7 +30,7 @@ defmodule EctoShorts.CommonFilters.GroupBy do
   defp reduce_params(source, query, selected_binding, field_name)
        when is_atom(field_name) do
     case validate_schema_field(source, query, selected_binding, field_name) do
-      :error ->
+      {:error, _} ->
         query
 
       {:ok, field_name} ->
@@ -66,7 +66,7 @@ defmodule EctoShorts.CommonFilters.GroupBy do
       Enum.reduce(entries, [], fn
         field_name, acc when is_atom(field_name) ->
           case validate_schema_field(source, query, selected_binding, field_name) do
-            :error -> acc
+            {:error, _} -> acc
             {:ok, field_name} -> [dynamic_field_expr(selected_binding, field_name) | acc]
           end
 
@@ -91,7 +91,7 @@ defmodule EctoShorts.CommonFilters.GroupBy do
         "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(effective_source))}, skipping field reference"
       )
 
-      :error
+      {:error, :unknown_field}
     end
   end
 

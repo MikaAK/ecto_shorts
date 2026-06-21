@@ -57,7 +57,7 @@ defmodule EctoShorts.CommonFilters.Distinct do
   defp build_distinct(source, query, selected_binding, field_name)
        when is_atom(field_name) do
     case validate_schema_field(source, query, selected_binding, field_name) do
-      :error ->
+      {:error, _} ->
         query
 
       {:ok, field_name} ->
@@ -93,13 +93,13 @@ defmodule EctoShorts.CommonFilters.Distinct do
       Enum.reduce(entries, [], fn
         {dir, field_name}, acc when dir in @order_directions and is_atom(field_name) ->
           case validate_schema_field(source, query, selected_binding, field_name) do
-            :error -> acc
+            {:error, _} -> acc
             {:ok, field_name} -> [{dir, dynamic_field_expr(selected_binding, field_name)} | acc]
           end
 
         field_name, acc when is_atom(field_name) ->
           case validate_schema_field(source, query, selected_binding, field_name) do
-            :error -> acc
+            {:error, _} -> acc
             {:ok, field_name} -> [{:asc, dynamic_field_expr(selected_binding, field_name)} | acc]
           end
 
@@ -124,7 +124,7 @@ defmodule EctoShorts.CommonFilters.Distinct do
         "Field \"#{field_name}\" does not exist on schema #{inspect(CommonSchema.get_schema(effective_source))}, skipping field reference"
       )
 
-      :error
+      {:error, :unknown_field}
     end
   end
 
