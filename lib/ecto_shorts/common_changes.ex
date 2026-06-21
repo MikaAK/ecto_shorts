@@ -369,6 +369,14 @@ defmodule EctoShorts.CommonChanges do
     |> is_nil()
   end
 
+  @doc """
+  Returns `true` when a field (or all fields in a list) have no pending change.
+
+  Alias of `change_nil?/2`.
+  """
+  @spec has_nil_change?(Ecto.Changeset.t(), atom() | list(atom())) :: boolean()
+  def has_nil_change?(changeset, fields), do: change_nil?(changeset, fields)
+
   @doc since: "3.0.0"
   @doc group: "Changeset inspection"
   @doc """

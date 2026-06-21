@@ -388,6 +388,8 @@ defmodule EctoShorts.CommonSchema do
     {table_name, nil}
   end
 
+  def normalize_source({nil, nil}), do: {nil, nil}
+
   def normalize_source(term) do
     raise ArgumentError, """
     Expected source to be one of the following:

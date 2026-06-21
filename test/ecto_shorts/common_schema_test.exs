@@ -299,6 +299,14 @@ defmodule EctoShorts.CommonSchemaTest do
       assert CommonSchema.normalize_source({nil, Post}) === {nil, Post}
     end
 
+    test "returns {nil, nil} for a fully-nil source tuple" do
+      assert CommonSchema.normalize_source({nil, nil}) === {nil, nil}
+    end
+
+    test "get_schema returns nil for a {nil, nil} source" do
+      assert CommonSchema.get_schema({nil, nil}) === nil
+    end
+
     test "raises ArgumentError for an unrecognized source" do
       assert_raise ArgumentError, fn ->
         CommonSchema.normalize_source(123)

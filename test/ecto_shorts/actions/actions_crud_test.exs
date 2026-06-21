@@ -2148,6 +2148,33 @@ defmodule EctoShorts.Actions.CRUDTest do
     end
   end
 
+  describe "aggregate/5 (positional)" do
+    test "counts records using positional aggregate and field args" do
+      %Post{}
+      |> Post.changeset(%{title: "A"})
+      |> Repo.insert!()
+
+      %Post{}
+      |> Post.changeset(%{title: "B"})
+      |> Repo.insert!()
+
+      assert 2 === Actions.aggregate(Post, %{}, :count, :id)
+      assert 1 === Actions.aggregate(Post, %{title: "A"}, :count, :id)
+    end
+
+    test "computes max using positional aggregate and field args" do
+      %Post{}
+      |> Post.changeset(%{title: "Low", views: 1})
+      |> Repo.insert!()
+
+      %Post{}
+      |> Post.changeset(%{title: "High", views: 10})
+      |> Repo.insert!()
+
+      assert 10 === Actions.aggregate(Post, %{}, :max, :views)
+    end
+  end
+
   describe "preload/3" do
     test "loads the named association onto the struct" do
       author =

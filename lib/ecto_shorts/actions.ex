@@ -481,6 +481,20 @@ defmodule EctoShorts.Actions do
     CRUD.aggregate(queryable, params, aggregate_fn, key, opts)
   end
 
+  @doc group: "Read"
+  @doc """
+  Runs an aggregate on filtered records using positional `aggregate` and `key` arguments.
+
+  Equivalent to `aggregate/3` with `[aggregate: aggregate, key: key]` opts.
+
+      count = EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{published: true}, :count, :id)
+      total = EctoShorts.Actions.aggregate(EctoShorts.Schema.Post, %{}, :sum, :views)
+  """
+  @spec aggregate(queryable, params, atom(), atom(), opts) :: term()
+  def aggregate(queryable, params, aggregate, key, opts \\ []) do
+    CRUD.aggregate(queryable, params, aggregate, key, opts)
+  end
+
   @doc group: "CRUD"
   @doc since: "3.0.0"
   @doc """

@@ -247,6 +247,20 @@ defmodule EctoShorts.CommonChangesTest do
     end
   end
 
+  describe "has_nil_change?: " do
+    test "returns true when the field has no pending change" do
+      changeset = Post.changeset(%Post{title: "title"}, %{})
+
+      assert CommonChanges.has_nil_change?(changeset, :title)
+    end
+
+    test "returns false when the field has a pending change" do
+      changeset = Post.changeset(%Post{}, %{title: "new"})
+
+      refute CommonChanges.has_nil_change?(changeset, :title)
+    end
+  end
+
   describe "preload_change_assoc: " do
     test "raises when the association does not exist on the schema" do
       assert {:ok, post} = Actions.create(Post, %{title: "title"})
