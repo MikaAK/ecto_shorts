@@ -168,11 +168,16 @@ defmodule EctoShorts.CommonFilters.Normalizer do
 
   defp normalize_value(:last, value, _source), do: value
 
-  defp normalize_value(:subquery, value, source)
+  defp normalize_value(:subquery, value, _source)
        when is_map(value) and not is_struct(value) do
+    normalize_subquery_params(value)
+  end
+
+  defp normalize_subquery_params(value) when is_map(value) and not is_struct(value) do
+    inner_source = Map.get(value, :from) || Map.get(value, "from")
     Map.new(value, fn
-      {"select", fields} -> {:select, normalize_subquery_select_fields(fields, source)}
-      {:select, fields}  -> {:select, normalize_subquery_select_fields(fields, source)}
+      {"select", fields} -> {:select, normalize_subquery_select_fields(fields, inner_source)}
+      {:select, fields}  -> {:select, normalize_subquery_select_fields(fields, inner_source)}
       {k, v}             -> {normalize_key(k), v}
     end)
   end
@@ -221,6 +226,11 @@ defmodule EctoShorts.CommonFilters.Normalizer do
 
   defp normalize_predicate_value(:field, name, source) when is_binary(name) do
     normalize_schema_identifier(name, field_atoms_for(source))
+  end
+
+  defp normalize_predicate_value(key, value, _source)
+       when key in [:all, :any] and is_map(value) and not is_struct(value) and is_map_key(value, :from) do
+    normalize_subquery_params(value)
   end
 
   defp normalize_predicate_value(_key, value, source) when is_map(value) or is_list(value) do
@@ -374,6 +384,10 @@ defmodule EctoShorts.CommonFilters.Normalizer do
 
   defp normalize_subquery_select_fields(fields, source) when is_binary(fields) do
     normalize_schema_identifier(fields, field_atoms_for(source))
+  end
+
+  defp normalize_subquery_select_fields(%{field: f} = fields, source) when is_binary(f) do
+    %{fields | field: normalize_schema_identifier(f, field_atoms_for(source))}
   end
 
   defp normalize_subquery_select_fields(fields, _source), do: fields

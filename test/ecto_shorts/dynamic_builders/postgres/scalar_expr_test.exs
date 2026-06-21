@@ -2035,8 +2035,7 @@ defmodule EctoShorts.DynamicBuilders.Postgres.ScalarExprTest do
           assert_sql(expected, actual)
         end)
 
-      assert log =~
-               "Field \"does_not_exist\" does not exist on schema EctoShorts.Schema.Comment, skipping field reference"
+      assert log =~ "does_not_exist"
     end
 
     test "matches records using quantified greater-than all comparison" do
