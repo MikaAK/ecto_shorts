@@ -5,12 +5,11 @@ defmodule EctoShorts.CommonFilters.Select do
 
   Replaces the query's `SELECT` clause entirely (any previous select is
   excluded first). Accepts a field atom, a list of field atoms, a map or
-  keyword list of `{alias, field}` pairs, a `{:map, fields}` shape, a
-  `{:struct, fields}` shape, `true` (selects the full binding), or an
+  keyword list of `{alias, field}` pairs, `true` (selects the full binding), or
   a dynamic expression. Used via params, not called directly:
 
       EctoShorts.Actions.all(Post, %{select: [:id, :title]})
-      EctoShorts.Actions.all(Post, %{select: {:map, [:id, :title]}})
+      EctoShorts.Actions.all(Post, %{select: %{title_upper: :title}})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
   """
@@ -29,25 +28,6 @@ defmodule EctoShorts.CommonFilters.Select do
     |> apply_select(source, selected_binding, term, opts)
   end
 
-  defp apply_select(query, _source, selected_binding, {:map, params}, _opts) do
-    params =
-      if is_map(params) and not is_struct(params) do
-        Map.to_list(params)
-      else
-        params
-      end
-
-    if Keyword.keyword?(params) do
-      apply_select_merge(query, selected_binding, params)
-    else
-      select_map_expr(query, selected_binding, params)
-    end
-  end
-
-  defp apply_select(query, _source, selected_binding, {:struct, fields}, _opts)
-       when is_list(fields) do
-    select_struct_expr(query, selected_binding, fields)
-  end
 
   defp apply_select(query, source, selected_binding, term, opts)
        when is_map(term) and not is_struct(term) do

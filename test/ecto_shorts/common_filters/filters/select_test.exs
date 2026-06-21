@@ -13,18 +13,6 @@ defmodule EctoShorts.CommonFilters.SelectTest do
   import ExUnit.CaptureLog
 
   describe "select shapes" do
-    test "matches Ecto.Query for a root select struct projection" do
-      expected = from(p in Post, select: struct(p, [:id, :title]))
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          Post,
-          %{select: {:struct, [:id, :title]}},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
 
     test "matches Ecto.Query for a named binding select field" do
       source =
@@ -251,29 +239,6 @@ defmodule EctoShorts.CommonFilters.SelectTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for named binding select with struct projection" do
-      source =
-        from(p in Post,
-          join: a in assoc(p, :author),
-          as: :author
-        )
-
-      expected =
-        from(p in Post,
-          join: a in assoc(p, :author),
-          as: :author,
-          select: struct(a, [:first_name])
-        )
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{as: %{author: %{select: {:struct, [:first_name]}}}},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
 
     test "matches Ecto.Query for positional binding select with atom field" do
       source =
@@ -321,27 +286,6 @@ defmodule EctoShorts.CommonFilters.SelectTest do
       assert_query(expected, actual)
     end
 
-    test "matches Ecto.Query for positional binding select with struct projection" do
-      source =
-        from(p in Post,
-          join: a in assoc(p, :author)
-        )
-
-      expected =
-        from(p in Post,
-          join: a in assoc(p, :author),
-          select: struct(a, [:first_name])
-        )
-
-      actual =
-        CommonFilters.convert_params_to_filter(
-          source,
-          %{at: %{2 => %{select: {:struct, [:first_name]}}}},
-          []
-        )
-
-      assert_query(expected, actual)
-    end
   end
 
   describe "select_merge shapes" do
@@ -477,26 +421,22 @@ defmodule EctoShorts.CommonFilters.SelectTest do
   end
 
   describe "select map conversion paths" do
-    test "matches Ecto.Query for root select with {:map, map} form" do
-      expected =
-        from(p in Post,
-          select: map(p, [:id, :title])
-        )
+    test "matches Ecto.Query for root select with a plain list" do
+      expected = from(p in Post, select: ^[:id, :title])
 
       actual =
         CommonFilters.convert_params_to_filter(
           Post,
-          %{select: {:map, [:id, :title]}},
+          %{select: [:id, :title]},
           []
         )
 
       assert_query(expected, actual)
     end
 
-    # Covers select.ex line 19-21: Map.to_list(params) when params is a plain map.
-    # A plain map passed as {:map, map} is converted to a keyword list, then
-    # apply_select_merge is called because it is a keyword list.
-    test "matches Ecto.Query for root select with {:map, keyword_map} form" do
+    # Covers select.ex: A plain map passed as select is converted to a keyword list,
+    # then apply_select_merge is called because it is a keyword list.
+    test "matches Ecto.Query for root select with a plain map alias" do
       expected =
         from(p in Post,
           select: %{post_id: p.id}
@@ -505,7 +445,7 @@ defmodule EctoShorts.CommonFilters.SelectTest do
       actual =
         CommonFilters.convert_params_to_filter(
           Post,
-          %{select: {:map, %{post_id: :id}}},
+          %{select: %{post_id: :id}},
           []
         )
 
