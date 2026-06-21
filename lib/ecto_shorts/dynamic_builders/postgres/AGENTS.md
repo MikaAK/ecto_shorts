@@ -37,3 +37,26 @@ The routing family (`:scalar`, `:array`, `:map`, `:common`) is assigned in `Pred
 ## Schemaless queries
 
 When the source is a schemaless `{source, schema}` tuple with `schema: nil`, field type information is unavailable. The routing family defaults to `:scalar`. To force array routing on a schemaless source, use the `:array` wrapper: `%{tags: %{array: %{in: ["a", "b"]}}}`.
+
+## Reducer Contract
+
+Each sub-module in this directory (`scalar_expr.ex`, `array_expr.ex`, etc.) receives a fully resolved `Predicate` struct. The routing family has already been determined.
+
+**Rule:** Use the predicate's `:operator` and `:value` fields directly. Do not iterate or re-interpret the structure — the predicate is a single resolved operation, not a collection.
+
+## Public vs Internal Forms
+
+- **Public API**: filter params maps and keyword lists passed to `CommonFilters.convert_params_to_filter/3`.
+- **Internal dispatch**: `Predicate` structs created by `PredicateBuilder`. These carry operator, value, routing family, and negation state.
+
+A Postgres adapter never exposes tuples like `{:scalar, expr}` in public examples.
+
+## String-Key Safety
+
+All string keys have been normalized to atoms before the Postgres adapter receives them. Implementations must not call `String.to_atom/1`.
+
+## Error Protocol
+
+- Return `{:ok, dynamic_expr}` or `{:error, reason_atom}`.
+- Never return bare `:skip`.
+- Callers match `{:error, _} ->` not `:skip ->`.

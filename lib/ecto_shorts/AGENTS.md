@@ -62,3 +62,44 @@ config :ecto_shorts,
 ```
 
 Runtime overrides use the same key names as options in any function call. The `_module` suffix (`:dynamic_builder_module`) is for app config only; bare keys (`:dynamic_builder`) are for per-call overrides.
+
+## Reducer Contract
+
+Params in EctoShorts are always a **collection of operations**, not a single operation node.
+
+**Rule:** When you receive a map or keyword list as a value, ALWAYS iterate every entry via `Map.to_list/1` or `Enum.reduce/3`. Meaning is assigned at the `{key, value}` entry boundary.
+
+**Antipattern — map-as-opcode:**
+```elixir
+# WRONG: pattern-matching on a partial map shape as if it were a command
+defp apply_select(query, %{map: params}) do ...
+```
+This assumes `%{map: params}` is a shape-tagged command. It is not — `map:` would be treated as a field alias. Maps have no opcodes in EctoShorts.
+
+**Correct:**
+```elixir
+# RIGHT: iterate every entry
+defp apply_select(query, params) when is_map(params) and not is_struct(params) do
+  Enum.reduce(Map.to_list(params), query, fn {k, v}, acc -> ... end)
+end
+```
+
+## Public vs Internal Forms
+
+- **Public API**: maps, keyword lists, scalars. These come from callers and JSON decoders.
+- **Internal dispatch**: tuples like `{:map, fields}`, `{dir, field}`, `{sort_key, limit}`. These are created internally between filter modules and must never appear in public documentation examples.
+
+A tuple value in a public example is a documentation bug.
+
+## String-Key Safety
+
+All string keys are normalized to atoms by `EctoShorts.CommonFilters.Normalizer` before entering the filter pipeline. Filter modules receive atom-keyed data and must not do string→atom conversion themselves.
+
+**Never use `String.to_atom/1`** — it creates atoms unboundedly and is a DoS risk. Use `String.to_existing_atom/1` with rescue, or schema reflection via `Enum.find(known_atoms, fn a -> Atom.to_string(a) == key end)`.
+
+## Error Protocol
+
+- Return `{:ok, result}` or `{:error, reason_atom}`.
+- Never return bare `:skip`.
+- Never use `throw/catch` for control flow.
+- Callers match `{:error, _} ->` not `:skip ->`.

@@ -28,3 +28,26 @@ When a field value in the params does not match the placeholder value, the `:on_
 - `:nothing` (default) — keep the original value.
 - `:replace_all` — always use the placeholder.
 - `{:replace, fields}` — only replace the listed fields.
+
+## Reducer Contract
+
+CommonParams receives param entries that configure bulk insert/update operations.
+
+**Rule:** When you walk through params using `Enum.reduce/3` or `Map.to_list/1`, assign meaning at the `{key, value}` boundary. Each entry is a separate configuration instruction, not part of a larger tagged structure.
+
+## Public vs Internal Forms
+
+- **Public API**: param maps and keyword lists passed to `convert_to_insert_params/3` and `convert_to_update_params/3`.
+- **Internal dispatch**: normalized maps with timestamp and placeholder fields already resolved.
+
+CommonParams does not expose tuple opcodes in its public API.
+
+## String-Key Safety
+
+String keys in params are normalized before reaching CommonParams. The module does not perform string-to-atom conversion.
+
+## Error Protocol
+
+- Return `{:ok, result}` or `{:error, reason_atom}`.
+- Never return bare `:skip`.
+- Callers match `{:error, _} ->` not `:skip ->`.

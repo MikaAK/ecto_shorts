@@ -45,3 +45,26 @@ Operations inside a multi are named by their index. The `handle_multi_response/2
 Bulk operations bypass `Ecto.Multi` and call the repo directly. They are faster than multi operations for large sets but do not provide per-record error messages — if anything fails, the whole call fails.
 
 `Bulk.insert_all` calls `CommonParams.convert_to_insert_params/3` to validate and transform entries before the repo call.
+
+## Reducer Contract
+
+Actions receive params maps that configure how an operation should run. These are collections of configuration options, not operations themselves.
+
+**Rule:** When you receive a params map, use `Enum.reduce/3` to walk each configuration entry. Common params keys are `:where`, `:limit`, `:offset`, `:order_by`, `:preload`, etc. Each `{key, value}` pair is a separate directive to the query builder.
+
+## Public vs Internal Forms
+
+- **Public API**: params maps and keyword lists passed to Action functions like `all/3`, `get/3`, `create/3`.
+- **Internal dispatch**: tuples and opcodes are handled by `CommonFilters` and `CommonParams`, not by Actions.
+
+Actions never expose internal tuple forms in their public examples.
+
+## String-Key Safety
+
+String keys in params are normalized before they reach the filter pipeline. Actions do not perform string-to-atom conversion.
+
+## Error Protocol
+
+- Return `{:ok, result}` or `{:error, reason}`.
+- Reason can be an `ErrorMessage` struct (from `Config.error_module()`) or a changeset.
+- Callers match `{:error, _} ->` not `:skip ->`.

@@ -36,3 +36,26 @@ The dispatcher (`dynamic_builders.ex`) resolves the adapter in this order:
 ## Adding a new adapter
 
 To support a different database, implement `EctoShorts.DynamicBuilder` (see `dynamic_builder.ex` in the parent directory). You only need one callback: `build_dynamic/3`.
+
+## Reducer Contract
+
+Dynamic builders dispatch based on resolved predicate structures, not raw params collections.
+
+**Rule:** When receiving a `Predicate` struct from `PredicateBuilder`, use its `:routing` field to select the appropriate expression builder. Do not re-examine field types or make routing decisions — that has already been done.
+
+## Public vs Internal Forms
+
+- **Public API**: filter params maps and keyword lists passed to `CommonFilters.convert_params_to_filter/3`.
+- **Internal dispatch**: `Predicate` structs created by `PredicateBuilder`, carrying fully resolved field type, operator, routing family, and negation state.
+
+Tuples like `{:scalar, expr}` are internal and must never appear in public filter examples.
+
+## String-Key Safety
+
+All string keys are normalized to atoms by `EctoShorts.CommonFilters.Normalizer` before reaching the dynamic builder. Adapter implementations receive atom-keyed predicates and must not do string→atom conversion themselves.
+
+## Error Protocol
+
+- Return `{:ok, dynamic_expr}` or `{:error, reason_atom}`.
+- Never return bare `:skip`.
+- Callers match `{:error, _} ->` not `:skip ->`.
