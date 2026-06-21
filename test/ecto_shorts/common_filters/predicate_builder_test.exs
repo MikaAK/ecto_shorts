@@ -55,7 +55,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     test "warns and skips an unknown string field on a schema-backed source" do
       log =
         capture_log(fn ->
-          assert PredicateBuilder.resolve_field(Post, "nope_field", []) === :skip
+          assert match?({:error, _}, PredicateBuilder.resolve_field(Post, "nope_field", []))
         end)
 
       assert log =~ "does not exist on schema"
@@ -68,7 +68,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     test "warns and skips a string field not in :allowed_keys" do
       log =
         capture_log(fn ->
-          assert PredicateBuilder.resolve_field({"things", nil}, "name", allowed_keys: ["other"]) === :skip
+          assert match?({:error, _}, PredicateBuilder.resolve_field({"things", nil}, "name", allowed_keys: ["other"]))
         end)
 
       assert log =~ "not in the :allowed_keys"
@@ -83,11 +83,11 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     test "warns and skips an unknown string field when there is no schema or :allowed_keys" do
       log =
         capture_log(fn ->
-          assert PredicateBuilder.resolve_field(
+          assert match?({:error, _}, PredicateBuilder.resolve_field(
                    {"things", nil},
                    "definitely_not_an_existing_atom_zzz",
                    []
-                 ) === :skip
+                 ))
         end)
 
       assert log =~ "cannot be resolved"
@@ -253,7 +253,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilderTest do
     end
 
     test "unknown field skips entirely (before building any term)" do
-      capture_log(fn -> assert PredicateBuilder.build(Post, "nope_field", 1, []) === :skip end)
+      capture_log(fn -> assert match?({:error, _}, PredicateBuilder.build(Post, "nope_field", 1, [])) end)
     end
   end
 

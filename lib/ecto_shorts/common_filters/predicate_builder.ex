@@ -59,15 +59,16 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   def canonical_op(op) when is_atom(op), do: Map.get(@op_aliases, op, op)
   def canonical_op(op) when is_binary(op), do: Map.get(@string_to_op, op, :__unknown__)
 
-  @doc "Resolve a column name to a checked atom, or :skip (with a warning)."
-  @spec resolve_field(term(), atom() | binary(), keyword()) :: {:ok, atom()} | :skip
+  @doc "Resolve a column name to a checked atom, or {:error, reason} (with a warning)."
+  @spec resolve_field(term(), atom() | binary(), keyword()) :: {:ok, atom()} | {:error, atom()}
   def resolve_field(source, field, _opts) when is_atom(field) and not is_nil(field) do
     case CommonSchema.get_schema_reflection(source, :fields) do
       fields when is_list(fields) ->
         if field in fields do
           {:ok, field}
         else
-          warn_skip(
+          warn_error(
+            :unknown_field,
             "Field #{inspect(Atom.to_string(field))} does not exist on schema #{inspect(CommonSchema.get_schema(source))}, skipping"
           )
         end
@@ -87,14 +88,14 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         if field in Enum.map(fields, &Atom.to_string/1) do
           {:ok, String.to_existing_atom(field)}
         else
-          warn_skip("Field #{inspect(field)} does not exist on schema #{inspect(schema)}, skipping")
+          warn_error(:unknown_field, "Field #{inspect(field)} does not exist on schema #{inspect(schema)}, skipping")
         end
 
       allowed = opts[:allowed_keys] ->
         if field in Enum.map(allowed, &to_string/1) do
           {:ok, String.to_atom(field)}
         else
-          warn_skip("Field #{inspect(field)} is not in the :allowed_keys list, skipping")
+          warn_error(:not_allowed, "Field #{inspect(field)} is not in the :allowed_keys list, skipping")
         end
 
       true ->
@@ -105,16 +106,17 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
           {:ok, String.to_existing_atom(field)}
         rescue
           ArgumentError ->
-            warn_skip(
+            warn_error(
+              :unknown_field,
               "Field #{inspect(field)} cannot be resolved: no schema or :allowed_keys, skipping"
             )
         end
     end
   end
 
-  defp warn_skip(message) do
+  defp warn_error(reason, message) do
     LogUtils.warning(@logger_prefix, message)
-    :skip
+    {:error, reason}
   end
 
   @doc "Decide which SQL helper handles a field: :scalar | :array | :map."
@@ -160,7 +162,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   @date_shorthands [:start_date, :end_date, :since_date, :until_date]
 
   @spec build(term(), atom() | binary(), term(), keyword()) ::
-          {:ok, [Predicate.t()]} | :skip
+          {:ok, [Predicate.t()]} | {:error, atom()}
   def build(_source, key, value, _opts) when key in @id_shorthands do
     {:ok, [%Predicate{field: :id, routing: :common, negated: false, expr: {key, value}}]}
   end
@@ -175,8 +177,8 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   def build(source, key, raw_term, opts) do
     case resolve_field(source, key, opts) do
-      :skip ->
-        :skip
+      {:error, reason} ->
+        {:error, reason}
 
       {:ok, field} ->
         routing = operator_routing(raw_term) || routing_family(source, field, opts)
@@ -188,7 +190,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
         predicates =
           exprs
           |> Enum.map(&resolve_expr_fields(&1, source, opts))
-          |> Enum.reject(&(&1 === :skip))
+          |> Enum.reject(&match?({:error, _}, &1))
           |> Enum.map(&%Predicate{field: field, routing: routing, negated: negated, expr: &1})
 
         {:ok, predicates}
@@ -257,7 +259,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
   # build_one returns a LIST (usually one term, [] to skip).
   defp build_one(:__unknown__, _val, _type) do
-    warn_skip("Unknown operator, skipping")
+    _ = warn_error(:invalid_operand, "Unknown operator, skipping")
     []
   end
 
@@ -314,7 +316,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
           op in @comparison_ops -> acc ++ [{q, {op, cast(type, v)}}]
           op === :in and is_list(v) -> acc ++ [{q, {:in, cast(type, v)}}]
           true ->
-            warn_skip("Unknown quantifier comparison, skipping")
+            _ = warn_error(:invalid_operand, "Unknown quantifier comparison, skipping")
             acc
         end
       end)
@@ -467,13 +469,13 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
       value = Keyword.fetch!(params, :value)
       build_one(agg_fn, %{compare_op => value}, type)
     else
-      warn_skip("Unsupported operator/value, skipping")
+      _ = warn_error(:invalid_operand, "Unsupported operator/value, skipping")
       []
     end
   end
 
   defp build_one(_op, _value, _type) do
-    warn_skip("Unsupported operator/value, skipping")
+    _ = warn_error(:invalid_operand, "Unsupported operator/value, skipping")
     []
   end
 
@@ -483,14 +485,14 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
       case canonical_op(raw_t) do
         t when t in @text_transforms -> acc ++ [{op, {t, v}}]
         _ ->
-          warn_skip("Unknown transform, skipping")
+          _ = warn_error(:invalid_operand, "Unknown transform, skipping")
           acc
       end
     end)
   end
 
   defp build_one_transform(_op, _inner, _type) do
-    warn_skip("Unsupported operator/value, skipping")
+    _ = warn_error(:invalid_operand, "Unsupported operator/value, skipping")
     []
   end
 
@@ -502,12 +504,12 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
           op when op in @comparison_ops and is_nil(v) -> acc ++ [{op, nil}]
           op when op in @comparison_ops -> acc ++ [{op, cast(type, v)}]
           _ ->
-            warn_skip("Unknown comparison in aggregate, skipping")
+            _ = warn_error(:invalid_operand, "Unknown comparison in aggregate, skipping")
             acc
         end
       end)
     else
-      warn_skip("Aggregate expects a comparison map, skipping")
+      _ = warn_error(:invalid_operand, "Aggregate expects a comparison map, skipping")
       []
     end
   end
@@ -528,7 +530,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp elements_term(op, v, type) when op in @comparison_ops, do: [{op, cast(type, v)}]
 
   defp elements_term(_op, _v, _type) do
-    warn_skip("Unsupported :array operator, skipping")
+    _ = warn_error(:invalid_operand, "Unsupported :array operator, skipping")
     []
   end
 
@@ -575,7 +577,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
           acc ++ [{op, {wrapper, {dt_op, dt_keyword(params)}}}]
 
         _ ->
-          warn_skip("Unknown date-math op, skipping")
+          _ = warn_error(:invalid_operand, "Unknown date-math op, skipping")
           acc
       end
     end)
@@ -599,12 +601,12 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   end
 
   # Resolve any string field-reference operands inside a tidied expr to checked
-  # atoms (using the source schema / :allowed_keys). Returns :skip if any
+  # atoms (using the source schema / :allowed_keys). Returns {:error, :unknown_field} if any
   # referenced field cannot be resolved. Pure walk over the known operand shapes.
   defp resolve_expr_fields(expr, source, opts) do
     walk_fields(expr, source, opts)
   catch
-    :skip -> :skip
+    :skip -> {:error, :unknown_field}
   end
 
   defp walk_fields({:field, name}, source, opts) when is_binary(name) do
@@ -635,7 +637,7 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
   defp resolve_ref!(source, name, opts) do
     case resolve_field(source, name, opts) do
       {:ok, atom} -> atom
-      :skip -> throw(:skip)
+      {:error, _} -> throw(:skip)
     end
   end
 

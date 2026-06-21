@@ -304,7 +304,7 @@ defmodule EctoShorts.CommonFilters.Join do
     Enum.reduce(entries, nil, fn {key, value}, acc ->
       dyn =
         case PredicateBuilder.build(effective_source, key, value, opts) do
-          :skip ->
+          {:error, _} ->
             nil
 
           {:ok, predicates} ->

@@ -201,7 +201,7 @@ defmodule EctoShorts.CommonFilters.Builder do
     effective_source = resolve_source(source, query, selected_binding)
 
     case PredicateBuilder.build(effective_source, key, value, opts) do
-      :skip ->
+      {:error, _} ->
         query
 
       {:ok, predicates} ->
@@ -213,7 +213,7 @@ defmodule EctoShorts.CommonFilters.Builder do
     effective_source = resolve_source(source, query, selected_binding)
 
     case PredicateBuilder.build(effective_source, key, value, opts) do
-      :skip ->
+      {:error, _} ->
         query
 
       {:ok, predicates} ->
@@ -301,7 +301,7 @@ defmodule EctoShorts.CommonFilters.Builder do
   @doc false
   def having_from_params(query, source, key, value, selected_binding, opts) do
     case PredicateBuilder.build(source, key, value, opts) do
-      :skip ->
+      {:error, _} ->
         query
 
       {:ok, predicates} ->
@@ -317,7 +317,7 @@ defmodule EctoShorts.CommonFilters.Builder do
   @doc false
   def or_having_from_params(query, source, key, value, selected_binding, opts) do
     case PredicateBuilder.build(source, key, value, opts) do
-      :skip ->
+      {:error, _} ->
         query
 
       {:ok, predicates} ->
