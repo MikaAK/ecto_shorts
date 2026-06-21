@@ -93,7 +93,12 @@ defmodule EctoShorts.CommonFilters.PredicateBuilder do
 
       allowed = opts[:allowed_keys] ->
         if field in Enum.map(allowed, &to_string/1) do
-          {:ok, String.to_atom(field)}
+          try do
+            {:ok, String.to_existing_atom(field)}
+          rescue
+            ArgumentError ->
+              warn_error(:unknown_field, "Field #{inspect(field)} does not exist as an atom in the VM")
+          end
         else
           warn_error(:not_allowed, "Field #{inspect(field)} is not in the :allowed_keys list, skipping")
         end
