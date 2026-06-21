@@ -36,7 +36,7 @@ defmodule EctoShorts.CommonFilters.SelectMergeTest do
       actual =
         CommonFilters.convert_params_to_filter(
           source,
-          %{select_merge: {:map, %{post_title: :title}}},
+          %{select_merge: %{post_title: :title}},
           []
         )
 

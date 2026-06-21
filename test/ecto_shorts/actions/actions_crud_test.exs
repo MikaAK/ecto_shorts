@@ -215,7 +215,7 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert [%{custom_id: id}] =
                Actions.all(Post, %{
-                 select: %{map: %{custom_id: :id}},
+                 select: %{custom_id: :id},
                  id: post.id
                })
 
@@ -230,7 +230,7 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert [%{id: id, title: title}] =
                Actions.all(Post, %{
-                 select: %{map: [:id, :title]},
+                 select: [:id, :title],
                  id: post.id
                })
 
@@ -246,7 +246,7 @@ defmodule EctoShorts.Actions.CRUDTest do
 
       assert [%Post{id: id}] =
                Actions.all(Post, %{
-                 select: %{struct: [:id]},
+                 select: true,
                  id: post.id
                })
 

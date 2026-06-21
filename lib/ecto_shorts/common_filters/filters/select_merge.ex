@@ -5,12 +5,10 @@ defmodule EctoShorts.CommonFilters.SelectMerge do
 
   Merges additional fields into an existing `SELECT` clause without replacing
   it. Accepts a map, keyword list, `{field_alias, field_name}` tuple,
-  `{field_alias, DynamicExpr}` tuple, a `{:map, fields}` shape, a
-  `{:struct, fields}` shape (which resets the select to a struct), or an
-  a dynamic expression. Used via params, not called directly:
+  `{field_alias, DynamicExpr}` tuple, or a dynamic expression. Used via params,
+  not called directly:
 
       EctoShorts.Actions.all(Post, %{select_merge: %{title_upper: :title}})
-      EctoShorts.Actions.all(Post, %{select_merge: {:map, [:id, :title]}})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
   """
@@ -26,28 +24,6 @@ defmodule EctoShorts.CommonFilters.SelectMerge do
 
   def build_query(:select_merge, source, query, selected_binding, term, opts) do
     apply_select_merge(query, source, selected_binding, term, opts)
-  end
-
-  defp apply_select_merge(query, _source, selected_binding, {:map, params}, _opts) do
-    entries =
-      if is_map(params) and not is_struct(params) do
-        Map.to_list(params)
-      else
-        params
-      end
-
-    if Keyword.keyword?(entries) do
-      reduce_params(query, selected_binding, entries)
-    else
-      select_merge_map_expr(query, selected_binding, entries)
-    end
-  end
-
-  defp apply_select_merge(query, _source, selected_binding, {:struct, fields}, _opts)
-       when is_list(fields) do
-    query
-    |> Query.exclude(:select)
-    |> select_struct_expr(selected_binding, fields)
   end
 
   defp apply_select_merge(query, source, selected_binding, term, opts)
