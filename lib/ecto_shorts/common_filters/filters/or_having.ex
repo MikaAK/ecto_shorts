@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.OrHaving do
   a dynamic expression, or `nil` (no-op). Automatically adds a `GROUP BY`
   on the primary key when none is present. Used via params, not called directly:
 
-      EctoShorts.Actions.all(Post, %{or_having: {:comment_count, %{gte: 5}}})
+      EctoShorts.Actions.all(Post, %{or_having: %{comment_count: %{gte: 5}}})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
   """

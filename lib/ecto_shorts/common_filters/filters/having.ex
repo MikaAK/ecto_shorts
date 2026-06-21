@@ -8,7 +8,7 @@ defmodule EctoShorts.CommonFilters.Having do
   Automatically adds a `GROUP BY` on the primary key when none is already
   present. Used via params, not called directly:
 
-      EctoShorts.Actions.all(Post, %{having: {:comment_count, %{gte: 5}}})
+      EctoShorts.Actions.all(Post, %{having: %{comment_count: %{gte: 5}}})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
   """

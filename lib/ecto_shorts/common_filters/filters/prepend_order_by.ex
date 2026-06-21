@@ -9,7 +9,7 @@ defmodule EctoShorts.CommonFilters.PrependOrderBy do
   a map. Unknown schema fields are skipped with a warning. Used via params, not
   called directly:
 
-      EctoShorts.Actions.all(Post, %{prepend_order_by: {:desc, :pinned_at}})
+      EctoShorts.Actions.all(Post, %{prepend_order_by: [desc: :pinned_at]})
 
   See `EctoShorts.QueryBuilder` for the `build_query/6` callback contract.
   """
